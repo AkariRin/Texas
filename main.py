@@ -1,13 +1,16 @@
-from fastapi import FastAPI
+"""Development entry point — run with: python main.py"""
 
-app = FastAPI()
+import uvicorn
 
+from src.core.config import Settings
 
-@app.get("/")
-async def root():
-    return {"message": "Hello World"}
+if __name__ == "__main__":
+    settings = Settings()
+    uvicorn.run(
+        "src.core.app:app",
+        host=settings.HOST,
+        port=settings.PORT,
+        reload=True,
+        reload_dirs=["src"],
+    )
 
-
-@app.get("/hello/{name}")
-async def say_hello(name: str):
-    return {"message": f"Hello {name}"}

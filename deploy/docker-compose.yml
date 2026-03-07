@@ -1,0 +1,72 @@
+version: "3.9"
+
+services:
+  bot-core:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      ROLE: bot
+      NAPCAT_ACCESS_TOKEN: ${NAPCAT_ACCESS_TOKEN:-dev-token}
+      DATABASE_URL: postgresql+asyncpg://texas:texas@postgres:5432/texas
+      CELERY_BROKER_URL: redis://redis-broker:6379/0
+      CACHE_REDIS_URL: redis://redis-cache:6379/0
+      LOG_LEVEL: INFO
+      LOG_FORMAT: json
+    depends_on:
+      - postgres
+      - redis-broker
+      - redis-cache
+    restart: unless-stopped
+
+  celery-worker:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    environment:
+      ROLE: worker
+      DATABASE_URL: postgresql+asyncpg://texas:texas@postgres:5432/texas
+      CELERY_BROKER_URL: redis://redis-broker:6379/0
+      CACHE_REDIS_URL: redis://redis-cache:6379/0
+    depends_on:
+      - redis-broker
+      - postgres
+    restart: unless-stopped
+
+  celery-beat:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    environment:
+      ROLE: beat
+      CELERY_BROKER_URL: redis://redis-broker:6379/0
+    depends_on:
+      - redis-broker
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: texas
+      POSTGRES_USER: texas
+      POSTGRES_PASSWORD: texas
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  redis-broker:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  redis-cache:
+    image: redis:7-alpine
+    ports:
+      - "6380:6379"
+
+volumes:
+  pgdata:
+

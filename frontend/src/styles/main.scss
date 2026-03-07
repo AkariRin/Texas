@@ -1,0 +1,14 @@
+/* Global styles and Vuetify theme overrides */
+
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Ensure full height */
+html,
+body,
+#app {
+  height: 100%;
+}
+
