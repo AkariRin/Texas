@@ -2,19 +2,20 @@
 
 from __future__ import annotations
 
-import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any
 
 from src.core.framework.decorators import Permission
-from src.core.protocol.models.base import OneBotEvent
 from src.core.protocol.models.events import (
     MessageEvent,
-    NoticeEvent,
-    NotifyEvent,
-    RequestEvent,
 )
+
+if TYPE_CHECKING:
+    import re
+    from collections.abc import Callable
+
+    from src.core.protocol.models.base import OneBotEvent
 
 
 @dataclass
@@ -34,12 +35,10 @@ class HandlerMapping(ABC):
     """抽象处理器映射（类似 Spring HandlerMapping）。"""
 
     @abstractmethod
-    def resolve(self, event: OneBotEvent) -> list[HandlerMethod]:
-        ...
+    def resolve(self, event: OneBotEvent) -> list[HandlerMethod]: ...
 
     @abstractmethod
-    def register(self, handler_method: HandlerMethod) -> None:
-        ...
+    def register(self, handler_method: HandlerMethod) -> None: ...
 
 
 def _get_plaintext(event: OneBotEvent) -> str:
@@ -79,7 +78,7 @@ class CommandHandlerMapping(HandlerMapping):
         text = _get_plaintext(event)
         if not text.startswith(self._prefix):
             return []
-        cmd_text = text[len(self._prefix):]
+        cmd_text = text[len(self._prefix) :]
         cmd_name = cmd_text.split()[0] if cmd_text else ""
         return list(self._handlers.get(cmd_name, []))
 
@@ -272,17 +271,18 @@ class CompositeHandlerMapping(HandlerMapping):
         for m in self._mappings:
             if isinstance(m, CommandHandlerMapping):
                 count += sum(len(v) for v in m._handlers.values())
-            elif isinstance(m, RegexHandlerMapping):
-                count += len(m._handlers)
-            elif isinstance(m, KeywordHandlerMapping):
-                count += len(m._handlers)
-            elif isinstance(m, StartsWithHandlerMapping):
-                count += len(m._handlers)
-            elif isinstance(m, EndsWithHandlerMapping):
+            elif isinstance(
+                m,
+                (
+                    RegexHandlerMapping,
+                    KeywordHandlerMapping,
+                    StartsWithHandlerMapping,
+                    EndsWithHandlerMapping,
+                ),
+            ):
                 count += len(m._handlers)
             elif isinstance(m, FullMatchHandlerMapping):
                 count += sum(len(v) for v in m._handlers.values())
             elif isinstance(m, EventTypeHandlerMapping):
                 count += len(m._handlers)
         return count
-

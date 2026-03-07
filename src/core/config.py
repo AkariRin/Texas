@@ -66,4 +66,3 @@ def validate_settings(settings: Settings) -> None:
             event_type="security.token_missing",
         )
         sys.exit(1)
-

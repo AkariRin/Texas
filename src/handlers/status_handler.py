@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
-from src.core.framework.context import Context
-from src.core.framework.decorators import Permission, controller, on_command
+from typing import TYPE_CHECKING
+
+from src.core.framework.decorators import controller, on_command
+
+if TYPE_CHECKING:
+    from src.core.framework.context import Context
 
 
 @controller(name="status", description="Bot 状态查询处理器", version="1.0.0")
@@ -37,4 +41,3 @@ class StatusHandler:
         )
         await ctx.reply(help_text)
         return True
-

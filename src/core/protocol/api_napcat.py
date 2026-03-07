@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from src.core.protocol.models.api import APIResponse
+if TYPE_CHECKING:
+    from src.core.protocol.models.api import APIResponse
 
 
 class NapCatAPIMixin:
@@ -22,10 +23,13 @@ class NapCatAPIMixin:
         return await self._call("group_poke", {"group_id": group_id, "user_id": user_id})
 
     async def set_msg_emoji_like(
-        self, message_id: int, emoji_id: str, set: bool = True,
+        self,
+        message_id: int,
+        emoji_id: str,
+        is_set: bool = True,
     ) -> APIResponse:
         return await self._call(
-            "set_msg_emoji_like", {"message_id": message_id, "emoji_id": emoji_id, "set": set}
+            "set_msg_emoji_like", {"message_id": message_id, "emoji_id": emoji_id, "set": is_set}
         )
 
     async def nc_get_rkey(self) -> APIResponse:
@@ -44,12 +48,19 @@ class NapCatAPIMixin:
         return await self._call("get_ai_characters", {"group_id": group_id, "chat_type": chat_type})
 
     async def send_group_ai_record(
-        self, group_id: int, character: str, text: str,
+        self,
+        group_id: int,
+        character: str,
+        text: str,
     ) -> APIResponse:
-        return await self._call("send_group_ai_record", {
-            "group_id": group_id, "character": character, "text": text,
-        })
+        return await self._call(
+            "send_group_ai_record",
+            {
+                "group_id": group_id,
+                "character": character,
+                "text": text,
+            },
+        )
 
     async def translate_en2zh(self, words: list[str]) -> APIResponse:
         return await self._call("translate_en2zh", {"words": words})
-

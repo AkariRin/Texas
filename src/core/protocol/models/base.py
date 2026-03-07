@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 
 from pydantic import BaseModel, Field
 
 
-class EventType(str, Enum):
+class EventType(StrEnum):
     MESSAGE = "message"
     MESSAGE_SENT = "message_sent"
     NOTICE = "notice"
@@ -15,12 +15,12 @@ class EventType(str, Enum):
     META = "meta_event"
 
 
-class MessageType(str, Enum):
+class MessageType(StrEnum):
     PRIVATE = "private"
     GROUP = "group"
 
 
-class NoticeType(str, Enum):
+class NoticeType(StrEnum):
     FRIEND_ADD = "friend_add"
     FRIEND_RECALL = "friend_recall"
     GROUP_UPLOAD = "group_upload"
@@ -36,17 +36,17 @@ class NoticeType(str, Enum):
     BOT_OFFLINE = "bot_offline"
 
 
-class RequestType(str, Enum):
+class RequestType(StrEnum):
     FRIEND = "friend"
     GROUP = "group"
 
 
-class MetaEventType(str, Enum):
+class MetaEventType(StrEnum):
     LIFECYCLE = "lifecycle"
     HEARTBEAT = "heartbeat"
 
 
-class Role(str, Enum):
+class Role(StrEnum):
     OWNER = "owner"
     ADMIN = "admin"
     MEMBER = "member"
@@ -110,4 +110,3 @@ class MessageSegment(BaseModel):
 
     class Config:
         extra = "allow"
-

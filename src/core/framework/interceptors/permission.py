@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import structlog
 
-from src.core.framework.context import Context
 from src.core.framework.decorators import Permission
 from src.core.framework.interceptor import HandlerInterceptor
+
+if TYPE_CHECKING:
+    from src.core.framework.context import Context
 
 logger = structlog.get_logger()
 
@@ -55,4 +59,3 @@ class PermissionInterceptor(HandlerInterceptor):
                 return False
 
         return True
-

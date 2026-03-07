@@ -4,7 +4,10 @@ from __future__ import annotations
 
 import re
 from enum import IntEnum
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 
 class Permission(IntEnum):
@@ -33,12 +36,16 @@ def controller(
     """将类标记为控制器（类似 Spring @Controller）。"""
 
     def decorator(cls: type) -> type:
-        setattr(cls, CONTROLLER_META, {
-            "name": name,
-            "description": description,
-            "version": version,
-            "default_priority": default_priority,
-        })
+        setattr(
+            cls,
+            CONTROLLER_META,
+            {
+                "name": name,
+                "description": description,
+                "version": version,
+                "default_priority": default_priority,
+            },
+        )
         return cls
 
     return decorator
@@ -262,4 +269,3 @@ def on_bot_offline(
         event_type="notice",
         notice_type="bot_offline",
     )
-

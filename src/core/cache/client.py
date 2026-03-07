@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import json
-from typing import Any, Callable, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar
 
 import redis.asyncio as aioredis
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 T = TypeVar("T")
 
@@ -26,7 +29,7 @@ class CacheClient:
             return None
         try:
             return json.loads(val)
-        except (json.JSONDecodeError, TypeError):
+        except json.JSONDecodeError, TypeError:
             return val
 
     async def set(self, key: str, value: Any, ttl: int | None = None) -> None:
@@ -47,9 +50,7 @@ class CacheClient:
     async def expire(self, key: str, ttl: int) -> None:
         await self._redis.expire(key, ttl)
 
-    async def get_or_set(
-        self, key: str, factory: Callable[[], Any], ttl: int | None = None
-    ) -> Any:
+    async def get_or_set(self, key: str, factory: Callable[[], Any], ttl: int | None = None) -> Any:
         """从缓存中获取值；若未命中，则调用 factory，缓存结果并返回。"""
         val = await self.get(key)
         if val is not None:
@@ -57,4 +58,3 @@ class CacheClient:
         val = factory() if not callable(factory) else factory()
         await self.set(key, val, ttl)
         return val
-

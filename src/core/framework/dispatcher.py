@@ -2,15 +2,17 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import structlog
 
-from src.core.framework.context import Context, FinishException
-from src.core.framework.interceptor import HandlerInterceptor
-from src.core.framework.mapping import CompositeHandlerMapping, HandlerMethod
-from src.core.protocol.api import BotAPI
-from src.core.protocol.models.base import OneBotEvent
+from src.core.framework.context import Context, FinishError
+
+if TYPE_CHECKING:
+    from src.core.framework.interceptor import HandlerInterceptor
+    from src.core.framework.mapping import CompositeHandlerMapping, HandlerMethod
+    from src.core.protocol.api import BotAPI
+    from src.core.protocol.models.base import OneBotEvent
 
 logger = structlog.get_logger()
 
@@ -66,14 +68,14 @@ class EventDispatcher:
                     result = await handler.method(handler.controller, ctx)
                     if result is True:
                         break  # 处理器发出停止传播信号
-                except FinishException:
+                except FinishError:
                     break
 
             # 4. 后置拦截器（逆序执行）
             for interceptor in reversed(self.interceptors):
                 await interceptor.post_handle(ctx, result)
 
-        except FinishException:
+        except FinishError:
             pass  # 正常流程控制
         except Exception as e:
             exc = e
@@ -95,4 +97,3 @@ class EventDispatcher:
                         error=str(cleanup_exc),
                         event_type="dispatcher.cleanup_error",
                     )
-

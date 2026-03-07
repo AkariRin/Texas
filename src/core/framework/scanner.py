@@ -121,11 +121,13 @@ class ComponentScanner:
                 )
                 self._mapping.register(hm)
                 handler_count += 1
-                methods_info.append({
-                    "method": method_name,
-                    "mapping_type": meta.get("mapping_type"),
-                    "priority": priority,
-                })
+                methods_info.append(
+                    {
+                        "method": method_name,
+                        "mapping_type": meta.get("mapping_type"),
+                        "priority": priority,
+                    }
+                )
 
         ctrl_info = {
             **ctrl_meta,
@@ -141,4 +143,3 @@ class ComponentScanner:
             handler_count=handler_count,
             event_type="scanner.controller_registered",
         )
-

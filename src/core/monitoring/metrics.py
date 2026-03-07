@@ -27,9 +27,7 @@ event_errors = Counter("texas_event_errors_total", "Event processing errors")
 
 # ── API 调用指标 ──
 api_calls = Counter("texas_api_calls_total", "OneBot API calls", ["action"])
-api_call_duration = Histogram(
-    "texas_api_call_duration_seconds", "OneBot API call duration"
-)
+api_call_duration = Histogram("texas_api_call_duration_seconds", "OneBot API call duration")
 api_call_errors = Counter("texas_api_call_errors_total", "OneBot API call failures")
 
 # ── 处理器指标 ──
@@ -37,4 +35,3 @@ handlers_registered = Gauge("texas_handlers_registered", "Number of registered h
 
 # ── 系统指标 ──
 uptime_seconds = Gauge("texas_uptime_seconds", "Process uptime in seconds")
-

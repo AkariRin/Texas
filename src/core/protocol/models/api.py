@@ -29,4 +29,3 @@ class APIResponse(BaseModel):
 
     class Config:
         extra = "allow"
-

@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import time
-from typing import Any
+from typing import TYPE_CHECKING
 
 import structlog
 
-from src.core.framework.context import Context
 from src.core.framework.interceptor import HandlerInterceptor
+
+if TYPE_CHECKING:
+    from src.core.framework.context import Context
 
 logger = structlog.get_logger()
 
@@ -51,4 +53,3 @@ class LoggingInterceptor(HandlerInterceptor):
                 post_type=ctx.event.post_type,
                 event_type="interceptor.logging.done",
             )
-

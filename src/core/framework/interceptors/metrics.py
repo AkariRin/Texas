@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import time
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from src.core.framework.context import Context
 from src.core.framework.interceptor import HandlerInterceptor
+
+if TYPE_CHECKING:
+    from src.core.framework.context import Context
 
 _CTX_KEY_START_TIME = "_metrics_start_time"
 
@@ -40,4 +42,3 @@ class MetricsInterceptor(HandlerInterceptor):
 
         if exc and _error_counter is not None:
             _error_counter.inc()
-

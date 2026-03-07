@@ -9,10 +9,11 @@ from typing import TYPE_CHECKING, Any
 import structlog
 
 from .models.api import APIRequest, APIResponse
-from .models.base import MessageSegment
 
 if TYPE_CHECKING:
     from src.core.ws.connection import ConnectionManager
+
+    from .models.base import MessageSegment
 
 logger = structlog.get_logger()
 
@@ -40,7 +41,7 @@ class BotAPI:
         try:
             await self._conn.send(req.model_dump())
             return await asyncio.wait_for(future, timeout=timeout)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.warning("API call timeout", action=action, echo=echo, timeout=timeout)
             return APIResponse(status="failed", retcode=-1, message="timeout", echo=echo)
         finally:
@@ -108,8 +109,8 @@ class BotAPI:
     async def get_msg(self, message_id: int) -> APIResponse:
         return await self._call("get_msg", {"message_id": message_id})
 
-    async def get_forward_msg(self, id: str) -> APIResponse:
-        return await self._call("get_forward_msg", {"id": id})
+    async def get_forward_msg(self, forward_id: str) -> APIResponse:
+        return await self._call("get_forward_msg", {"id": forward_id})
 
     async def send_like(self, user_id: int, times: int = 1) -> APIResponse:
         return await self._call("send_like", {"user_id": user_id, "times": times})
@@ -124,18 +125,14 @@ class BotAPI:
             {"group_id": group_id, "user_id": user_id, "reject_add_request": reject_add_request},
         )
 
-    async def set_group_ban(
-        self, group_id: int, user_id: int, duration: int = 1800
-    ) -> APIResponse:
+    async def set_group_ban(self, group_id: int, user_id: int, duration: int = 1800) -> APIResponse:
         return await self._call(
             "set_group_ban",
             {"group_id": group_id, "user_id": user_id, "duration": duration},
         )
 
     async def set_group_whole_ban(self, group_id: int, enable: bool = True) -> APIResponse:
-        return await self._call(
-            "set_group_whole_ban", {"group_id": group_id, "enable": enable}
-        )
+        return await self._call("set_group_whole_ban", {"group_id": group_id, "enable": enable})
 
     async def set_group_admin(
         self, group_id: int, user_id: int, enable: bool = True
@@ -145,25 +142,17 @@ class BotAPI:
             {"group_id": group_id, "user_id": user_id, "enable": enable},
         )
 
-    async def set_group_card(
-        self, group_id: int, user_id: int, card: str = ""
-    ) -> APIResponse:
+    async def set_group_card(self, group_id: int, user_id: int, card: str = "") -> APIResponse:
         return await self._call(
             "set_group_card",
             {"group_id": group_id, "user_id": user_id, "card": card},
         )
 
     async def set_group_name(self, group_id: int, group_name: str) -> APIResponse:
-        return await self._call(
-            "set_group_name", {"group_id": group_id, "group_name": group_name}
-        )
+        return await self._call("set_group_name", {"group_id": group_id, "group_name": group_name})
 
-    async def set_group_leave(
-        self, group_id: int, is_dismiss: bool = False
-    ) -> APIResponse:
-        return await self._call(
-            "set_group_leave", {"group_id": group_id, "is_dismiss": is_dismiss}
-        )
+    async def set_group_leave(self, group_id: int, is_dismiss: bool = False) -> APIResponse:
+        return await self._call("set_group_leave", {"group_id": group_id, "is_dismiss": is_dismiss})
 
     async def set_group_special_title(
         self, group_id: int, user_id: int, special_title: str = "", duration: int = -1
@@ -202,17 +191,13 @@ class BotAPI:
         return await self._call("get_login_info")
 
     async def get_stranger_info(self, user_id: int, no_cache: bool = False) -> APIResponse:
-        return await self._call(
-            "get_stranger_info", {"user_id": user_id, "no_cache": no_cache}
-        )
+        return await self._call("get_stranger_info", {"user_id": user_id, "no_cache": no_cache})
 
     async def get_friend_list(self) -> APIResponse:
         return await self._call("get_friend_list")
 
     async def get_group_info(self, group_id: int, no_cache: bool = False) -> APIResponse:
-        return await self._call(
-            "get_group_info", {"group_id": group_id, "no_cache": no_cache}
-        )
+        return await self._call("get_group_info", {"group_id": group_id, "no_cache": no_cache})
 
     async def get_group_list(self) -> APIResponse:
         return await self._call("get_group_list")
@@ -228,12 +213,8 @@ class BotAPI:
     async def get_group_member_list(self, group_id: int) -> APIResponse:
         return await self._call("get_group_member_list", {"group_id": group_id})
 
-    async def get_group_honor_info(
-        self, group_id: int, type: str = "all"
-    ) -> APIResponse:
-        return await self._call(
-            "get_group_honor_info", {"group_id": group_id, "type": type}
-        )
+    async def get_group_honor_info(self, group_id: int, honor_type: str = "all") -> APIResponse:
+        return await self._call("get_group_honor_info", {"group_id": group_id, "type": honor_type})
 
     # ── 媒体 ──
 
@@ -259,4 +240,3 @@ class BotAPI:
 
     async def clean_cache(self) -> APIResponse:
         return await self._call("clean_cache")
-

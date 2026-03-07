@@ -2,18 +2,19 @@
 
 from __future__ import annotations
 
-import re
 from typing import TYPE_CHECKING, Any
 
-from src.core.protocol.models.base import MessageSegment, OneBotEvent
 from src.core.protocol.models.events import GroupMessageEvent, MessageEvent
 from src.core.protocol.segment import Seg
 
 if TYPE_CHECKING:
+    import re
+
     from src.core.protocol.api import BotAPI
+    from src.core.protocol.models.base import MessageSegment, OneBotEvent
 
 
-class FinishException(Exception):
+class FinishError(Exception):
     """由 ctx.finish() 抛出，用于中止后续处理器的执行。"""
 
 
@@ -95,7 +96,7 @@ class Context:
         """发送消息并中止后续处理器的执行。"""
         if message is not None:
             await self.reply(message)
-        raise FinishException()
+        raise FinishError()
 
     async def recall(self) -> None:
         """撤回当前消息。"""
@@ -119,4 +120,3 @@ class Context:
     @property
     def is_group(self) -> bool:
         return isinstance(self.event, GroupMessageEvent)
-

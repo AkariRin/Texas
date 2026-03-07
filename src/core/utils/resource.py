@@ -64,4 +64,3 @@ def data_url_decode(url: str) -> tuple[str, bytes]:
     mime_type = match.group(1)
     data = base64.b64decode(match.group(2))
     return mime_type, data
-

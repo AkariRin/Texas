@@ -31,4 +31,3 @@ async def get_status() -> dict[str, Any]:
         },
         "message": "ok",
     }
-

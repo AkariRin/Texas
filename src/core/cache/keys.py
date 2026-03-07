@@ -26,4 +26,3 @@ def conversation_key(user_id: int, group_id: int | None = None) -> str:
     if group_id:
         return f"texas:conversation:{user_id}:{group_id}"
     return f"texas:conversation:{user_id}"
-

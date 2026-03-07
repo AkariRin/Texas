@@ -16,4 +16,3 @@ class Group(Base):
     group_name: Mapped[str | None] = mapped_column(String(128), nullable=True)
     is_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     config: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
-

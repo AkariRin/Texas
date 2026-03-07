@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
-from src.core.framework.context import Context
+from typing import TYPE_CHECKING
+
 from src.core.framework.decorators import controller, on_command, on_regex
+
+if TYPE_CHECKING:
+    from src.core.framework.context import Context
 
 
 @controller(name="echo", description="消息回显处理器", version="1.0.0")
@@ -35,4 +39,3 @@ class EchoHandler:
             await ctx.reply(f"Hello, {name}!")
             return True
         return False
-

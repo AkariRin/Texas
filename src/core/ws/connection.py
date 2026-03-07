@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import json
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import structlog
-from starlette.websockets import WebSocket
+
+if TYPE_CHECKING:
+    from starlette.websockets import WebSocket
 
 logger = structlog.get_logger()
 
@@ -58,4 +60,3 @@ class ConnectionManager:
 
     def get_connections(self) -> list[str]:
         return list(self._connections.keys())
-

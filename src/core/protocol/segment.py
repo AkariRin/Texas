@@ -13,8 +13,8 @@ class Seg:
         return MessageSegment(type="text", data={"text": text})
 
     @staticmethod
-    def face(id: int) -> MessageSegment:
-        return MessageSegment(type="face", data={"id": id})
+    def face(face_id: int) -> MessageSegment:
+        return MessageSegment(type="face", data={"id": face_id})
 
     @staticmethod
     def image(file: str, **kw: object) -> MessageSegment:
@@ -33,28 +33,28 @@ class Seg:
         return MessageSegment(type="at", data={"qq": str(qq)})
 
     @staticmethod
-    def reply(id: int) -> MessageSegment:
-        return MessageSegment(type="reply", data={"id": id})
+    def reply(msg_id: int) -> MessageSegment:
+        return MessageSegment(type="reply", data={"id": msg_id})
 
     @staticmethod
-    def forward(id: str) -> MessageSegment:
-        return MessageSegment(type="forward", data={"id": id})
+    def forward(forward_id: str) -> MessageSegment:
+        return MessageSegment(type="forward", data={"id": forward_id})
 
     @staticmethod
     def json_msg(data: str | dict[str, object]) -> MessageSegment:
         return MessageSegment(type="json", data={"data": data})
 
     @staticmethod
-    def music(type_: str, id: str | None = None, **kw: object) -> MessageSegment:
+    def music(type_: str, music_id: str | None = None, **kw: object) -> MessageSegment:
         d: dict[str, object] = {"type": type_}
-        if id is not None:
-            d["id"] = id
+        if music_id is not None:
+            d["id"] = music_id
         d.update(kw)
         return MessageSegment(type="music", data=d)
 
     @staticmethod
-    def poke(type_: str, id: str) -> MessageSegment:
-        return MessageSegment(type="poke", data={"type": type_, "id": id})
+    def poke(type_: str, poke_id: str) -> MessageSegment:
+        return MessageSegment(type="poke", data={"type": type_, "id": poke_id})
 
     @staticmethod
     def dice() -> MessageSegment:
@@ -65,15 +65,19 @@ class Seg:
         return MessageSegment(type="rps", data={})
 
     @staticmethod
-    def contact(type_: str, id: str) -> MessageSegment:
-        return MessageSegment(type="contact", data={"type": type_, "id": id})
+    def contact(type_: str, contact_id: str) -> MessageSegment:
+        return MessageSegment(type="contact", data={"type": type_, "id": contact_id})
 
     @staticmethod
-    def node(id: int | None = None, content: list[object] | None = None,
-             user_id: int | None = None, nickname: str | None = None) -> MessageSegment:
+    def node(
+        node_id: int | None = None,
+        content: list[object] | None = None,
+        user_id: int | None = None,
+        nickname: str | None = None,
+    ) -> MessageSegment:
         d: dict[str, object] = {}
-        if id is not None:
-            d["id"] = id
+        if node_id is not None:
+            d["id"] = node_id
         if content is not None:
             d["content"] = content
         if user_id is not None:
@@ -104,8 +108,8 @@ class MessageBuilder:
     def text(self, text: str) -> MessageBuilder:
         return self.add(Seg.text(text))
 
-    def face(self, id: int) -> MessageBuilder:
-        return self.add(Seg.face(id))
+    def face(self, face_id: int) -> MessageBuilder:
+        return self.add(Seg.face(face_id))
 
     def image(self, file: str, **kw: object) -> MessageBuilder:
         return self.add(Seg.image(file, **kw))
@@ -116,9 +120,8 @@ class MessageBuilder:
     def at(self, qq: str | int) -> MessageBuilder:
         return self.add(Seg.at(qq))
 
-    def reply(self, id: int) -> MessageBuilder:
-        return self.add(Seg.reply(id))
+    def reply(self, msg_id: int) -> MessageBuilder:
+        return self.add(Seg.reply(msg_id))
 
     def build(self) -> list[MessageSegment]:
         return list(self._segments)
-

@@ -1,5 +1,6 @@
 """Protocol models package."""
 
+from .api import APIRequest, APIResponse
 from .base import (
     Anonymous,
     EventType,
@@ -13,7 +14,6 @@ from .base import (
     Role,
     Sender,
 )
-from .api import APIRequest, APIResponse
 from .events import (
     BotOfflineNotice,
     EssenceNotice,
@@ -82,4 +82,3 @@ __all__ = [
     "Role",
     "Sender",
 ]
-

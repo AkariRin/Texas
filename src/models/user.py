@@ -17,4 +17,3 @@ class User(Base):
     permission_level: Mapped[int] = mapped_column(Integer, default=0)
     is_blocked: Mapped[bool] = mapped_column(Boolean, default=False)
     extra_data: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
-

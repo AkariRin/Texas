@@ -115,4 +115,3 @@ def _parse_request(data: dict[str, object]) -> OneBotEvent:
         return GroupRequestEvent.model_validate(data)
     else:
         return RequestEvent.model_validate(data)
-

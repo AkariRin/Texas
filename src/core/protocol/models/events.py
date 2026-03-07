@@ -12,7 +12,6 @@ from .base import (
     Sender,
 )
 
-
 # ── 消息事件 ──
 
 
@@ -240,4 +239,3 @@ class GroupRequestEvent(RequestEvent):
     request_type: str = "group"
     sub_type: str = ""  # add | invite
     group_id: int = 0
-

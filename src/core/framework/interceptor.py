@@ -2,14 +2,13 @@
 
 from __future__ import annotations
 
-from abc import ABC
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from src.core.framework.context import Context
 
 
-class HandlerInterceptor(ABC):
+class HandlerInterceptor:
     """拦截器基础接口。
 
     执行顺序：
@@ -26,4 +25,3 @@ class HandlerInterceptor(ABC):
 
     async def after_completion(self, ctx: Context, exc: Exception | None = None) -> None:
         """在完成后调用（无论成功或失败）。用于资源清理。"""
-

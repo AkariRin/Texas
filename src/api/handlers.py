@@ -28,4 +28,3 @@ async def list_handlers() -> dict[str, Any]:
         "data": {"controllers": controllers},
         "message": "ok",
     }
-

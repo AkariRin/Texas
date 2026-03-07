@@ -60,4 +60,3 @@ class HeartbeatMonitor:
                     timeout_s=timeout_s,
                     event_type="ws.heartbeat_timeout",
                 )
-

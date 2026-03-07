@@ -13,6 +13,8 @@ from src.core.protocol.event import parse_event
 from src.core.protocol.models.events import HeartbeatEvent
 
 if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable
+
     from src.core.protocol.api import BotAPI
     from src.core.ws.connection import ConnectionManager
     from src.core.ws.heartbeat import HeartbeatMonitor
@@ -46,9 +48,7 @@ def _check_token(token_param: str | None, headers: dict[str, str]) -> bool:
     if token_param and token_param == _access_token:
         return True
     auth = headers.get("authorization", "")
-    if auth.startswith("Bearer ") and auth[7:] == _access_token:
-        return True
-    return False
+    return bool(auth.startswith("Bearer ") and auth[7:] == _access_token)
 
 
 @ws_router.websocket("/onebot")
@@ -111,7 +111,6 @@ async def onebot_ws_endpoint(
 
 
 # 事件分发回调 —— 在框架初始化后由 app.py 设置
-from typing import Callable, Awaitable
 
 _event_dispatch_callback: Callable[[object], Awaitable[None]] | None = None
 
@@ -127,4 +126,3 @@ async def _dispatch_event(event: object) -> None:
         await callback(event)
     else:
         logger.debug("No event dispatcher set, ignoring event", event_type="ws.no_dispatcher")
-

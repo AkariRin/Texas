@@ -42,4 +42,3 @@ def setup_logging(log_level: str = "INFO", log_format: str = "json") -> None:
         stream=sys.stdout,
         level=getattr(logging, log_level.upper(), logging.INFO),
     )
-

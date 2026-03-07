@@ -18,4 +18,3 @@ class MessageLog(Base):
     group_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True, index=True)
     message_type: Mapped[str] = mapped_column(String(16))  # private | group
     raw_message: Mapped[str] = mapped_column(Text, default="")
-
