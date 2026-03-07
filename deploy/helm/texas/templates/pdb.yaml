@@ -1,0 +1,14 @@
+{{- if .Values.podDisruptionBudget.enabled }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "texas.fullname" . }}-bot-core
+  labels:
+    {{- include "texas.botCore.labels" . | nindent 4 }}
+spec:
+  minAvailable: {{ .Values.podDisruptionBudget.minAvailable }}
+  selector:
+    matchLabels:
+      {{- include "texas.botCore.selectorLabels" . | nindent 6 }}
+{{- end }}
+

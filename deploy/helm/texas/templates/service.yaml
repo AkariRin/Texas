@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "texas.fullname" . }}-bot-core
+  labels:
+    {{- include "texas.botCore.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.botCore.service.type }}
+  ports:
+    - port: {{ .Values.botCore.service.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "texas.botCore.selectorLabels" . | nindent 4 }}
+

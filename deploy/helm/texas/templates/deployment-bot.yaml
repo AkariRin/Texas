@@ -1,0 +1,103 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "texas.fullname" . }}-bot-core
+  labels:
+    {{- include "texas.botCore.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.botCore.replicaCount }}
+  # Recreate 策略，避免 WS 双连接
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "texas.botCore.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+        {{- with .Values.botCore.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "texas.botCore.labels" . | nindent 8 }}
+        {{- with .Values.botCore.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: bot-core
+          image: {{ include "texas.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: ROLE
+              value: "bot"
+            # -- 敏感信息通过环境变量注入 --
+            - name: NAPCAT_ACCESS_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "texas.secretName" . }}
+                  key: NAPCAT_ACCESS_TOKEN
+            {{- if .Values.postgresql.enabled }}
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "texas.secretName" . }}
+                  key: POSTGRES_PASSWORD
+            {{- end }}
+            {{- if (index .Values "redis-broker" "enabled") }}
+            - name: REDIS_BROKER_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "texas.secretName" . }}
+                  key: REDIS_BROKER_PASSWORD
+            {{- end }}
+            {{- if (index .Values "redis-cache" "enabled") }}
+            - name: REDIS_CACHE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "texas.secretName" . }}
+                  key: REDIS_CACHE_PASSWORD
+            {{- end }}
+            # -- 构建的连接 URL（必须在密码环境变量之后）--
+            - name: DATABASE_URL
+              value: {{ include "texas.databaseUrl" . | quote }}
+            - name: CELERY_BROKER_URL
+              value: {{ include "texas.celeryBrokerUrl" . | quote }}
+            - name: CACHE_REDIS_URL
+              value: {{ include "texas.cacheRedisUrl" . | quote }}
+          envFrom:
+            - configMapRef:
+                name: {{ include "texas.configMapName" . }}
+          ports:
+            - name: http
+              containerPort: 8000
+              protocol: TCP
+          {{- with .Values.botCore.livenessProbe }}
+          livenessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.botCore.readinessProbe }}
+          readinessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          resources:
+            {{- toYaml .Values.botCore.resources | nindent 12 }}
+      {{- with .Values.botCore.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.botCore.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.botCore.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+

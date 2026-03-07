@@ -1,0 +1,197 @@
+# ============================================================
+# Texas QQ Bot 框架 — Helm 配置值
+# ============================================================
+
+# ── 全局配置 ──
+global:
+  imageRegistry: ghcr.io
+
+# ── 镜像配置 ──
+image:
+  repository: ghcr.io/texas/texas
+  tag: latest
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+# ── NapCat 连接配置 ──
+napcat:
+  # 反向 WS 模式：NapCat 主动连接 Texas 的 /ws/onebot 端点
+  # 正向 WS 模式（可选）：Texas 连接 NapCat 的 WS 服务端
+  wsUrl: "ws://napcat:3001"           # 仅正向 WS 模式时使用
+  accessToken: ""                     # ⚠️ 必填！空 Token 存在严重安全风险
+  messagePostFormat: "array"          # 消息上报格式：array | string，需与 NapCat 配置一致
+  reportSelfMessage: false            # 是否上报 Bot 自身发送的消息（message_sent 事件）
+  heartInterval: 30000                # 心跳间隔（毫秒），NapCat 默认 30000
+  reconnectInterval: 5000             # NapCat 反向 WS 重连间隔（毫秒），默认 5000
+
+# ── 应用配置 ──
+config:
+  logLevel: "INFO"
+  logFormat: "json"                   # json | console
+  cacheDefaultTTL: 300
+  handlerScanPackages: "src.handlers"
+  metricsEnabled: true
+  dbPoolSize: 10
+  dbMaxOverflow: 20
+  imageUrlTTL: 7200
+  enableRkeyRefresh: true
+
+# ── 敏感信息 ──
+# 以下值将存储在 Kubernetes Secret 中。
+# 生产环境建议使用 External Secrets Operator 或 sealed-secrets 替代。
+secrets:
+  # PostgreSQL 密码（postgresql.enabled=true 时覆盖子 chart 配置）
+  postgresPassword: ""
+  # Redis Broker 密码
+  redisBrokerPassword: ""
+  # Redis Cache 密码
+  redisCachePassword: ""
+  # NapCat 访问令牌（为空时回退到 napcat.accessToken）
+  napcatAccessToken: ""
+
+# 使用已有的 Secret 而非自动创建
+existingSecret: ""
+
+# ── Bot Core 部署 ──
+botCore:
+  replicaCount: 1                     # WS 连接通常需要单实例
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  service:
+    type: ClusterIP
+    port: 8000
+  livenessProbe:
+    httpGet:
+      path: /health
+      port: http
+    initialDelaySeconds: 10
+    periodSeconds: 30
+    timeoutSeconds: 5
+    failureThreshold: 3
+  readinessProbe:
+    httpGet:
+      path: /health
+      port: http
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    timeoutSeconds: 3
+    failureThreshold: 3
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  podAnnotations: {}
+  podLabels: {}
+
+# ── Celery Worker 部署 ──
+celeryWorker:
+  replicaCount: 2
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 5
+    targetCPUUtilizationPercentage: 70
+  terminationGracePeriodSeconds: 120
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  podAnnotations: {}
+  podLabels: {}
+
+# ── Celery Beat 部署 ──
+celeryBeat:
+  replicaCount: 1                     # Beat 必须单实例运行
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  podAnnotations: {}
+  podLabels: {}
+
+# ── PostgreSQL（Bitnami 子 chart）──
+postgresql:
+  enabled: true
+  auth:
+    database: texas
+    username: texas
+    password: ""                       # 通过 secrets.postgresPassword 或 existingSecret 设置
+  primary:
+    persistence:
+      size: 10Gi
+      storageClass: ""
+
+# ── Redis Broker（Bitnami 子 chart）──
+redis-broker:
+  enabled: true
+  architecture: standalone
+  auth:
+    enabled: true
+    password: ""                       # 通过 secrets.redisBrokerPassword 或 existingSecret 设置
+  master:
+    persistence:
+      size: 2Gi
+
+# ── Redis Cache（Bitnami 子 chart）──
+redis-cache:
+  enabled: true
+  architecture: standalone
+  auth:
+    enabled: true
+    password: ""                       # 通过 secrets.redisCachePassword 或 existingSecret 设置
+  master:
+    persistence:
+      size: 2Gi
+
+# ── Prometheus ServiceMonitor ──
+serviceMonitor:
+  enabled: true
+  interval: 15s
+  path: /metrics
+  labels:
+    release: prometheus               # 匹配 Prometheus Operator 选择器
+  scrapeTimeout: 10s
+  honorLabels: false
+
+# ── Pod 中断预算 ──
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+# ── Ingress（可选，用于管理 API 和前端）──
+ingress:
+  enabled: false
+  className: nginx
+  annotations: {}
+    # nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    # nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    # nginx.ingress.kubernetes.io/websocket-services: texas-bot-core
+  hosts:
+    - host: texas.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+  #  - secretName: texas-tls
+  #    hosts:
+  #      - texas.local
+

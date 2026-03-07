@@ -12,7 +12,6 @@ def setup_logging(log_level: str = "INFO", log_format: str = "json") -> None:
     """配置 structlog，输出 JSON（生产环境）或控制台（开发环境）格式。"""
     shared_processors: list[structlog.types.Processor] = [
         structlog.contextvars.merge_contextvars,
-        structlog.stdlib.add_logger_name,
         structlog.stdlib.add_log_level,
         structlog.stdlib.ExtraAdder(),
         structlog.processors.TimeStamper(fmt="iso"),

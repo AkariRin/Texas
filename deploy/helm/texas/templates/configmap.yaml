@@ -1,0 +1,24 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "texas.configMapName" . }}
+  labels:
+    {{- include "texas.labels" . | nindent 4 }}
+data:
+  LOG_LEVEL: {{ .Values.config.logLevel | quote }}
+  LOG_FORMAT: {{ .Values.config.logFormat | quote }}
+  CACHE_DEFAULT_TTL: {{ .Values.config.cacheDefaultTTL | quote }}
+  HANDLER_SCAN_PACKAGES: {{ .Values.config.handlerScanPackages | quote }}
+  METRICS_ENABLED: {{ .Values.config.metricsEnabled | quote }}
+  DB_POOL_SIZE: {{ .Values.config.dbPoolSize | quote }}
+  DB_MAX_OVERFLOW: {{ .Values.config.dbMaxOverflow | quote }}
+  IMAGE_URL_TTL: {{ .Values.config.imageUrlTTL | quote }}
+  ENABLE_RKEY_REFRESH: {{ .Values.config.enableRkeyRefresh | quote }}
+  NAPCAT_MESSAGE_POST_FORMAT: {{ .Values.napcat.messagePostFormat | quote }}
+  NAPCAT_REPORT_SELF_MESSAGE: {{ .Values.napcat.reportSelfMessage | quote }}
+  NAPCAT_HEART_INTERVAL: {{ .Values.napcat.heartInterval | quote }}
+  NAPCAT_RECONNECT_INTERVAL: {{ .Values.napcat.reconnectInterval | quote }}
+  FRONTEND_DIST_DIR: "frontend/dist"
+  HOST: "0.0.0.0"
+  PORT: "8000"
+

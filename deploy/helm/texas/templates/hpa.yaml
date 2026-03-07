@@ -1,0 +1,23 @@
+{{- if .Values.celeryWorker.autoscaling.enabled }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "texas.fullname" . }}-worker
+  labels:
+    {{- include "texas.celeryWorker.labels" . | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "texas.fullname" . }}-worker
+  minReplicas: {{ .Values.celeryWorker.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.celeryWorker.autoscaling.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.celeryWorker.autoscaling.targetCPUUtilizationPercentage }}
+{{- end }}
+

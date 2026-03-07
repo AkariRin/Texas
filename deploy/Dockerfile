@@ -1,4 +1,4 @@
-# ── Stage 1: Frontend Builder ──
+# ── 阶段 1：前端构建 ──
 FROM node:22-slim AS frontend-builder
 RUN corepack enable
 WORKDIR /build
@@ -7,7 +7,7 @@ RUN pnpm install --frozen-lockfile
 COPY frontend/ .
 RUN pnpm build
 
-# ── Stage 2: Backend Builder ──
+# ── 阶段 2：后端构建 ──
 FROM python:3.14-slim AS backend-builder
 WORKDIR /build
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
@@ -16,20 +16,20 @@ RUN uv sync --frozen --no-dev --no-editable
 COPY src/ src/
 COPY main.py .
 
-# ── Stage 3: Runtime ──
+# ── 阶段 3：运行时 ──
 FROM python:3.14-slim AS runtime
 WORKDIR /app
 
-# Create non-root user
+# 创建非 root 用户
 RUN groupadd -r texas && useradd -r -g texas texas
 
-# Copy backend
+# 复制后端文件
 COPY --from=backend-builder /build/.venv /app/.venv
 COPY --from=backend-builder /build/src /app/src
 COPY --from=backend-builder /build/main.py /app/main.py
 COPY --from=backend-builder /build/pyproject.toml /app/pyproject.toml
 
-# Copy frontend dist
+# 复制前端构建产物
 COPY --from=frontend-builder /build/dist /app/frontend/dist
 
 ENV PATH="/app/.venv/bin:$PATH"
@@ -38,7 +38,7 @@ ENV PYTHONUNBUFFERED=1
 USER texas
 EXPOSE 8000
 
-# Default: bot-core. Override with ROLE=worker or ROLE=beat
+# 默认角色：bot-core。可通过 ROLE=worker 或 ROLE=beat 覆盖
 ENV ROLE=bot
 CMD if [ "$ROLE" = "worker" ]; then \
       celery -A src.core.tasks.celery_app worker --loglevel=info; \
