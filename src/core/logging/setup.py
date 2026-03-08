@@ -10,9 +10,12 @@ import structlog
 
 def setup_logging(log_level: str = "INFO", log_format: str = "json") -> None:
     """配置 structlog，输出 JSON（生产环境）或控制台（开发环境）格式。"""
+    numeric_level = getattr(logging, log_level.upper(), logging.INFO)
+
     shared_processors: list[structlog.types.Processor] = [
         structlog.contextvars.merge_contextvars,
         structlog.stdlib.add_log_level,
+        structlog.stdlib.filter_by_level,
         structlog.stdlib.ExtraAdder(),
         structlog.processors.TimeStamper(fmt="iso"),
         structlog.processors.StackInfoRenderer(),
@@ -32,7 +35,7 @@ def setup_logging(log_level: str = "INFO", log_format: str = "json") -> None:
         ],
         wrapper_class=structlog.stdlib.BoundLogger,
         context_class=dict,
-        logger_factory=structlog.PrintLoggerFactory(file=sys.stdout),
+        logger_factory=structlog.stdlib.LoggerFactory(),
         cache_logger_on_first_use=True,
     )
 
@@ -40,5 +43,6 @@ def setup_logging(log_level: str = "INFO", log_format: str = "json") -> None:
     logging.basicConfig(
         format="%(message)s",
         stream=sys.stdout,
-        level=getattr(logging, log_level.upper(), logging.INFO),
+        level=numeric_level,
+        force=True,
     )

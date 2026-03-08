@@ -65,7 +65,7 @@ class EventDispatcher:
                     ctx.set_regex_match(regex_match)
 
                 try:
-                    result = await handler.method(handler.controller, ctx)
+                    result = await handler.method(ctx)
                     if result is True:
                         break  # 处理器发出停止传播信号
                 except FinishError:
