@@ -95,7 +95,9 @@ async def onebot_ws_endpoint(
             try:
                 data = json.loads(raw)
             except json.JSONDecodeError:
-                logger.warning("收到来自 NapCat 的无效 JSON", raw=raw[:200], event_type="ws.bad_json")
+                logger.warning(
+                    "收到来自 NapCat 的无效 JSON", raw=raw[:200], event_type="ws.bad_json"
+                )
                 continue
 
             # 检查是否为 API 响应（含有 echo 字段且与挂起的调用匹配）

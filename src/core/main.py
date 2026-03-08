@@ -38,11 +38,11 @@ from src.core.logging.setup import _bootstrap_root_logging, setup_logging
 
 # 尽早接管根 logger 和 uvicorn logger，确保 uvicorn 启动阶段的日志也经过 structlog
 _bootstrap_root_logging()
-from src.core.monitoring.metrics import handlers_registered
-from src.core.protocol.api import BotAPI
-from src.core.ws.connection import ConnectionManager
-from src.core.ws.heartbeat import HeartbeatMonitor
-from src.core.ws.server import set_event_dispatcher, set_ws_dependencies, ws_router
+from src.core.monitoring.metrics import handlers_registered  # noqa: E402
+from src.core.protocol.api import BotAPI  # noqa: E402
+from src.core.ws.connection import ConnectionManager  # noqa: E402
+from src.core.ws.heartbeat import HeartbeatMonitor  # noqa: E402
+from src.core.ws.server import set_event_dispatcher, set_ws_dependencies, ws_router  # noqa: E402
 
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator
