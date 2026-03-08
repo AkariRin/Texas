@@ -1,13 +1,19 @@
 name: Release
 
 on:
-  release:
-    types: [published]
+  workflow_run:
+    workflows: ["CI"]
+    types:
+      - completed
 
 jobs:
   docker:
     name: Build & Push Docker Image
     runs-on: ubuntu-latest
+    if: >
+      github.event.workflow_run.conclusion == 'success' &&
+      startsWith(github.event.workflow_run.head_branch, 'v') &&
+      contains(github.event.workflow_run.head_branch, '.')
     permissions:
       contents: read
       packages: write
@@ -32,8 +38,8 @@ jobs:
         with:
           images: akaririn/texas
           tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{version}},value=${{ github.event.workflow_run.head_branch }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ github.event.workflow_run.head_branch }}
             type=raw,value=latest
 
       - name: Build and push Docker image
@@ -51,6 +57,10 @@ jobs:
   helm:
     name: Push Helm Chart to GHCR (OCI)
     runs-on: ubuntu-latest
+    if: >
+      github.event.workflow_run.conclusion == 'success' &&
+      startsWith(github.event.workflow_run.head_branch, 'v') &&
+      contains(github.event.workflow_run.head_branch, '.')
     permissions:
       contents: read
       packages: write
@@ -65,7 +75,7 @@ jobs:
 
       - name: Update Helm chart version
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"
+          VERSION="${{ github.event.workflow_run.head_branch }#v}"
           sed -i "s/^version:.*/version: ${VERSION}/" deploy/helm/texas/Chart.yaml
           sed -i "s/^appVersion:.*/appVersion: \"${VERSION}\"/" deploy/helm/texas/Chart.yaml
 

@@ -18,9 +18,7 @@ class NapCatAPIMixin:
 
     _call: Callable[..., Coroutine[Any, Any, APIResponse]]
 
-    async def friend_poke(
-        self, user_id: int, target_id: int | None = None
-    ) -> APIResponse:
+    async def friend_poke(self, user_id: int, target_id: int | None = None) -> APIResponse:
         params: dict[str, Any] = {"user_id": user_id}
         if target_id is not None:
             params["target_id"] = target_id
@@ -96,9 +94,7 @@ class NapCatAPIMixin:
         return await self._call("nc_get_user_status", {"user_id": user_id})
 
     async def set_input_status(self, user_id: int, event_type: int) -> APIResponse:
-        return await self._call(
-            "set_input_status", {"user_id": user_id, "event_type": event_type}
-        )
+        return await self._call("set_input_status", {"user_id": user_id, "event_type": event_type})
 
     async def set_diy_online_status(
         self, face_id: int, face_type: int = 1, wording: str = " "
@@ -143,29 +139,21 @@ class NapCatAPIMixin:
             params["message_seq"] = message_seq
         return await self._call("get_friend_msg_history", params)
 
-    async def forward_friend_single_msg(
-        self, message_id: int, user_id: int
-    ) -> APIResponse:
+    async def forward_friend_single_msg(self, message_id: int, user_id: int) -> APIResponse:
         return await self._call(
             "forward_friend_single_msg", {"message_id": message_id, "user_id": user_id}
         )
 
-    async def forward_group_single_msg(
-        self, message_id: int, group_id: int
-    ) -> APIResponse:
+    async def forward_group_single_msg(self, message_id: int, group_id: int) -> APIResponse:
         return await self._call(
             "forward_group_single_msg", {"message_id": message_id, "group_id": group_id}
         )
 
     async def set_friend_remark(self, user_id: int, remark: str) -> APIResponse:
-        return await self._call(
-            "set_friend_remark", {"user_id": user_id, "remark": remark}
-        )
+        return await self._call("set_friend_remark", {"user_id": user_id, "remark": remark})
 
     async def set_group_remark(self, group_id: int, remark: str) -> APIResponse:
-        return await self._call(
-            "set_group_remark", {"group_id": group_id, "remark": remark}
-        )
+        return await self._call("set_group_remark", {"group_id": group_id, "remark": remark})
 
     async def set_group_sign(self, group_id: int) -> APIResponse:
         return await self._call("set_group_sign", {"group_id": group_id})
@@ -175,4 +163,3 @@ class NapCatAPIMixin:
 
     async def bot_exit(self) -> APIResponse:
         return await self._call("bot_exit", {})
-

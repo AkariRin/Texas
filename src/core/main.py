@@ -121,7 +121,6 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     # 注入管理 API 提供者
     set_scanner_provider(lambda: scanner.controllers)
 
-
     logger.info(
         "Texas Bot Framework started — waiting for NapCat connections on /ws/onebot",
         host=settings.HOST,
@@ -184,4 +183,3 @@ if __name__ == "__main__":
         reload=True,
         reload_dirs=["src"],
     )
-

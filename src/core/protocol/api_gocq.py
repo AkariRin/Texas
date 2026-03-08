@@ -10,7 +10,6 @@ if TYPE_CHECKING:
     from src.core.protocol.models.api import APIResponse
 
 
-
 class GoCQHTTPAPIMixin:
     """提供 go-cqhttp 兼容扩展 API 的混入类。
 
