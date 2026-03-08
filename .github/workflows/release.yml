@@ -75,7 +75,8 @@ jobs:
 
       - name: Update Helm chart version
         run: |
-          VERSION="${{ github.event.workflow_run.head_branch }#v}"
+          VERSION="${{ github.event.workflow_run.head_branch }}"
+          VERSION="${VERSION#v}"
           sed -i "s/^version:.*/version: ${VERSION}/" deploy/helm/texas/Chart.yaml
           sed -i "s/^appVersion:.*/appVersion: \"${VERSION}\"/" deploy/helm/texas/Chart.yaml
 
