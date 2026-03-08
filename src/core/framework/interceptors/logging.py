@@ -21,7 +21,7 @@ class LoggingInterceptor(HandlerInterceptor):
     async def pre_handle(self, ctx: Context) -> bool:
         ctx.set_attribute(_CTX_KEY_START_TIME, time.monotonic())
         logger.debug(
-            "Processing event",
+            "正在处理事件",
             post_type=ctx.event.post_type,
             user_id=ctx.user_id,
             group_id=ctx.group_id,
@@ -39,15 +39,15 @@ class LoggingInterceptor(HandlerInterceptor):
 
         if exc:
             logger.error(
-                "Event processing failed",
+                "事件处理失败",
                 handler=handler_name,
                 duration_ms=duration_ms,
                 error=str(exc),
                 event_type="interceptor.logging.error",
             )
         else:
-            logger.info(
-                "Event processed",
+            logger.debug(
+                "事件处理完成",
                 handler=handler_name,
                 duration_ms=duration_ms,
                 post_type=ctx.event.post_type,

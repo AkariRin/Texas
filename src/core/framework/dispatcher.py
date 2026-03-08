@@ -38,7 +38,7 @@ class EventDispatcher:
             for interceptor in self.interceptors:
                 if not await interceptor.pre_handle(ctx):
                     logger.debug(
-                        "Interceptor blocked event",
+                        "拦截器已阻断事件",
                         interceptor=type(interceptor).__name__,
                         event_type="dispatcher.interceptor_blocked",
                     )
@@ -49,7 +49,7 @@ class EventDispatcher:
 
             if not handlers:
                 logger.debug(
-                    "No handler matched",
+                    "未找到匹配的处理器",
                     post_type=event.post_type,
                     event_type="dispatcher.no_match",
                 )
@@ -80,7 +80,7 @@ class EventDispatcher:
         except Exception as e:
             exc = e
             logger.error(
-                "Error during event dispatch",
+                "事件分发过程中发生错误",
                 error=str(e),
                 event_type="dispatcher.error",
                 exc_info=True,
@@ -92,7 +92,7 @@ class EventDispatcher:
                     await interceptor.after_completion(ctx, exc=exc)
                 except Exception as cleanup_exc:
                     logger.error(
-                        "Error in interceptor after_completion",
+                        "拦截器 after_completion 中发生错误",
                         interceptor=type(interceptor).__name__,
                         error=str(cleanup_exc),
                         event_type="dispatcher.cleanup_error",

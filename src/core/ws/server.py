@@ -52,7 +52,7 @@ def _check_token(token_param: str | None, headers: dict[str, str]) -> bool:
     return bool(auth.startswith("Bearer ") and auth[7:] == _access_token)
 
 
-@ws_router.websocket("/onebot")
+@ws_router.websocket("")
 async def onebot_ws_endpoint(
     ws: WebSocket,
     access_token: str | None = Query(default=None),
@@ -66,7 +66,7 @@ async def onebot_ws_endpoint(
     headers = {k.decode(): v.decode() for k, v in ws.scope.get("headers", [])}
     if not _check_token(access_token, headers):
         logger.critical(
-            "WebSocket connection rejected: invalid access token",
+            "WebSocket 连接已拒绝：访问令牌无效",
             event_type="ws.auth_failed",
         )
         await ws.close(code=4001, reason="Unauthorized")
@@ -83,7 +83,7 @@ async def onebot_ws_endpoint(
         background_tasks.discard(task)
         if not task.cancelled() and task.exception():
             logger.error(
-                "Background event handler error",
+                "后台事件处理器发生错误",
                 error=str(task.exception()),
                 conn_id=conn_id,
                 event_type="ws.handler_error",
@@ -95,7 +95,7 @@ async def onebot_ws_endpoint(
             try:
                 data = json.loads(raw)
             except json.JSONDecodeError:
-                logger.warning("Invalid JSON from NapCat", raw=raw[:200], event_type="ws.bad_json")
+                logger.warning("收到来自 NapCat 的无效 JSON", raw=raw[:200], event_type="ws.bad_json")
                 continue
 
             # 检查是否为 API 响应（含有 echo 字段且与挂起的调用匹配）
@@ -105,7 +105,7 @@ async def onebot_ws_endpoint(
             # 跳过迟到的 API 响应（超时后才到达的响应，不在 _pending 中但仍属于 API 响应）
             if "echo" in data and "post_type" not in data:
                 logger.debug(
-                    "Ignoring stale API response",
+                    "忽略已过期的 API 响应",
                     echo=data.get("echo"),
                     status=data.get("status"),
                     event_type="ws.stale_response",
@@ -117,7 +117,7 @@ async def onebot_ws_endpoint(
                 event = parse_event(data)
             except Exception as exc:
                 logger.warning(
-                    "Failed to parse event, skipping",
+                    "事件解析失败，已跳过",
                     error=str(exc),
                     data_keys=list(data.keys()),
                     conn_id=conn_id,
@@ -137,9 +137,9 @@ async def onebot_ws_endpoint(
             task.add_done_callback(_on_task_done)
 
     except WebSocketDisconnect:
-        logger.info("NapCat disconnected", conn_id=conn_id, event_type="ws.disconnected")
+        logger.info("NapCat 已断开连接", conn_id=conn_id, event_type="ws.disconnected")
     except Exception as exc:
-        logger.error("WebSocket error", error=str(exc), conn_id=conn_id, event_type="ws.error")
+        logger.error("WebSocket 发生错误", error=str(exc), conn_id=conn_id, event_type="ws.error")
     finally:
         # 取消尚未完成的后台任务
         for task in background_tasks:
@@ -166,4 +166,4 @@ async def _dispatch_event(event: object) -> None:
     if callback is not None:
         await callback(event)
     else:
-        logger.debug("No event dispatcher set, ignoring event", event_type="ws.no_dispatcher")
+        logger.debug("未设置事件分发器，已忽略事件", event_type="ws.no_dispatcher")

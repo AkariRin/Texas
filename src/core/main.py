@@ -93,7 +93,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     validate_settings(settings)
 
     logger.info(
-        "Starting Texas Bot Framework",
+        "Texas 正在启动",
         version="0.1.0",
         event_type="app.starting",
     )
@@ -103,7 +103,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     handlers_registered.set(composite_mapping.registered_count)
 
     logger.info(
-        "Handler scanning complete",
+        "处理器扫描完成",
         total_handlers=composite_mapping.registered_count,
         controllers=len(scanner.controllers),
         event_type="app.scan_complete",
@@ -121,8 +121,18 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     # 注入管理 API 提供者
     set_scanner_provider(lambda: scanner.controllers)
 
+    # 以 debug 等级逐行打印所有已加载的路由
+    all_routes = list(app.routes)
+    logger.debug(f"已加载 {len(all_routes)} 个后端路由", event_type="app.routes_loaded")
+    for route in all_routes:
+        path = getattr(route, "path", "")
+        methods = sorted(getattr(route, "methods", None) or [])
+        name = getattr(route, "name", "")
+        methods_str = ",".join(methods) if methods else "-"
+        logger.debug(f":: {methods_str:<12} {path}  ({name})", event_type="app.route")
+
     logger.info(
-        "Texas Bot Framework started — waiting for NapCat connections on /ws/onebot",
+        "Texas 已启动，等待 NapCat 连接",
         host=settings.HOST,
         port=settings.PORT,
         event_type="app.started",
@@ -132,20 +142,27 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
 
     # ── 关闭 ──
     heartbeat.stop()
-    logger.info("Texas Bot Framework stopped", event_type="app.stopped")
+    logger.info("Texas 已停止", event_type="app.stopped")
 
 
 # ── 创建 FastAPI 应用 ──
 
+_docs_url = None if settings.is_production else "/docs"
+_redoc_url = None if settings.is_production else "/redoc"
+_openapi_url = None if settings.is_production else "/openapi.json"
+
 app = FastAPI(
-    title="Texas Bot Framework",
+    title="Texas",
     version="0.1.0",
     description="基于 NapCat / OneBot 11 的 QQ 机器人框架",
     lifespan=lifespan,
+    docs_url=_docs_url,
+    redoc_url=_redoc_url,
+    openapi_url=_openapi_url,
 )
 
 # 1. 管理 API (/api/v1)
-app.include_router(api_router, prefix="/api/v1")
+app.include_router(api_router, prefix="/api")
 
 # 2. NapCat WebSocket 端点 (/ws)
 app.include_router(ws_router, prefix="/ws")

@@ -1,4 +1,4 @@
-"""后端管理 API 路由 —— /api/v1。"""
+"""后端管理 API 路由 —— /api。"""
 
 from __future__ import annotations
 

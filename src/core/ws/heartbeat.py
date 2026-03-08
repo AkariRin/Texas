@@ -29,7 +29,7 @@ class HeartbeatMonitor:
     def record_heartbeat(self, status: dict[str, object] | None = None) -> None:
         self._last_heartbeat = time.time()
         logger.debug(
-            "Heartbeat received",
+            "已收到心跳",
             status=status,
             event_type="ws.heartbeat",
         )
@@ -55,7 +55,7 @@ class HeartbeatMonitor:
             elapsed = time.time() - self._last_heartbeat
             if elapsed > timeout_s:
                 logger.warning(
-                    "Heartbeat timeout — no heartbeat received",
+                    "心跳超时 —— 未收到心跳包",
                     elapsed_s=round(elapsed, 1),
                     timeout_s=timeout_s,
                     event_type="ws.heartbeat_timeout",

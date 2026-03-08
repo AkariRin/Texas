@@ -57,12 +57,20 @@ class Settings(BaseSettings):
     HOST: str = "0.0.0.0"
     PORT: int = 8000
 
+    # 运行环境：development | production
+    ENV: str = "development"
+
+    @property
+    def is_production(self) -> bool:
+        """是否处于生产环境。"""
+        return self.ENV.lower() == "production"
+
 
 def validate_settings(settings: Settings) -> None:
     """验证关键配置项。若 NAPCAT_ACCESS_TOKEN 为空则退出。"""
     if not settings.NAPCAT_ACCESS_TOKEN:
         logger.critical(
-            "NAPCAT_ACCESS_TOKEN is empty! Critical security risk. Refusing to start.",
+            "NAPCAT_ACCESS_TOKEN 为空！存在严重安全风险，拒绝启动。",
             event_type="security.token_missing",
         )
         sys.exit(1)

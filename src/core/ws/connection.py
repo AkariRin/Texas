@@ -31,7 +31,7 @@ class ConnectionManager:
         await ws.accept()
         self._connections[conn_id] = ws
         logger.info(
-            "NapCat WebSocket connected",
+            "NapCat WebSocket 已连接",
             conn_id=conn_id,
             total=len(self._connections),
             event_type="ws.connected",
@@ -40,7 +40,7 @@ class ConnectionManager:
     def disconnect(self, conn_id: str) -> None:
         self._connections.pop(conn_id, None)
         logger.info(
-            "NapCat WebSocket disconnected",
+            "NapCat WebSocket 已断开",
             conn_id=conn_id,
             total=len(self._connections),
             event_type="ws.disconnected",
@@ -56,7 +56,7 @@ class ConnectionManager:
         for ws in self._connections.values():
             await ws.send_text(text)
             return
-        logger.warning("No active WS connections to send to", event_type="ws.no_connection")
+        logger.warning("当前无活跃的 WS 连接可供发送", event_type="ws.no_connection")
 
     def get_connections(self) -> list[str]:
         return list(self._connections.keys())

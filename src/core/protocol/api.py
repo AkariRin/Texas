@@ -42,7 +42,7 @@ class BotAPI:
             await self._conn.send(req.model_dump())
             return await asyncio.wait_for(future, timeout=timeout)
         except TimeoutError:
-            logger.warning("API call timeout", action=action, echo=echo, timeout=timeout)
+            logger.warning("API 调用超时", action=action, echo=echo, timeout=timeout)
             return APIResponse(status="failed", retcode=-1, message="timeout", echo=echo)
         finally:
             self._pending.pop(echo, None)

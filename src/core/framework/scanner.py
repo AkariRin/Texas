@@ -38,7 +38,7 @@ class ComponentScanner:
             package = importlib.import_module(package_name)
         except ModuleNotFoundError:
             logger.warning(
-                "Package not found for scanning",
+                "扫描目标包未找到",
                 package=package_name,
                 event_type="scanner.package_not_found",
             )
@@ -54,7 +54,7 @@ class ComponentScanner:
                     importlib.import_module(module_name)
                 except Exception as exc:
                     logger.warning(
-                        "Failed to import module",
+                        "模块导入失败",
                         module=module_name,
                         error=str(exc),
                         event_type="scanner.import_error",
@@ -138,7 +138,7 @@ class ComponentScanner:
         self._controllers.append(ctrl_info)
 
         logger.info(
-            "Registered controller",
+            "控制器注册成功",
             controller=controller_name,
             handler_count=handler_count,
             event_type="scanner.controller_registered",
