@@ -1,0 +1,223 @@
+"""启动时数据库连接检查与 Alembic 迁移管理。
+
+行为类似 Hibernate 的 auto-DDL：
+  - 开发环境：自动检测模型差异 → autogenerate 迁移脚本 → upgrade head
+  - 生产环境：检测到未应用迁移或模型漂移 → CRITICAL 日志 → sys.exit(1)
+"""
+
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+from typing import TYPE_CHECKING
+
+import structlog
+from alembic import command
+from alembic.autogenerate import compare_metadata
+from alembic.config import Config
+from alembic.migration import MigrationContext
+from alembic.script import ScriptDirectory
+from sqlalchemy import text
+
+# ── 确保 Base.metadata 包含所有模型 ──
+import src.models  # noqa: F401
+from src.core.db.base import Base
+
+if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncEngine
+
+    from src.core.config import Settings
+
+logger = structlog.get_logger()
+
+# 项目根目录（alembic.ini 所在位置）
+_PROJECT_ROOT = Path(__file__).resolve().parents[3]
+
+
+def _build_alembic_config(db_url: str) -> Config:
+    """构建 Alembic Config 并注入数据库连接字符串。"""
+    ini_path = _PROJECT_ROOT / "alembic.ini"
+    cfg = Config(str(ini_path))
+    # 将 asyncpg URL 转为同步 psycopg URL 供 Alembic CLI 使用
+    sync_url = db_url.replace("+asyncpg", "+psycopg")
+    cfg.set_main_option("sqlalchemy.url", sync_url)
+    return cfg
+
+
+# ─────────────────────────── 连接检查 ───────────────────────────
+
+
+async def _check_connection(engine: AsyncEngine) -> None:
+    """尝试连接数据库，失败则 CRITICAL 日志并退出。"""
+    try:
+        async with engine.connect() as conn:
+            await conn.execute(text("SELECT 1"))
+        logger.info("数据库连接检查通过", event_type="db.connection_ok")
+    except Exception as exc:
+        logger.critical(
+            "无法连接数据库，拒绝启动",
+            error=str(exc),
+            event_type="db.connection_failed",
+        )
+        sys.exit(1)
+
+
+# ─────────────────────── 迁移状态检测 ───────────────────────
+
+
+async def _get_current_revision(engine: AsyncEngine) -> str | None:
+    """获取数据库当前的 Alembic revision。"""
+
+    def _inspect(connection):  # type: ignore[no-untyped-def]
+        ctx = MigrationContext.configure(connection)
+        return ctx.get_current_revision()
+
+    async with engine.connect() as conn:
+        return await conn.run_sync(_inspect)
+
+
+def _get_head_revision(alembic_cfg: Config) -> str | None:
+    """获取迁移脚本目录中的 head revision。"""
+    script = ScriptDirectory.from_config(alembic_cfg)
+    heads = script.get_heads()
+    return heads[0] if heads else None
+
+
+async def _detect_schema_diff(engine: AsyncEngine) -> list:
+    """使用 autogenerate 比对 ORM 模型与数据库表结构差异。"""
+
+    def _compare(connection):  # type: ignore[no-untyped-def]
+        ctx = MigrationContext.configure(connection)
+        return compare_metadata(ctx, Base.metadata)
+
+    async with engine.connect() as conn:
+        return await conn.run_sync(_compare)
+
+
+# ─────────────────────── 迁移执行（开发环境） ───────────────────────
+
+
+def _autogenerate_revision(alembic_cfg: Config, message: str = "auto") -> None:
+    """调用 Alembic autogenerate 生成新迁移脚本。"""
+    command.revision(alembic_cfg, message=message, autogenerate=True)
+
+
+def _upgrade_head(alembic_cfg: Config) -> None:
+    """执行 alembic upgrade head。"""
+    command.upgrade(alembic_cfg, "head")
+
+
+def _ensure_initial_stamp(alembic_cfg: Config, engine_url: str) -> None:
+    """若数据库无 alembic_version 表但已有迁移脚本，执行 stamp head。"""
+    command.stamp(alembic_cfg, "head")
+
+
+# ─────────────────────── 主入口 ───────────────────────
+
+
+async def run_startup_db_check(engine: AsyncEngine, settings: Settings) -> None:
+    """应用启动时的数据库检查与迁移管理入口。
+
+    开发环境：自动生成迁移 + 升级
+    生产环境：检测到差异则阻止启动
+    """
+    # 1. 连接检查
+    await _check_connection(engine)
+
+    alembic_cfg = _build_alembic_config(settings.DATABASE_URL)
+    head_rev = _get_head_revision(alembic_cfg)
+    current_rev = await _get_current_revision(engine)
+
+    logger.info(
+        "Alembic 迁移状态",
+        current_revision=current_rev,
+        head_revision=head_rev,
+        event_type="db.migration_status",
+    )
+
+    if settings.is_production:
+        await _handle_production(engine, alembic_cfg, current_rev, head_rev)
+    else:
+        await _handle_development(engine, alembic_cfg, current_rev, head_rev)
+
+
+async def _handle_production(
+    engine: AsyncEngine,
+    alembic_cfg: Config,
+    current_rev: str | None,
+    head_rev: str | None,
+) -> None:
+    """生产环境：检测到未应用迁移或模型漂移 → 强制终止启动。"""
+    has_error = False
+
+    # 检查是否存在未应用的迁移脚本
+    if head_rev and current_rev != head_rev:
+        logger.critical(
+            "生产环境检测到未应用的数据库迁移，拒绝启动！请先手动执行: alembic upgrade head",
+            current_revision=current_rev,
+            head_revision=head_rev,
+            event_type="db.migration_pending",
+        )
+        has_error = True
+
+    # 检查 ORM 模型是否与数据库表结构一致
+    diff = await _detect_schema_diff(engine)
+    if diff:
+        diff_summary = [str(d) for d in diff]
+        logger.critical(
+            "生产环境检测到 ORM 模型与数据库表结构不一致，拒绝启动！"
+            "请在开发环境生成迁移脚本后部署: alembic revision --autogenerate",
+            diff_count=len(diff),
+            diff_details=diff_summary,
+            event_type="db.schema_drift",
+        )
+        has_error = True
+
+    if has_error:
+        sys.exit(1)
+
+    logger.info("生产环境数据库检查通过", event_type="db.production_check_ok")
+
+
+async def _handle_development(
+    engine: AsyncEngine,
+    alembic_cfg: Config,
+    current_rev: str | None,
+    head_rev: str | None,
+) -> None:
+    """开发环境：自动检测差异 → 生成迁移脚本 → 升级到最新。"""
+
+    # 1. 检测模型与表结构差异
+    diff = await _detect_schema_diff(engine)
+
+    if diff:
+        diff_summary = [str(d) for d in diff]
+        logger.info(
+            "检测到 ORM 模型变更，自动生成迁移脚本",
+            diff_count=len(diff),
+            diff_details=diff_summary,
+            event_type="db.autogenerate",
+        )
+        _autogenerate_revision(alembic_cfg, message="auto")
+        # 重新获取 head（刚生成了新脚本）
+        head_rev = _get_head_revision(alembic_cfg)
+
+    # 2. 升级到最新
+    current_rev = await _get_current_revision(engine)
+    if head_rev and current_rev != head_rev:
+        logger.info(
+            "执行数据库迁移 upgrade head",
+            current_revision=current_rev,
+            target_revision=head_rev,
+            event_type="db.upgrade",
+        )
+        _upgrade_head(alembic_cfg)
+        logger.info("数据库迁移完成", event_type="db.upgrade_done")
+    elif head_rev is None and current_rev is None:
+        # 全新项目，无任何迁移脚本，也无表 → 跳过（等待首次 autogenerate）
+        logger.info(
+            "未检测到迁移脚本和数据库版本，跳过迁移",
+            event_type="db.no_migrations",
+        )
+    else:
+        logger.info("数据库已是最新版本", event_type="db.up_to_date")

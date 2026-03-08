@@ -2,13 +2,10 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from datetime import datetime  # noqa: TC003 — SQLAlchemy 运行时需要解析 Mapped[datetime]
 
 from sqlalchemy import func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
-
-if TYPE_CHECKING:
-    from datetime import datetime
 
 
 class Base(DeclarativeBase):

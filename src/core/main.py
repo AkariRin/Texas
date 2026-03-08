@@ -18,6 +18,8 @@ from starlette.responses import Response
 from src.api.handlers import set_scanner_provider
 from src.api.router import api_router
 from src.core.config import Settings, validate_settings
+from src.core.db.engine import create_engine as create_db_engine
+from src.core.db.migration import run_startup_db_check
 from src.core.framework.dispatcher import EventDispatcher
 from src.core.framework.interceptors.logging import LoggingInterceptor
 from src.core.framework.interceptors.metrics import MetricsInterceptor
@@ -32,7 +34,10 @@ from src.core.framework.mapping import (
     StartsWithHandlerMapping,
 )
 from src.core.framework.scanner import ComponentScanner
-from src.core.logging.setup import setup_logging
+from src.core.logging.setup import _bootstrap_root_logging, setup_logging
+
+# 尽早接管根 logger 和 uvicorn logger，确保 uvicorn 启动阶段的日志也经过 structlog
+_bootstrap_root_logging()
 from src.core.monitoring.metrics import handlers_registered
 from src.core.protocol.api import BotAPI
 from src.core.ws.connection import ConnectionManager
@@ -98,6 +103,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
         event_type="app.starting",
     )
 
+    # 数据库连接检查 & Alembic 迁移管理
+    engine = create_db_engine(settings)
+    await run_startup_db_check(engine, settings)
+
     # 扫描并注册处理器
     scanner.scan(settings.HANDLER_SCAN_PACKAGES)
     handlers_registered.set(composite_mapping.registered_count)
@@ -141,6 +150,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     yield
 
     # ── 关闭 ──
+    await engine.dispose()
     heartbeat.stop()
     logger.info("Texas 已停止", event_type="app.stopped")
 
@@ -199,4 +209,5 @@ if __name__ == "__main__":
         port=settings.PORT,
         reload=True,
         reload_dirs=["src"],
+        log_config=None,   # 禁用 uvicorn 默认日志配置，由 structlog 统一接管
     )
