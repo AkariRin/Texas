@@ -110,11 +110,11 @@ def _parse_notice(data: dict[str, object]) -> OneBotEvent:
 
     if notice_type == "notify":
         sub_type = str(data.get("sub_type", ""))
-        cls = _NOTIFY_SUBTYPE_MAP.get(sub_type, NotifyEvent)
-        return cls.model_validate(data)
+        notify_cls = _NOTIFY_SUBTYPE_MAP.get(sub_type, NotifyEvent)
+        return notify_cls.model_validate(data)
 
-    cls = _NOTICE_MAP.get(notice_type, NoticeEvent)
-    return cls.model_validate(data)
+    notice_cls = _NOTICE_MAP.get(notice_type, NoticeEvent)
+    return notice_cls.model_validate(data)
 
 
 def _parse_request(data: dict[str, object]) -> OneBotEvent:

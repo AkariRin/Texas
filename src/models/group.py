@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from sqlalchemy import BigInteger, Boolean, String
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
@@ -15,4 +17,4 @@ class Group(Base):
     group_id: Mapped[int] = mapped_column(BigInteger, unique=True, index=True)
     group_name: Mapped[str | None] = mapped_column(String(128), nullable=True)
     is_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
-    config: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    config: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)

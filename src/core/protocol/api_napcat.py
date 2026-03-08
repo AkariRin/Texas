@@ -5,6 +5,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
+    from collections.abc import Callable, Coroutine
+
     from src.core.protocol.models.api import APIResponse
 
 
@@ -14,7 +16,7 @@ class NapCatAPIMixin:
     设计用于混入 BotAPI。实现在第 8 阶段。
     """
 
-    _call: Any  # 将指向 BotAPI._call 方法
+    _call: Callable[..., Coroutine[Any, Any, APIResponse]]
 
     async def friend_poke(
         self, user_id: int, target_id: int | None = None

@@ -4,13 +4,18 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import (
+    AsyncEngine,
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
 
 if TYPE_CHECKING:
     from src.core.config import Settings
 
 
-def create_engine(settings: Settings):  # noqa: ANN201
+def create_engine(settings: Settings) -> AsyncEngine:
     """Create an async engine with connection pooling."""
     return create_async_engine(
         settings.DATABASE_URL,
@@ -22,6 +27,6 @@ def create_engine(settings: Settings):  # noqa: ANN201
     )
 
 
-def create_session_factory(engine) -> async_sessionmaker[AsyncSession]:  # noqa: ANN001
+def create_session_factory(engine: AsyncEngine) -> async_sessionmaker[AsyncSession]:
     """Create a session factory bound to the engine."""
     return async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)

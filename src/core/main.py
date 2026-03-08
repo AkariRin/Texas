@@ -1,8 +1,10 @@
-"""FastAPI 应用入口 —— 组装并启动 Texas 框架。"""
+"""FastAPI 应用入口 —— 组装并启动 Texas 框架。
+
+开发环境运行: python -m src.core.main
+"""
 
 from __future__ import annotations
 
-import time
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -15,7 +17,6 @@ from starlette.responses import Response
 
 from src.api.handlers import set_scanner_provider
 from src.api.router import api_router
-from src.api.status import set_status_provider
 from src.core.config import Settings, validate_settings
 from src.core.framework.dispatcher import EventDispatcher
 from src.core.framework.interceptors.logging import LoggingInterceptor
@@ -82,13 +83,10 @@ dispatcher = EventDispatcher(mapping=composite_mapping, interceptors=interceptor
 # ── 组件扫描器 ──
 scanner = ComponentScanner(mapping=composite_mapping)
 
-_start_time: float = 0.0
-
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     """应用生命周期：启动与关闭逻辑。"""
-    global _start_time
 
     # ── 启动 ──
     setup_logging(log_level=settings.LOG_LEVEL, log_format=settings.LOG_FORMAT)
@@ -121,23 +119,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     set_event_dispatcher(_dispatch)
 
     # 注入管理 API 提供者
-    set_status_provider(
-        lambda: {
-            "code": 0,
-            "data": {
-                "status": "running",
-                "ws_connected": conn_mgr.connected,
-                "ws_connections": conn_mgr.connection_count,
-                "handlers_registered": composite_mapping.registered_count,
-                "controllers": len(scanner.controllers),
-                "uptime_seconds": round(time.time() - _start_time, 1),
-            },
-            "message": "ok",
-        }
-    )
     set_scanner_provider(lambda: scanner.controllers)
 
-    _start_time = time.time()
 
     logger.info(
         "Texas Bot Framework started — waiting for NapCat connections on /ws/onebot",
@@ -189,3 +172,16 @@ async def metrics() -> Response:
 frontend_dist = Path(settings.FRONTEND_DIST_DIR)
 if frontend_dist.exists():
     app.mount("/", StaticFiles(directory=frontend_dist, html=True), name="frontend")
+
+
+if __name__ == "__main__":
+    import uvicorn
+
+    uvicorn.run(
+        "src.core.main:app",
+        host=settings.HOST,
+        port=settings.PORT,
+        reload=True,
+        reload_dirs=["src"],
+    )
+

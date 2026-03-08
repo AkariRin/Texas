@@ -8,7 +8,7 @@ from fastapi import APIRouter
 
 router = APIRouter()
 
-# 将由 app.py 在启动时设置
+# 将由 main.py 在启动时设置
 _scanner_provider: Any = None
 
 

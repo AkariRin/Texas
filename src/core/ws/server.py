@@ -110,7 +110,7 @@ async def onebot_ws_endpoint(
             _heartbeat.stop()
 
 
-# 事件分发回调 —— 在框架初始化后由 app.py 设置
+# 事件分发回调 —— 在框架初始化后由 main.py 设置
 
 _event_dispatch_callback: Callable[[object], Awaitable[None]] | None = None
 

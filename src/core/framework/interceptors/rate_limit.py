@@ -9,6 +9,7 @@ import structlog
 from src.core.framework.interceptor import HandlerInterceptor
 
 if TYPE_CHECKING:
+    from src.core.cache.client import CacheClient
     from src.core.framework.context import Context
 
 logger = structlog.get_logger()
@@ -22,7 +23,7 @@ class RateLimitInterceptor(HandlerInterceptor):
 
     def __init__(
         self,
-        cache_client: object | None = None,
+        cache_client: CacheClient | None = None,
         max_requests: int = 10,
         window_seconds: int = 60,
     ) -> None:
@@ -41,9 +42,9 @@ class RateLimitInterceptor(HandlerInterceptor):
         key = f"texas:ratelimit:{user_id}"
 
         try:
-            count = await self._cache.incr(key)  # type: ignore[union-attr]
+            count = await self._cache.incr(key)
             if count == 1:
-                await self._cache.expire(key, self._window)  # type: ignore[union-attr]
+                await self._cache.expire(key, self._window)
 
             if count > self._max_requests:
                 logger.info(

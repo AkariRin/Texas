@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from sqlalchemy import BigInteger, String, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
@@ -17,6 +19,6 @@ class HandlerData(Base):
 
     handler_name: Mapped[str] = mapped_column(String(128), index=True)
     key: Mapped[str] = mapped_column(String(256))
-    value: Mapped[dict] = mapped_column(JSONB, default=dict)
+    value: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
     scope: Mapped[str] = mapped_column(String(16), default="global")  # global | group | user
     scope_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)

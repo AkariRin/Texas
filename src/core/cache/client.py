@@ -17,7 +17,7 @@ class CacheClient:
     """支持常用操作的异步 Redis 缓存客户端。"""
 
     def __init__(self, url: str, default_ttl: int = 300) -> None:
-        self._redis = aioredis.from_url(url, decode_responses=True)
+        self._redis = aioredis.from_url(url, decode_responses=True)  # type: ignore[no-untyped-call]
         self._default_ttl = default_ttl
 
     async def close(self) -> None:
@@ -29,7 +29,7 @@ class CacheClient:
             return None
         try:
             return json.loads(val)
-        except json.JSONDecodeError, TypeError:
+        except (json.JSONDecodeError, TypeError):
             return val
 
     async def set(self, key: str, value: Any, ttl: int | None = None) -> None:
@@ -45,7 +45,7 @@ class CacheClient:
         return bool(await self._redis.exists(key))
 
     async def incr(self, key: str) -> int:
-        return await self._redis.incr(key)
+        return int(await self._redis.incr(key))
 
     async def expire(self, key: str, ttl: int) -> None:
         await self._redis.expire(key, ttl)

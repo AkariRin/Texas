@@ -14,7 +14,6 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-dev --no-editable
 COPY src/ src/
-COPY main.py .
 
 # ── 阶段 3：运行时 ──
 FROM python:3.14-slim AS runtime
@@ -26,7 +25,6 @@ RUN groupadd -r texas && useradd -r -g texas texas
 # 复制后端文件
 COPY --from=backend-builder /build/.venv /app/.venv
 COPY --from=backend-builder /build/src /app/src
-COPY --from=backend-builder /build/main.py /app/main.py
 COPY --from=backend-builder /build/pyproject.toml /app/pyproject.toml
 
 # 复制前端构建产物
@@ -45,6 +43,6 @@ CMD if [ "$ROLE" = "worker" ]; then \
     elif [ "$ROLE" = "beat" ]; then \
       celery -A src.core.tasks.celery_app beat --loglevel=info; \
     else \
-      uvicorn src.core.app:app --host 0.0.0.0 --port 8000; \
+      uvicorn src.core.main:app --host 0.0.0.0 --port 8000; \
     fi
 
