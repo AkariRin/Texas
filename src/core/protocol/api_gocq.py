@@ -21,24 +21,30 @@ class GoCQHTTPAPIMixin:
     async def set_qq_profile(
         self,
         nickname: str,
-        company: str = "",
-        email: str = "",
-        college: str = "",
         personal_note: str = "",
+        sex: int | None = None,
     ) -> APIResponse:
-        return await self._call(
-            "set_qq_profile",
-            {
-                "nickname": nickname,
-                "company": company,
-                "email": email,
-                "college": college,
-                "personal_note": personal_note,
-            },
-        )
+        params: dict[str, Any] = {"nickname": nickname}
+        if personal_note:
+            params["personal_note"] = personal_note
+        if sex is not None:
+            params["sex"] = sex
+        return await self._call("set_qq_profile", params)
 
-    async def mark_msg_as_read(self, message_id: int) -> APIResponse:
-        return await self._call("mark_msg_as_read", {"message_id": message_id})
+    async def mark_msg_as_read(
+        self,
+        message_id: int | None = None,
+        user_id: int | None = None,
+        group_id: int | None = None,
+    ) -> APIResponse:
+        params: dict[str, Any] = {}
+        if message_id is not None:
+            params["message_id"] = message_id
+        if user_id is not None:
+            params["user_id"] = user_id
+        if group_id is not None:
+            params["group_id"] = group_id
+        return await self._call("mark_msg_as_read", params)
 
     async def send_group_forward_msg(
         self,
@@ -109,27 +115,31 @@ class GoCQHTTPAPIMixin:
     async def get_group_root_files(self, group_id: int) -> APIResponse:
         return await self._call("get_group_root_files", {"group_id": group_id})
 
-    async def get_group_file_url(self, group_id: int, file_id: str, busid: int) -> APIResponse:
-        return await self._call(
-            "get_group_file_url",
-            {
-                "group_id": group_id,
-                "file_id": file_id,
-                "busid": busid,
-            },
-        )
+    async def get_group_file_url(
+        self, group_id: int, file_id: str, busid: int | None = None
+    ) -> APIResponse:
+        params: dict[str, Any] = {"group_id": group_id, "file_id": file_id}
+        if busid is not None:
+            params["busid"] = busid
+        return await self._call("get_group_file_url", params)
 
     async def download_file(
-        self, url: str, thread_count: int = 1, headers: str = ""
+        self,
+        url: str = "",
+        base64: str = "",
+        name: str = "",
+        headers: str | list[str] = "",
     ) -> APIResponse:
-        return await self._call(
-            "download_file",
-            {
-                "url": url,
-                "thread_count": thread_count,
-                "headers": headers,
-            },
-        )
+        params: dict[str, Any] = {}
+        if url:
+            params["url"] = url
+        if base64:
+            params["base64"] = base64
+        if name:
+            params["name"] = name
+        if headers:
+            params["headers"] = headers
+        return await self._call("download_file", params)
 
     async def delete_friend(self, user_id: int) -> APIResponse:
         return await self._call("delete_friend", {"user_id": user_id})

@@ -155,7 +155,7 @@ class BotAPI:
         return await self._call("set_group_leave", {"group_id": group_id, "is_dismiss": is_dismiss})
 
     async def set_group_special_title(
-        self, group_id: int, user_id: int, special_title: str = "", duration: int = -1
+        self, group_id: int, user_id: int, special_title: str = ""
     ) -> APIResponse:
         return await self._call(
             "set_group_special_title",
@@ -163,7 +163,6 @@ class BotAPI:
                 "group_id": group_id,
                 "user_id": user_id,
                 "special_title": special_title,
-                "duration": duration,
             },
         )
 

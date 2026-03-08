@@ -211,6 +211,18 @@ class InputStatusNotify(NotifyEvent):
     event_type: int = 0
 
 
+class GrayTipNotify(NotifyEvent):
+    """群灰条消息通知（NapCat 扩展）。"""
+
+    sub_type: str = "gray_tip"
+    group_id: int | None = None
+    user_id: int = 0
+    message_id: int = 0
+    busi_id: str = ""
+    content: str = ""
+    raw_info: dict[str, object] | None = None
+
+
 class BotOfflineNotice(NoticeEvent):
     notice_type: str = "bot_offline"
     user_id: int = 0

@@ -11,6 +11,7 @@ from .models.events import (
     FriendAddNotice,
     FriendRecallNotice,
     FriendRequestEvent,
+    GrayTipNotify,
     GroupAdminNotice,
     GroupBanNotice,
     GroupCardNotice,
@@ -18,17 +19,21 @@ from .models.events import (
     GroupIncreaseNotice,
     GroupMessageEvent,
     GroupMsgEmojiLikeNotice,
+    GroupNameNotify,
     GroupRecallNotice,
     GroupRequestEvent,
     GroupUploadNotice,
     HeartbeatEvent,
+    InputStatusNotify,
     LifecycleEvent,
     MessageSentEvent,
     NoticeEvent,
     NotifyEvent,
     PokeNotify,
     PrivateMessageEvent,
+    ProfileLikeNotify,
     RequestEvent,
+    TitleNotify,
 )
 
 logger = structlog.get_logger()
@@ -51,6 +56,11 @@ _NOTICE_MAP: dict[str, type[NoticeEvent]] = {
 
 _NOTIFY_SUBTYPE_MAP: dict[str, type[NotifyEvent]] = {
     "poke": PokeNotify,
+    "group_name": GroupNameNotify,
+    "title": TitleNotify,
+    "profile_like": ProfileLikeNotify,
+    "input_status": InputStatusNotify,
+    "gray_tip": GrayTipNotify,
 }
 
 

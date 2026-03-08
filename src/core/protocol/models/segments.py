@@ -112,6 +112,7 @@ class MusicData(SegmentData):
     image: str | None = None
     singer: str | None = None
     title: str | None = None
+    content: str | None = None
 
 
 class NodeData(SegmentData):
