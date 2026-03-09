@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import structlog
-from celery.app.control import Inspect
 from fastapi import APIRouter
+
+if TYPE_CHECKING:
+    from celery.app.control import Inspect
 
 from src.core.tasks.celery_app import celery_app
 
@@ -152,4 +154,3 @@ async def get_queue_length() -> dict[str, Any]:
     except Exception as exc:
         logger.warning("获取队列长度失败", error=str(exc), event_type="queue.broker_error")
         return {"code": -1, "data": {"queue": "celery", "length": None}, "message": str(exc)}
-

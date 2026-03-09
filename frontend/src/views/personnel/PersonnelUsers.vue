@@ -1,4 +1,5 @@
 <template>
+  <v-container fluid>
   <v-card flat>
     <v-card-title class="d-flex align-center flex-wrap ga-2">
       <v-icon start>mdi-account-group</v-icon>
@@ -89,6 +90,7 @@
 
   <!-- 用户详情弹窗 -->
   <user-detail-dialog v-model="detailDialog" :qq="detailQQ" />
+  </v-container>
 </template>
 
 <script setup lang="ts">

@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import asyncio
-from typing import Any, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar
 
 import structlog
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
+
+if TYPE_CHECKING:
+    from src.core.personnel.service import PersonnelService
 
 logger = structlog.get_logger()
 
@@ -70,7 +73,6 @@ class AdminActionRequest(BaseModel):
 
 # ── 依赖注入 ──
 
-from src.core.personnel.service import PersonnelService  # noqa: E402
 
 _personnel_service: PersonnelService | None = None
 _sync_trigger_callback: Any = None  # 主进程同步触发回调

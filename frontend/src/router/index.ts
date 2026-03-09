@@ -10,8 +10,27 @@ const router = createRouter({
     },
     {
       path: '/personnel',
-      name: 'personnel',
-      component: () => import('@/views/personnel/PersonnelIndex.vue'),
+      redirect: '/personnel/users',
+    },
+    {
+      path: '/personnel/users',
+      name: 'personnel-users',
+      component: () => import('@/views/personnel/PersonnelUsers.vue'),
+    },
+    {
+      path: '/personnel/groups',
+      name: 'personnel-groups',
+      component: () => import('@/views/personnel/PersonnelGroups.vue'),
+    },
+    {
+      path: '/personnel/admins',
+      name: 'personnel-admins',
+      component: () => import('@/views/personnel/PersonnelAdmins.vue'),
+    },
+    {
+      path: '/personnel/sync',
+      name: 'personnel-sync',
+      component: () => import('@/views/personnel/PersonnelSync.vue'),
     },
     {
       path: '/queue',

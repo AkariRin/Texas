@@ -1,4 +1,5 @@
 <template>
+  <v-container fluid>
   <v-card flat>
     <v-card-title class="d-flex align-center ga-2">
       <v-icon start>mdi-shield-account</v-icon>
@@ -38,7 +39,7 @@
             {{ admin.nickname || '未知用户' }}
           </v-list-item-title>
           <v-list-item-subtitle>
-            QQ: {{ admin.qq }} · 所属群数: {{ admin.group_count }}
+            QQ: {{ admin.qq }}
           </v-list-item-subtitle>
 
           <template #append>
@@ -116,6 +117,7 @@
       {{ snackText }}
     </v-snackbar>
   </v-card>
+  </v-container>
 </template>
 
 <script setup lang="ts">

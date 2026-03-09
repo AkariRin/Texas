@@ -44,12 +44,12 @@ from src.core.monitoring.metrics import handlers_registered  # noqa: E402
 from src.core.protocol.api import BotAPI  # noqa: E402
 from src.core.ws.connection import ConnectionManager  # noqa: E402
 from src.core.ws.heartbeat import HeartbeatMonitor  # noqa: E402
-from src.core.ws.server import (
+from src.core.ws.server import (  # noqa: E402
     set_event_dispatcher,
     set_personnel_sync_callback,
     set_ws_dependencies,
     ws_router,
-)  # noqa: E402
+)
 
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator
@@ -106,6 +106,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
 
     # 安装日志 SSE 广播 handler
     from src.api.logs import install_log_broadcast
+
     install_log_broadcast()
 
     logger.info(

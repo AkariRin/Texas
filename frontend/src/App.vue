@@ -66,8 +66,8 @@
       </v-menu>
     </v-app-bar>
     <v-navigation-drawer :rail="rail" permanent class="nav-drawer">
+      <!-- 仪表盘 -->
       <v-list density="compact" nav class="nav-list">
-        <v-list-subheader v-if="!rail" class="nav-subheader">主菜单</v-list-subheader>
         <v-list-item
           prepend-icon="mdi-view-dashboard"
           title="仪表盘"
@@ -76,14 +76,48 @@
           rounded="lg"
           class="nav-item"
         ></v-list-item>
+      </v-list>
+
+      <!-- 用户与群聊 -->
+      <v-list density="compact" nav class="nav-list">
+        <v-list-subheader v-if="!rail" class="nav-subheader">用户与群聊</v-list-subheader>
         <v-list-item
-          prepend-icon="mdi-account-supervisor"
-          title="人事管理"
-          value="personnel"
-          to="/personnel"
+          prepend-icon="mdi-account-group"
+          title="用户管理"
+          value="personnel-users"
+          to="/personnel/users"
           rounded="lg"
           class="nav-item"
         ></v-list-item>
+        <v-list-item
+          prepend-icon="mdi-forum"
+          title="群聊管理"
+          value="personnel-groups"
+          to="/personnel/groups"
+          rounded="lg"
+          class="nav-item"
+        ></v-list-item>
+        <v-list-item
+          prepend-icon="mdi-shield-account"
+          title="管理员"
+          value="personnel-admins"
+          to="/personnel/admins"
+          rounded="lg"
+          class="nav-item"
+        ></v-list-item>
+        <v-list-item
+          prepend-icon="mdi-sync"
+          title="数据同步"
+          value="personnel-sync"
+          to="/personnel/sync"
+          rounded="lg"
+          class="nav-item"
+        ></v-list-item>
+      </v-list>
+
+      <!-- 系统 -->
+      <v-list density="compact" nav class="nav-list">
+        <v-list-subheader v-if="!rail" class="nav-subheader">系统</v-list-subheader>
         <v-list-item
           prepend-icon="mdi-tray-full"
           title="任务队列"

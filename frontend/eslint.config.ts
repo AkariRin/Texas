@@ -20,6 +20,13 @@ export default defineConfigWithVueTs(
   ...pluginVue.configs['flat/essential'],
   vueTsConfigs.recommended,
 
+  {
+    name: 'app/vuetify-overrides',
+    rules: {
+      'vue/valid-v-slot': ['error', { allowModifiers: true }],
+    },
+  },
+
   ...pluginOxlint.buildFromOxlintConfigFile('.oxlintrc.json'),
 
   skipFormatting,

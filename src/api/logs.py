@@ -6,6 +6,7 @@ import asyncio
 import json
 import logging
 import re
+from datetime import UTC
 from typing import Any
 
 from fastapi import APIRouter, Query
@@ -58,9 +59,9 @@ class _BroadcastHandler(logging.Handler):
 
     @staticmethod
     def format_time(record: logging.LogRecord) -> str:
-        from datetime import datetime, timezone
+        from datetime import datetime
 
-        dt = datetime.fromtimestamp(record.created, tz=timezone.utc)
+        dt = datetime.fromtimestamp(record.created, tz=UTC)
         return dt.strftime("%Y-%m-%dT%H:%M:%S.") + f"{int(record.msecs):03d}Z"
 
 
@@ -116,4 +117,3 @@ async def stream_logs(
             "X-Accel-Buffering": "no",
         },
     )
-

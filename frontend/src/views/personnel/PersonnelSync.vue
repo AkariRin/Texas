@@ -1,4 +1,5 @@
 <template>
+  <v-container fluid>
   <v-card flat>
     <v-card-title class="d-flex align-center ga-2">
       <v-icon start>mdi-sync</v-icon>
@@ -107,6 +108,7 @@
       {{ snackText }}
     </v-snackbar>
   </v-card>
+  </v-container>
 </template>
 
 <script setup lang="ts">
