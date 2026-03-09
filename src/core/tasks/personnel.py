@@ -113,4 +113,3 @@ def schedule_personnel_sync() -> dict[str, str]:
             "定时同步触发失败", error=str(exc), event_type="personnel.schedule_trigger_error"
         )
         return {"status": "error", "error": str(exc)}
-

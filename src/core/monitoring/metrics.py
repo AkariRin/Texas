@@ -75,4 +75,3 @@ personnel_api_errors = Counter(
     "Personnel sync API call failures",
     ["action"],
 )
-

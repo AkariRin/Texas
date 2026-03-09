@@ -48,4 +48,3 @@ async def bot_info() -> dict[str, Any]:
         },
         "message": "ok",
     }
-

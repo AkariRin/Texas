@@ -104,9 +104,7 @@ async def onebot_ws_endpoint(
 
     # ── 触发首次人事数据同步 ──
     if _personnel_sync_callback is not None:
-        _sync_task: asyncio.Task[None] = asyncio.create_task(
-            _personnel_sync_callback()
-        )
+        _sync_task: asyncio.Task[None] = asyncio.create_task(_personnel_sync_callback())
         background_tasks.add(_sync_task)
         _sync_task.add_done_callback(_on_task_done)
 

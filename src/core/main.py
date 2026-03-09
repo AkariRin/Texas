@@ -44,7 +44,12 @@ from src.core.monitoring.metrics import handlers_registered  # noqa: E402
 from src.core.protocol.api import BotAPI  # noqa: E402
 from src.core.ws.connection import ConnectionManager  # noqa: E402
 from src.core.ws.heartbeat import HeartbeatMonitor  # noqa: E402
-from src.core.ws.server import set_event_dispatcher, set_personnel_sync_callback, set_ws_dependencies, ws_router  # noqa: E402
+from src.core.ws.server import (
+    set_event_dispatcher,
+    set_personnel_sync_callback,
+    set_ws_dependencies,
+    ws_router,
+)  # noqa: E402
 
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator
@@ -183,9 +188,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
             if groups_data and isinstance(groups_data, list):
                 for group in groups_data:
                     if not conn_mgr.connected:
-                        logger.warning(
-                            "同步中途连接断开", event_type="personnel.sync_interrupted"
-                        )
+                        logger.warning("同步中途连接断开", event_type="personnel.sync_interrupted")
                         break
 
                     group_id = group.get("group_id") if isinstance(group, dict) else None

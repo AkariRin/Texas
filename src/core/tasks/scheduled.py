@@ -15,4 +15,3 @@ celery_app.conf.beat_schedule = {
         "options": {"expires": settings.PERSONNEL_SYNC_INTERVAL - 60},
     },
 }
-

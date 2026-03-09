@@ -99,4 +99,3 @@ class GroupMembership(Base):
     # 关联
     user: Mapped["User"] = relationship(back_populates="memberships")
     group: Mapped["Group"] = relationship(back_populates="memberships")
-

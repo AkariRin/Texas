@@ -3,4 +3,3 @@
 from src.core.personnel.models import Group, GroupMembership, User
 
 __all__ = ["Group", "GroupMembership", "User"]
-

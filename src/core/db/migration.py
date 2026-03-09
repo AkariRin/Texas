@@ -101,7 +101,7 @@ def _revision_exists(alembic_cfg: Config, rev_id: str) -> bool:
     try:
         script.get_revision(rev_id)
         return True
-    except (CommandError, Exception):
+    except CommandError, Exception:
         return False
 
 
@@ -146,7 +146,6 @@ async def run_startup_db_check(engine: AsyncEngine, settings: Settings) -> None:
     alembic_cfg = _build_alembic_config(settings.DATABASE_URL)
     head_rev = _get_head_revision(alembic_cfg)
     current_rev = await _get_current_revision(engine)
-
 
     if settings.is_production:
         await _handle_production(engine, alembic_cfg, current_rev, head_rev)

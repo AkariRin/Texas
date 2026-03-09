@@ -142,4 +142,3 @@ class PersonnelEventHandler:
                 event_type="personnel.handler_error",
             )
         return False
-

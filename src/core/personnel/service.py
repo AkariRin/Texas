@@ -284,14 +284,10 @@ class PersonnelService:
             .values(is_active=False)
         )
 
-    async def recalculate_relations(
-        self, session: AsyncSession, friend_qq_set: set[int]
-    ) -> None:
+    async def recalculate_relations(self, session: AsyncSession, friend_qq_set: set[int]) -> None:
         """重算所有非 admin 用户的 relation 字段。"""
         # 查询所有非 admin 用户
-        result = await session.execute(
-            select(User).where(User.relation != "admin")
-        )
+        result = await session.execute(select(User).where(User.relation != "admin"))
         users = result.scalars().all()
 
         for user in users:
@@ -545,9 +541,7 @@ class PersonnelService:
             event_type="personnel.group_admin_change",
         )
 
-    async def on_group_card_change(
-        self, group_id: int, user_id: int, card_new: str
-    ) -> None:
+    async def on_group_card_change(self, group_id: int, user_id: int, card_new: str) -> None:
         """群名片变更：更新成员关系的 card 字段。"""
         async with self._session_factory() as session:
             async with session.begin():
@@ -620,9 +614,7 @@ class PersonnelService:
     async def get_admins(self) -> list[dict[str, Any]]:
         """获取所有管理员列表。"""
         async with self._session_factory() as session:
-            result = await session.execute(
-                select(User).where(User.relation == "admin")
-            )
+            result = await session.execute(select(User).where(User.relation == "admin"))
             admins = result.scalars().all()
             return [
                 {
@@ -645,8 +637,9 @@ class PersonnelService:
 
             # 计算活跃群聊数
             mem_result = await session.execute(
-                select(GroupMembership)
-                .where(GroupMembership.user_id == qq, GroupMembership.is_active.is_(True))
+                select(GroupMembership).where(
+                    GroupMembership.user_id == qq, GroupMembership.is_active.is_(True)
+                )
             )
             memberships = mem_result.scalars().all()
 
@@ -694,8 +687,7 @@ class PersonnelService:
             items = []
             for u in users:
                 mem_result = await session.execute(
-                    select(GroupMembership.id)
-                    .where(
+                    select(GroupMembership.id).where(
                         GroupMembership.user_id == u.qq,
                         GroupMembership.is_active.is_(True),
                     )
@@ -904,15 +896,11 @@ class PersonnelService:
                 personnel_users_total.set(len(result.all()))
 
                 # 好友总数
-                result = await session.execute(
-                    select(User.qq).where(User.relation == "friend")
-                )
+                result = await session.execute(select(User.qq).where(User.relation == "friend"))
                 personnel_friends_total.set(len(result.all()))
 
                 # 管理员总数
-                result = await session.execute(
-                    select(User.qq).where(User.relation == "admin")
-                )
+                result = await session.execute(select(User.qq).where(User.relation == "admin"))
                 personnel_admins_total.set(len(result.all()))
 
                 # 活跃群总数
@@ -927,7 +915,9 @@ class PersonnelService:
                 )
                 personnel_memberships_total.set(len(result.all()))
         except Exception as exc:
-            logger.warning("更新 Gauge 指标失败", error=str(exc), event_type="personnel.metrics_error")
+            logger.warning(
+                "更新 Gauge 指标失败", error=str(exc), event_type="personnel.metrics_error"
+            )
 
     async def _invalidate_all_relation_cache(self) -> None:
         """清除所有用户关系缓存（全量同步后）。"""
@@ -948,4 +938,3 @@ class PersonnelService:
 
         # 同时清除管理员集合缓存
         await self._cache.delete(admin_set_key())
-

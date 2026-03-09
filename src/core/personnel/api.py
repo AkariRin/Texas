@@ -241,8 +241,5 @@ async def internal_trigger_sync() -> dict[str, Any]:
         asyncio.create_task(_sync_trigger_callback())
         return {"code": 0, "data": None, "message": "Sync triggered"}
     except Exception as exc:
-        logger.error(
-            "内部触发同步失败", error=str(exc), event_type="personnel.internal_sync_error"
-        )
+        logger.error("内部触发同步失败", error=str(exc), event_type="personnel.internal_sync_error")
         raise HTTPException(status_code=500, detail=str(exc)) from exc
-
