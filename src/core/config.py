@@ -57,6 +57,13 @@ class Settings(BaseSettings):
     HOST: str = "0.0.0.0"
     PORT: int = 8000
 
+    # ── 人事管理 (Personnel) ──
+    PERSONNEL_SYNC_INTERVAL: int = 300          # 定期同步间隔（秒），默认 5 分钟
+    PERSONNEL_SYNC_INITIAL_DELAY: int = 3       # 连接建立后首次同步延迟（秒）
+    PERSONNEL_SYNC_BATCH_SIZE: int = 500        # 批量写入每批大小
+    PERSONNEL_SYNC_API_DELAY: float = 0.5       # 每个群 API 调用之间的延迟（秒），防止 NapCat 限流
+    PERSONNEL_SYNC_LOCK_TTL: int = 600          # 同步锁超时时间（秒）
+
     # 运行环境：development | production
     ENV: str = "development"
 

@@ -28,6 +28,7 @@ _conn_mgr: ConnectionManager | None = None
 _bot_api: BotAPI | None = None
 _heartbeat: HeartbeatMonitor | None = None
 _access_token: str = ""
+_personnel_sync_callback: Callable[[], Awaitable[None]] | None = None
 
 
 def set_ws_dependencies(
@@ -41,6 +42,12 @@ def set_ws_dependencies(
     _bot_api = bot_api
     _heartbeat = heartbeat
     _access_token = access_token
+
+
+def set_personnel_sync_callback(callback: Callable[[], Awaitable[None]]) -> None:
+    """设置人事数据同步回调（由 main.py 在启动时注入）。"""
+    global _personnel_sync_callback
+    _personnel_sync_callback = callback
 
 
 def _check_token(token_param: str | None, headers: dict[str, str]) -> bool:
@@ -94,6 +101,14 @@ async def onebot_ws_endpoint(
                 error=str(task.exception()),
                 event_type="ws.handler_error",
             )
+
+    # ── 触发首次人事数据同步 ──
+    if _personnel_sync_callback is not None:
+        _sync_task: asyncio.Task[None] = asyncio.create_task(
+            _personnel_sync_callback()
+        )
+        background_tasks.add(_sync_task)
+        _sync_task.add_done_callback(_on_task_done)
 
     try:
         while True:

@@ -1,16 +1,13 @@
-"""SQLAlchemy DeclarativeBase with common columns."""
+"""SQLAlchemy DeclarativeBase —— 所有 ORM 模型的基类。"""
 
 from __future__ import annotations
 
-from datetime import datetime  # noqa: TC003 — SQLAlchemy 运行时需要解析 Mapped[datetime]
-
-from sqlalchemy import func
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy.orm import DeclarativeBase
 
 
 class Base(DeclarativeBase):
-    """Base model with id, created_at, updated_at."""
+    """纯粹的声明式基类，不包含任何公共列。
 
-    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
-    updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
+    所有 ORM 模型继承此类以共享同一个 metadata 注册表，
+    但各模型需自行声明全部字段（包括主键和时间戳）。
+    """

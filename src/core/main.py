@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -43,7 +44,7 @@ from src.core.monitoring.metrics import handlers_registered  # noqa: E402
 from src.core.protocol.api import BotAPI  # noqa: E402
 from src.core.ws.connection import ConnectionManager  # noqa: E402
 from src.core.ws.heartbeat import HeartbeatMonitor  # noqa: E402
-from src.core.ws.server import set_event_dispatcher, set_ws_dependencies, ws_router  # noqa: E402
+from src.core.ws.server import set_event_dispatcher, set_personnel_sync_callback, set_ws_dependencies, ws_router  # noqa: E402
 
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator
@@ -108,8 +109,33 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     engine = create_db_engine(settings)
     await run_startup_db_check(engine, settings)
 
-    # 扫描并注册处理器
-    scanner.scan(settings.HANDLER_SCAN_PACKAGES)
+    # ── 人事管理模块初始化 ──
+    from src.core.cache.client import CacheClient
+    from src.core.db.engine import create_session_factory
+    from src.core.monitoring.metrics import personnel_api_errors
+    from src.core.personnel.api import set_personnel_api_deps
+    from src.core.personnel.handler import set_personnel_service
+    from src.core.personnel.service import PersonnelService
+
+    session_factory = create_session_factory(engine)
+    cache_client = CacheClient(
+        url=settings.CACHE_REDIS_URL,
+        default_ttl=settings.CACHE_DEFAULT_TTL,
+    )
+    personnel_service = PersonnelService(
+        session_factory=session_factory,
+        cache=cache_client,
+        settings=settings,
+    )
+
+    # 注入人事管理服务到增量事件处理器
+    set_personnel_service(personnel_service)
+
+    # 扫描并注册处理器（包含 src.core.personnel 中的 PersonnelEventHandler）
+    scan_packages = list(settings.HANDLER_SCAN_PACKAGES)
+    if "src.core.personnel" not in scan_packages:
+        scan_packages.append("src.core.personnel")
+    scanner.scan(scan_packages)
     handlers_registered.set(composite_mapping.registered_count)
 
     logger.info(
@@ -132,6 +158,85 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     set_scanner_provider(lambda: scanner.controllers)
     set_bot_providers(conn_mgr, bot_api)
 
+    # ── 人事管理：数据采集编排（主进程采集 + Celery 写入） ──
+    async def _do_personnel_sync() -> None:
+        """全量同步人事数据（主进程采集，Celery 写入）。"""
+        await asyncio.sleep(settings.PERSONNEL_SYNC_INITIAL_DELAY)
+
+        if not conn_mgr.connected:
+            logger.warning("连接已断开，取消人事同步", event_type="personnel.sync_aborted")
+            return
+
+        logger.info("开始人事数据同步", event_type="personnel.sync_start")
+
+        try:
+            # 1. 获取好友列表
+            friends_resp = await bot_api.get_friend_list()
+            friends_data = friends_resp.data if friends_resp.ok else None
+
+            # 2. 获取群列表
+            groups_resp = await bot_api.get_group_list()
+            groups_data = groups_resp.data if groups_resp.ok else None
+
+            # 3. 逐群获取成员列表
+            members_data: dict[int, list[Any]] = {}
+            if groups_data and isinstance(groups_data, list):
+                for group in groups_data:
+                    if not conn_mgr.connected:
+                        logger.warning(
+                            "同步中途连接断开", event_type="personnel.sync_interrupted"
+                        )
+                        break
+
+                    group_id = group.get("group_id") if isinstance(group, dict) else None
+                    if not group_id:
+                        continue
+
+                    try:
+                        member_resp = await bot_api.get_group_member_list(int(group_id))
+                        if member_resp.ok and isinstance(member_resp.data, list):
+                            members_data[int(group_id)] = member_resp.data
+                    except Exception as exc:
+                        personnel_api_errors.labels(action="get_group_member_list").inc()
+                        logger.warning(
+                            "获取群成员列表失败",
+                            group_id=group_id,
+                            error=str(exc),
+                            event_type="personnel.api_error",
+                        )
+
+                    await asyncio.sleep(settings.PERSONNEL_SYNC_API_DELAY)
+
+            # 4. 提交 Celery 写入任务
+            from src.core.tasks.personnel import persist_personnel_data
+
+            # 将 members_data 的 key 转为字符串以兼容 JSON 序列化
+            members_serializable = {str(k): v for k, v in members_data.items()}
+            persist_personnel_data.delay(
+                friends=friends_data,
+                groups=groups_data,
+                members=members_serializable,
+            )
+
+            logger.info(
+                "人事数据采集完成，已提交 Celery 写入任务",
+                friends_count=len(friends_data) if friends_data else 0,
+                groups_count=len(groups_data) if groups_data else 0,
+                members_groups=len(members_data),
+                event_type="personnel.sync_submitted",
+            )
+
+        except Exception as exc:
+            logger.error(
+                "人事数据同步失败",
+                error=str(exc),
+                event_type="personnel.sync_error",
+            )
+
+    # 注入同步回调到 WS 服务端和人事管理 API
+    set_personnel_sync_callback(_do_personnel_sync)
+    set_personnel_api_deps(personnel_service, _do_personnel_sync)
+
     # 以 debug 等级逐行打印所有已加载的路由
     all_routes = list(app.routes)
     logger.debug(f"已加载 {len(all_routes)} 个后端路由", event_type="app.routes_loaded")
@@ -152,6 +257,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     yield
 
     # ── 关闭 ──
+    await cache_client.close()
     await engine.dispose()
     heartbeat.stop()
     logger.info("Texas 已停止", event_type="app.stopped")

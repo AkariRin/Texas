@@ -77,6 +77,14 @@
           class="nav-item"
         ></v-list-item>
         <v-list-item
+          prepend-icon="mdi-account-supervisor"
+          title="人事管理"
+          value="personnel"
+          to="/personnel"
+          rounded="lg"
+          class="nav-item"
+        ></v-list-item>
+        <v-list-item
           prepend-icon="mdi-cog"
           title="设置"
           value="settings"

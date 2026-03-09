@@ -38,6 +38,32 @@ services:
       - pgdata:/var/lib/postgresql/data
     ports:
       - "5432:5432"
+  celery-worker:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    restart: always
+    env_file:
+      - ../.env
+    environment:
+      - ROLE=worker
+    depends_on:
+      postgres:
+        condition: service_started
+      redis:
+        condition: service_started
+  celery-beat:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    restart: always
+    env_file:
+      - ../.env
+    environment:
+      - ROLE=beat
+    depends_on:
+      redis:
+        condition: service_started
   redis:
     image: redis:alpine
     ports:
