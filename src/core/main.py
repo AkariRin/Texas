@@ -15,6 +15,7 @@ from fastapi.staticfiles import StaticFiles
 from prometheus_client import generate_latest
 from starlette.responses import Response
 
+from src.api.bot import set_bot_providers
 from src.api.handlers import set_scanner_provider
 from src.api.router import api_router
 from src.core.config import Settings, validate_settings
@@ -129,6 +130,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
 
     # 注入管理 API 提供者
     set_scanner_provider(lambda: scanner.controllers)
+    set_bot_providers(conn_mgr, bot_api)
 
     # 以 debug 等级逐行打印所有已加载的路由
     all_routes = list(app.routes)
