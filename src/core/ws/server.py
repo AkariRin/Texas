@@ -1,10 +1,9 @@
-"""NapCat 反向 WebSocket 连接的 WebSocket 服务端端点。"""
+"""NapCat 反向 WebSocket 连接的 WebSocket 服务端端点（一对一架构）。"""
 
 from __future__ import annotations
 
 import asyncio
 import json
-import uuid
 from typing import TYPE_CHECKING
 
 import structlog
@@ -57,7 +56,7 @@ async def onebot_ws_endpoint(
     ws: WebSocket,
     access_token: str | None = Query(default=None),
 ) -> None:
-    """NapCat 反向 WebSocket 端点。NapCat 以客户端身份连接至此。"""
+    """NapCat 反向 WebSocket 端点。NapCat 以客户端身份连接至此（仅允许单连接）。"""
     assert _conn_mgr is not None
     assert _bot_api is not None
     assert _heartbeat is not None
@@ -72,8 +71,16 @@ async def onebot_ws_endpoint(
         await ws.close(code=4001, reason="Unauthorized")
         return
 
-    conn_id = uuid.uuid4().hex[:12]
-    await _conn_mgr.accept(ws, conn_id)
+    # 一对一架构：拒绝重复连接
+    if _conn_mgr.connected:
+        logger.warning(
+            "WebSocket 连接已拒绝：已有活跃连接（一对一架构）",
+            event_type="ws.duplicate_rejected",
+        )
+        await ws.close(code=4002, reason="Already connected")
+        return
+
+    await _conn_mgr.accept(ws)
     _heartbeat.start()
 
     # 追踪后台事件处理任务，以便在断连时做清理
@@ -85,7 +92,6 @@ async def onebot_ws_endpoint(
             logger.error(
                 "后台事件处理器发生错误",
                 error=str(task.exception()),
-                conn_id=conn_id,
                 event_type="ws.handler_error",
             )
 
@@ -122,7 +128,6 @@ async def onebot_ws_endpoint(
                     "事件解析失败，已跳过",
                     error=str(exc),
                     data_keys=list(data.keys()),
-                    conn_id=conn_id,
                     event_type="ws.parse_error",
                 )
                 continue
@@ -139,18 +144,17 @@ async def onebot_ws_endpoint(
             task.add_done_callback(_on_task_done)
 
     except WebSocketDisconnect:
-        logger.info("NapCat 已断开连接", conn_id=conn_id, event_type="ws.disconnected")
+        logger.info("NapCat 已断开连接", event_type="ws.disconnected")
     except Exception as exc:
-        logger.error("WebSocket 发生错误", error=str(exc), conn_id=conn_id, event_type="ws.error")
+        logger.error("WebSocket 发生错误", error=str(exc), event_type="ws.error")
     finally:
         # 取消尚未完成的后台任务
         for task in background_tasks:
             task.cancel()
         if background_tasks:
             await asyncio.gather(*background_tasks, return_exceptions=True)
-        _conn_mgr.disconnect(conn_id)
-        if _conn_mgr.connection_count == 0:
-            _heartbeat.stop()
+        _conn_mgr.disconnect()
+        _heartbeat.stop()
 
 
 # 事件分发回调 —— 在框架初始化后由 main.py 设置

@@ -1,13 +1,6 @@
-"""ORM 模型统一导出 —— 确保 Base.metadata 感知全部表定义。"""
+"""ORM 模型统一导出 —— 确保 Base.metadata 感知全部表定义。
 
-from src.models.group import Group
-from src.models.handler_data import HandlerData
-from src.models.message_log import MessageLog
-from src.models.user import User
+当前为空，保留未来拓展空间。新增模型后在此导出即可。
+"""
 
-__all__ = [
-    "Group",
-    "HandlerData",
-    "MessageLog",
-    "User",
-]
+__all__: list[str] = []
