@@ -163,10 +163,10 @@ export async function fetchAdmins(): Promise<UserItem[]> {
 }
 
 export async function addAdmin(qq: number): Promise<void> {
-  await axios.put<ApiResponse<null>>(`${BASE}/admins/${qq}`)
+  await axios.post<ApiResponse<null>>(`${BASE}/admins/${qq}/add`)
 }
 
 export async function removeAdmin(qq: number): Promise<void> {
-  await axios.delete<ApiResponse<null>>(`${BASE}/admins/${qq}`)
+  await axios.post<ApiResponse<null>>(`${BASE}/admins/${qq}/delete`)
 }
 

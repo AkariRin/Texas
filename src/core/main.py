@@ -104,6 +104,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     setup_logging(log_level=settings.LOG_LEVEL, log_format=settings.LOG_FORMAT)
     validate_settings(settings)
 
+    # 安装日志 SSE 广播 handler
+    from src.api.logs import install_log_broadcast
+    install_log_broadcast()
+
     logger.info(
         "Texas 正在启动",
         version="0.1.0",

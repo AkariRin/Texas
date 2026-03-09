@@ -93,6 +93,14 @@
           class="nav-item"
         ></v-list-item>
         <v-list-item
+          prepend-icon="mdi-text-box-outline"
+          title="应用日志"
+          value="logs"
+          to="/logs"
+          rounded="lg"
+          class="nav-item"
+        ></v-list-item>
+        <v-list-item
           prepend-icon="mdi-cog"
           title="设置"
           value="settings"

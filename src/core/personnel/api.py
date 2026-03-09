@@ -208,7 +208,7 @@ async def list_admins() -> dict[str, Any]:
     return {"code": 0, "data": admins, "message": "ok"}
 
 
-@router.put("/admins/{qq}")
+@router.post("/admins/{qq}/add")
 async def add_admin(qq: int) -> dict[str, Any]:
     """添加管理员。"""
     service = _get_service()
@@ -218,7 +218,7 @@ async def add_admin(qq: int) -> dict[str, Any]:
     return {"code": 0, "data": None, "message": "Admin set successfully"}
 
 
-@router.delete("/admins/{qq}")
+@router.post("/admins/{qq}/delete")
 async def remove_admin(qq: int) -> dict[str, Any]:
     """移除管理员。"""
     service = _get_service()
