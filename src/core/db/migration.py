@@ -17,6 +17,7 @@ from alembic.autogenerate import compare_metadata
 from alembic.config import Config
 from alembic.migration import MigrationContext
 from alembic.script import ScriptDirectory
+from alembic.util.exc import CommandError
 from sqlalchemy import text
 
 # ── 确保 Base.metadata 包含所有模型 ──
@@ -92,6 +93,24 @@ async def _detect_schema_diff(engine: AsyncEngine) -> list:
 
     async with engine.connect() as conn:
         return await conn.run_sync(_compare)
+
+
+def _revision_exists(alembic_cfg: Config, rev_id: str) -> bool:
+    """检查给定的 revision ID 在迁移脚本目录中是否存在。"""
+    script = ScriptDirectory.from_config(alembic_cfg)
+    try:
+        script.get_revision(rev_id)
+        return True
+    except (CommandError, Exception):
+        return False
+
+
+async def _force_clear_alembic_version(engine: AsyncEngine) -> None:
+    """直接清空 alembic_version 表，绕过 Alembic 的版本解析逻辑。
+    用于处理数据库中存有孤立 revision（脚本文件已删除）的情况。
+    """
+    async with engine.begin() as conn:
+        await conn.execute(text("DELETE FROM alembic_version"))
 
 
 # ─────────────────────── 迁移执行（开发环境） ───────────────────────
@@ -175,6 +194,16 @@ async def _handle_development(
     head_rev: str | None,
 ) -> None:
     """开发环境：自动检测差异 → 生成迁移脚本 → 升级到最新，仅输出最终结果。"""
+
+    # 0. 若数据库记录的 revision 在脚本目录中不存在（孤立版本），直接清空版本表
+    if current_rev is not None and not _revision_exists(alembic_cfg, current_rev):
+        logger.warning(
+            "数据库记录的迁移版本在脚本目录中不存在，重置为 base",
+            stale_revision=current_rev,
+            event_type="db.stale_revision_reset",
+        )
+        await _force_clear_alembic_version(engine)
+        current_rev = None
 
     # 1. 检测模型与表结构差异，自动生成迁移脚本
     diff = await _detect_schema_diff(engine)
