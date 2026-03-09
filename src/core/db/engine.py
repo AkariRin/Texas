@@ -23,7 +23,7 @@ def create_engine(settings: Settings) -> AsyncEngine:
         max_overflow=settings.DB_MAX_OVERFLOW,
         pool_pre_ping=True,
         pool_recycle=3600,
-        echo=settings.LOG_LEVEL == "DEBUG",
+        echo=False,  # SQL 日志由 sqlalchemy.engine logger 级别控制，不使用 echo
     )
 
 

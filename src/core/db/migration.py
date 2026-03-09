@@ -128,12 +128,6 @@ async def run_startup_db_check(engine: AsyncEngine, settings: Settings) -> None:
     head_rev = _get_head_revision(alembic_cfg)
     current_rev = await _get_current_revision(engine)
 
-    logger.info(
-        "Alembic 迁移状态",
-        current_revision=current_rev,
-        head_revision=head_rev,
-        event_type="db.migration_status",
-    )
 
     if settings.is_production:
         await _handle_production(engine, alembic_cfg, current_rev, head_rev)
@@ -147,28 +141,23 @@ async def _handle_production(
     current_rev: str | None,
     head_rev: str | None,
 ) -> None:
-    """生产环境：检测到未应用迁移或模型漂移 → 强制终止启动。"""
+    """生产环境：版本不匹配或模型漂移 → 强制终止启动。"""
     has_error = False
 
-    # 检查是否存在未应用的迁移脚本
     if head_rev and current_rev != head_rev:
         logger.critical(
-            "生产环境检测到未应用的数据库迁移，拒绝启动！请先手动执行: alembic upgrade head",
-            current_revision=current_rev,
-            head_revision=head_rev,
+            "数据库迁移版本不匹配，拒绝启动",
+            current=current_rev,
+            expected=head_rev,
             event_type="db.migration_pending",
         )
         has_error = True
 
-    # 检查 ORM 模型是否与数据库表结构一致
     diff = await _detect_schema_diff(engine)
     if diff:
-        diff_summary = [str(d) for d in diff]
         logger.critical(
-            "生产环境检测到 ORM 模型与数据库表结构不一致，拒绝启动！"
-            "请在开发环境生成迁移脚本后部署: alembic revision --autogenerate",
+            "ORM 模型与数据库表结构不一致，拒绝启动",
             diff_count=len(diff),
-            diff_details=diff_summary,
             event_type="db.schema_drift",
         )
         has_error = True
@@ -176,7 +165,7 @@ async def _handle_production(
     if has_error:
         sys.exit(1)
 
-    logger.info("生产环境数据库检查通过", event_type="db.production_check_ok")
+    logger.info("数据库版本匹配", event_type="db.production_check_ok")
 
 
 async def _handle_development(
@@ -185,39 +174,20 @@ async def _handle_development(
     current_rev: str | None,
     head_rev: str | None,
 ) -> None:
-    """开发环境：自动检测差异 → 生成迁移脚本 → 升级到最新。"""
+    """开发环境：自动检测差异 → 生成迁移脚本 → 升级到最新，仅输出最终结果。"""
 
-    # 1. 检测模型与表结构差异
+    # 1. 检测模型与表结构差异，自动生成迁移脚本
     diff = await _detect_schema_diff(engine)
-
     if diff:
-        diff_summary = [str(d) for d in diff]
-        logger.info(
-            "检测到 ORM 模型变更，自动生成迁移脚本",
-            diff_count=len(diff),
-            diff_details=diff_summary,
-            event_type="db.autogenerate",
-        )
         _autogenerate_revision(alembic_cfg, message="auto")
-        # 重新获取 head（刚生成了新脚本）
         head_rev = _get_head_revision(alembic_cfg)
 
     # 2. 升级到最新
     current_rev = await _get_current_revision(engine)
     if head_rev and current_rev != head_rev:
-        logger.info(
-            "执行数据库迁移 upgrade head",
-            current_revision=current_rev,
-            target_revision=head_rev,
-            event_type="db.upgrade",
-        )
         _upgrade_head(alembic_cfg)
         logger.info("数据库迁移完成", event_type="db.upgrade_done")
     elif head_rev is None and current_rev is None:
-        # 全新项目，无任何迁移脚本，也无表 → 跳过（等待首次 autogenerate）
-        logger.info(
-            "未检测到迁移脚本和数据库版本，跳过迁移",
-            event_type="db.no_migrations",
-        )
+        logger.info("数据库无迁移脚本，跳过", event_type="db.no_migrations")
     else:
         logger.info("数据库已是最新版本", event_type="db.up_to_date")

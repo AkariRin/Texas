@@ -36,7 +36,7 @@ from src.core.framework.mapping import (
 from src.core.framework.scanner import ComponentScanner
 from src.core.logging.setup import _bootstrap_root_logging, setup_logging
 
-# 尽早接管根 logger 和 uvicorn logger，确保 uvicorn 启动阶段的日志也经过 structlog
+# 尽早初始化根 logger，确保 structlog 管道就绪（uvicorn 保留其自身日志格式）
 _bootstrap_root_logging()
 from src.core.monitoring.metrics import handlers_registered  # noqa: E402
 from src.core.protocol.api import BotAPI  # noqa: E402
@@ -209,5 +209,4 @@ if __name__ == "__main__":
         port=settings.PORT,
         reload=True,
         reload_dirs=["src"],
-        log_config=None,   # 禁用 uvicorn 默认日志配置，由 structlog 统一接管
     )

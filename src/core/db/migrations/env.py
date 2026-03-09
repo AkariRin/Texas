@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-from logging.config import fileConfig
 from typing import TYPE_CHECKING
 
 from alembic import context
@@ -21,9 +20,8 @@ if TYPE_CHECKING:
 # Alembic Config 对象
 config = context.config
 
-# 配置 Python logging
-if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+# 不调用 fileConfig —— 日志由 structlog 统一管理，避免 alembic.ini 的 [loggers]
+# 节覆盖 root handler 导致 SQLAlchemy 日志绕过 structlog 输出。
 
 target_metadata = Base.metadata
 
@@ -75,6 +73,7 @@ async def run_async_migrations() -> None:
         configuration,
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
+        echo=False,  # 迁移时不输出 SQL 日志，避免污染 structlog 输出
     )
 
     async with connectable.connect() as connection:
@@ -84,8 +83,26 @@ async def run_async_migrations() -> None:
 
 
 def run_migrations_online() -> None:
-    """以 'online' 模式运行迁移（连接数据库）。"""
-    asyncio.run(run_async_migrations())
+    """以 'online' 模式运行迁移（连接数据库）。
+
+    兼容两种场景：
+    - CLI 直接执行 alembic 命令（无事件循环）→ asyncio.run()
+    - 应用启动时在已有事件循环中调用（FastAPI lifespan）→ 在独立线程中运行
+    """
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = None
+
+    if loop and loop.is_running():
+        # 已有事件循环 → 在独立线程中运行，避免 asyncio.run() 报错
+        import concurrent.futures
+
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            future = executor.submit(lambda: asyncio.run(run_async_migrations()))
+            future.result()
+    else:
+        asyncio.run(run_async_migrations())
 
 
 if context.is_offline_mode():
