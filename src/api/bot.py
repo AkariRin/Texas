@@ -1,4 +1,4 @@
-"""Bot 状态 API 端点。"""
+"""Bot 信息 API 端点 —— 业务层，获取 Bot 登录信息。"""
 
 from __future__ import annotations
 
@@ -19,16 +19,14 @@ def set_bot_providers(conn_mgr: Any, bot_api: Any) -> None:
     _bot_api_provider = bot_api
 
 
-@router.get("/bot/status")
-async def bot_status() -> dict[str, Any]:
-    """获取 Bot 在线状态和登录信息。"""
-    connected = False
+@router.get("/bot/info")
+async def bot_info() -> dict[str, Any]:
+    """获取 Bot 登录信息（昵称、QQ 号、头像）。"""
     nickname = None
     user_id = None
     avatar_url = None
 
-    if _conn_mgr_provider:
-        connected = _conn_mgr_provider.connected
+    connected = _conn_mgr_provider.connected if _conn_mgr_provider else False
 
     if connected and _bot_api_provider:
         try:
@@ -44,7 +42,6 @@ async def bot_status() -> dict[str, Any]:
     return {
         "code": 0,
         "data": {
-            "online": connected,
             "nickname": nickname,
             "user_id": user_id,
             "avatar_url": avatar_url,
