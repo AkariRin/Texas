@@ -23,4 +23,8 @@ celery_app.conf.update(
     task_track_started=True,
     task_acks_late=True,
     worker_prefetch_multiplier=1,
+    # RedBeat：使用 Redis 作为 Beat 调度器存储
+    beat_scheduler="redbeat.RedBeatScheduler",
+    redbeat_redis_url=settings.CELERY_REDBEAT_URL,
+    redbeat_key_prefix="texas:",
 )

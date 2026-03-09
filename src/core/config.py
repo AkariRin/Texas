@@ -36,6 +36,9 @@ class Settings(BaseSettings):
     # Redis - Celery Broker
     CELERY_BROKER_URL: str = "redis://localhost:6379/0"
 
+    # Redis - Celery Beat（RedBeat 调度器存储）
+    CELERY_REDBEAT_URL: str = "redis://localhost:6379/2"
+
     # Redis - 缓存
     CACHE_REDIS_URL: str = "redis://localhost:6379/1"
     CACHE_DEFAULT_TTL: int = 300

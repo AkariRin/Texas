@@ -13,6 +13,11 @@ const router = createRouter({
       name: 'personnel',
       component: () => import('@/views/personnel/PersonnelIndex.vue'),
     },
+    {
+      path: '/queue',
+      name: 'queue',
+      component: () => import('@/views/queue/QueueIndex.vue'),
+    },
   ],
 })
 

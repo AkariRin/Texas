@@ -85,6 +85,14 @@
           class="nav-item"
         ></v-list-item>
         <v-list-item
+          prepend-icon="mdi-tray-full"
+          title="任务队列"
+          value="queue"
+          to="/queue"
+          rounded="lg"
+          class="nav-item"
+        ></v-list-item>
+        <v-list-item
           prepend-icon="mdi-cog"
           title="设置"
           value="settings"

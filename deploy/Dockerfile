@@ -41,7 +41,7 @@ ENV ROLE=bot
 CMD if [ "$ROLE" = "worker" ]; then \
       celery -A src.core.tasks.celery_app worker --loglevel=info; \
     elif [ "$ROLE" = "beat" ]; then \
-      celery -A src.core.tasks.celery_app beat --loglevel=info; \
+      celery -A src.core.tasks.celery_app beat -S redbeat.RedBeatScheduler --loglevel=info; \
     else \
       uvicorn src.core.main:app --host 0.0.0.0 --port 8000; \
     fi
