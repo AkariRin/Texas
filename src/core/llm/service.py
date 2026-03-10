@@ -176,7 +176,6 @@ class LLMService:
                 max_tokens=data.max_tokens,
                 force_stream=data.force_stream,
                 extra_params=data.extra_params,
-                is_enabled=data.is_enabled,
             )
             session.add(model)
             await session.commit()
@@ -254,14 +253,14 @@ class LLMService:
         async with self._session_factory() as session:
             stmt = (
                 select(LLM)
-                .where(LLM.id == model_id, LLM.is_enabled.is_(True))
+                .where(LLM.id == model_id)
                 .options(selectinload(LLM.provider))
             )
             result = await session.execute(stmt)
             model = result.scalar_one_or_none()
 
         if model is None:
-            raise ValueError(f"模型不存在或已禁用: {model_id}")
+            raise ValueError(f"模型不存在: {model_id}")
 
         provider = model.provider
 
@@ -298,7 +297,7 @@ class LLMService:
         async with self._session_factory() as session:
             stmt = (
                 select(LLM)
-                .where(LLM.model_name == model_name, LLM.is_enabled.is_(True))
+                .where(LLM.model_name == model_name)
                 .options(selectinload(LLM.provider))
                 .limit(1)
             )
@@ -306,7 +305,7 @@ class LLMService:
             model = result.scalar_one_or_none()
 
         if model is None:
-            raise ValueError(f"找不到启用的模型: {model_name}")
+            raise ValueError(f"找不到模型: {model_name}")
 
         return await self.chat(
             model.id,
@@ -395,5 +394,4 @@ class LLMService:
             "max_tokens": model.max_tokens,
             "force_stream": model.force_stream,
             "extra_params": model.extra_params or {},
-            "is_enabled": model.is_enabled,
         }

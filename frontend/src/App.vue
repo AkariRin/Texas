@@ -68,6 +68,7 @@
     <v-navigation-drawer :rail="rail" permanent class="nav-drawer">
       <!-- 仪表盘 -->
       <v-list density="compact" nav class="nav-list">
+        <v-list-subheader v-if="!rail" class="nav-subheader">总览</v-list-subheader>
         <v-list-item
           prepend-icon="mdi-view-dashboard"
           title="仪表盘"

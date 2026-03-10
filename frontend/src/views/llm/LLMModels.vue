@@ -40,8 +40,8 @@
         <!-- 价格列 -->
         <template #[`item.price`]="{ item }">
           <div class="text-caption">
-            <div>入: ${{ item.input_price.toFixed(2) }}/M</div>
-            <div>出: ${{ item.output_price.toFixed(2) }}/M</div>
+            <div>入: ¥{{ item.input_price.toFixed(2) }}/M</div>
+            <div>出: ¥{{ item.output_price.toFixed(2) }}/M</div>
           </div>
         </template>
 
@@ -55,17 +55,6 @@
           <v-icon :color="item.force_stream ? 'success' : 'grey'" size="small">
             {{ item.force_stream ? 'mdi-check-circle' : 'mdi-close-circle' }}
           </v-icon>
-        </template>
-
-        <!-- 启用状态 -->
-        <template #[`item.is_enabled`]="{ item }">
-          <v-chip
-            :color="item.is_enabled ? 'success' : 'grey'"
-            size="x-small"
-            variant="tonal"
-          >
-            {{ item.is_enabled ? '启用' : '禁用' }}
-          </v-chip>
         </template>
 
         <!-- 操作列 -->
@@ -129,11 +118,10 @@ const providerOptions = computed(() =>
 const headers = [
   { title: '模型名称', key: 'model_name', sortable: false },
   { title: '提供商', key: 'provider_name', sortable: false },
-  { title: '价格 (USD/M tokens)', key: 'price', sortable: false },
+  { title: '价格 (CNY/M tokens)', key: 'price', sortable: false },
   { title: '温度', key: 'temperature', sortable: false },
   { title: '最大 Token', key: 'max_tokens', sortable: false },
   { title: '强制流式', key: 'force_stream', sortable: false },
-  { title: '状态', key: 'is_enabled', sortable: false },
   { title: '操作', key: 'actions', sortable: false, align: 'end' as const },
 ]
 

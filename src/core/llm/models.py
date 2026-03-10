@@ -54,10 +54,10 @@ class LLM(Base):
     model_name: Mapped[str] = mapped_column(String(128), nullable=False, comment="模型标识")
     display_name: Mapped[str | None] = mapped_column(String(128), nullable=True, comment="展示名称")
     input_price: Mapped[Decimal] = mapped_column(
-        Numeric(12, 6), default=Decimal("0"), comment="输入价格 (每百万 token, USD)"
+        Numeric(12, 6), default=Decimal("0"), comment="输入价格 (每百万 token, CNY)"
     )
     output_price: Mapped[Decimal] = mapped_column(
-        Numeric(12, 6), default=Decimal("0"), comment="输出价格 (每百万 token, USD)"
+        Numeric(12, 6), default=Decimal("0"), comment="输出价格 (每百万 token, CNY)"
     )
     temperature: Mapped[float] = mapped_column(Float, default=0.7, comment="默认温度")
     max_tokens: Mapped[int | None] = mapped_column(

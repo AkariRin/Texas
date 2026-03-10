@@ -52,7 +52,6 @@ export interface ModelItem {
   max_tokens: number | null
   force_stream: boolean
   extra_params: Record<string, unknown>
-  is_enabled: boolean
 }
 
 export interface ModelCreateData {
@@ -65,7 +64,6 @@ export interface ModelCreateData {
   max_tokens?: number | null
   force_stream?: boolean
   extra_params?: Record<string, unknown>
-  is_enabled?: boolean
 }
 
 export interface ModelUpdateData {
@@ -76,7 +74,6 @@ export interface ModelUpdateData {
   max_tokens?: number | null
   force_stream?: boolean
   extra_params?: Record<string, unknown>
-  is_enabled?: boolean
 }
 
 export interface ChatMessage {

@@ -43,7 +43,7 @@
             <v-col cols="6">
               <v-text-field
                 v-model.number="form.input_price"
-                label="输入价格 ($/M tokens)"
+                label="输入价格 (¥/M tokens)"
                 variant="outlined"
                 density="compact"
                 type="number"
@@ -54,7 +54,7 @@
             <v-col cols="6">
               <v-text-field
                 v-model.number="form.output_price"
-                label="输出价格 ($/M tokens)"
+                label="输出价格 (¥/M tokens)"
                 variant="outlined"
                 density="compact"
                 type="number"
@@ -107,14 +107,6 @@
             class="mb-3"
             placeholder='{"top_p": 0.9, "frequency_penalty": 0.5}'
           />
-
-          <v-switch
-            v-model="form.is_enabled"
-            label="启用"
-            color="success"
-            density="compact"
-            hide-details
-          />
         </v-form>
       </v-card-text>
 
@@ -165,7 +157,6 @@ const form = ref({
   temperature: 0.7,
   max_tokens: null as number | null,
   force_stream: false,
-  is_enabled: true,
 })
 
 const extraParamsStr = ref('{}')
@@ -189,7 +180,6 @@ watch(
           temperature: props.modelItem.temperature,
           max_tokens: props.modelItem.max_tokens,
           force_stream: props.modelItem.force_stream,
-          is_enabled: props.modelItem.is_enabled,
         }
         extraParamsStr.value = JSON.stringify(props.modelItem.extra_params || {}, null, 2)
       } else {
@@ -202,7 +192,6 @@ watch(
           temperature: 0.7,
           max_tokens: null,
           force_stream: false,
-          is_enabled: true,
         }
         extraParamsStr.value = '{}'
       }
@@ -236,7 +225,6 @@ async function submit() {
         max_tokens: form.value.max_tokens,
         force_stream: form.value.force_stream,
         extra_params: extraParams,
-        is_enabled: form.value.is_enabled,
       })
     } else {
       await store.createModel({
@@ -249,7 +237,6 @@ async function submit() {
         max_tokens: form.value.max_tokens,
         force_stream: form.value.force_stream,
         extra_params: extraParams,
-        is_enabled: form.value.is_enabled,
       })
     }
     emit('saved')

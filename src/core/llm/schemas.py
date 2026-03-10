@@ -58,7 +58,6 @@ class ModelCreate(BaseModel):
     max_tokens: int | None = None
     force_stream: bool = False
     extra_params: dict[str, Any] = Field(default_factory=dict)
-    is_enabled: bool = True
 
 
 class ModelUpdate(BaseModel):
@@ -69,7 +68,6 @@ class ModelUpdate(BaseModel):
     max_tokens: int | None = None
     force_stream: bool | None = None
     extra_params: dict[str, Any] | None = None
-    is_enabled: bool | None = None
 
 
 class ModelResponse(BaseModel):
@@ -84,7 +82,6 @@ class ModelResponse(BaseModel):
     max_tokens: int | None
     force_stream: bool
     extra_params: dict[str, Any]
-    is_enabled: bool
 
 
 # ── Chat ──

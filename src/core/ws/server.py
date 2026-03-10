@@ -82,7 +82,7 @@ async def onebot_ws_endpoint(
     # 一对一架构：拒绝重复连接
     if _conn_mgr.connected:
         logger.warning(
-            "WebSocket 连接已拒绝：已有活跃连接（一对一架构）",
+            "WebSocket 连接已拒绝：已有活跃连接",
             event_type="ws.duplicate_rejected",
         )
         await ws.close(code=4002, reason="Already connected")
