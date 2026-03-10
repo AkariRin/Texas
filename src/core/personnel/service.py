@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import time
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 import structlog
 from sqlalchemy import case, select, update
@@ -28,6 +28,7 @@ from src.core.monitoring.metrics import (
 from src.core.personnel.models import Group, GroupMembership, User
 
 if TYPE_CHECKING:
+    from sqlalchemy.engine import CursorResult
     from sqlalchemy.ext.asyncio import AsyncSession
 
     from src.core.cache.client import CacheClient
@@ -118,10 +119,11 @@ class PersonnelService:
                     ),
                 },
             )
-            result = await session.execute(stmt)
-            total += result.rowcount  # type: ignore[assignment]
+            cursor_result = cast("CursorResult[Any]", await session.execute(stmt))
+            total += cursor_result.rowcount
 
         return total
+
 
     async def upsert_groups(
         self,
@@ -161,8 +163,8 @@ class PersonnelService:
                     "last_synced": stmt.excluded.last_synced,
                 },
             )
-            result = await session.execute(stmt)
-            total += result.rowcount  # type: ignore[assignment]
+            cursor_result = cast("CursorResult[Any]", await session.execute(stmt))
+            total += cursor_result.rowcount
 
         return total
 
@@ -241,8 +243,8 @@ class PersonnelService:
                     "is_active": mem_stmt.excluded.is_active,
                 },
             )
-            result = await session.execute(mem_stmt)
-            total += result.rowcount  # type: ignore[assignment]
+            cursor_result = cast("CursorResult[Any]", await session.execute(mem_stmt))
+            total += cursor_result.rowcount
 
         return total
 
@@ -852,7 +854,7 @@ class PersonnelService:
         """获取最近一次同步状态。"""
         data = await self._cache.get(personnel_sync_status_key())
         if data and isinstance(data, dict):
-            return data
+            return cast("dict[str, Any]", data)
         return {
             "last_sync_time": None,
             "duration_seconds": None,
@@ -869,11 +871,11 @@ class PersonnelService:
         cache_key = user_relation_key(qq)
         cached = await self._cache.get(cache_key)
         if cached and isinstance(cached, str):
-            return cached
+            return str(cached)
 
         async with self._session_factory() as session:
             user = await session.get(User, qq)
-            relation = user.relation if user else "stranger"
+            relation: str = str(user.relation) if user else "stranger"
 
         await self._cache.set(cache_key, relation, ttl=300)
         return relation

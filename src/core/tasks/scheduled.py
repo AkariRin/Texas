@@ -6,7 +6,7 @@ from celery.schedules import schedule
 from redbeat import RedBeatSchedulerEntry
 
 from src.core.config import Settings
-from src.core.tasks.celery_app import celery_app
+from src.core.tasks.celery_app import celery_app as celery_app
 
 settings = Settings()
 

@@ -33,6 +33,25 @@ const router = createRouter({
       component: () => import('@/views/personnel/PersonnelSync.vue'),
     },
     {
+      path: '/llm',
+      redirect: '/llm/providers',
+    },
+    {
+      path: '/llm/providers',
+      name: 'llm-providers',
+      component: () => import('@/views/llm/LLMProviders.vue'),
+    },
+    {
+      path: '/llm/models',
+      name: 'llm-models',
+      component: () => import('@/views/llm/LLMModels.vue'),
+    },
+    {
+      path: '/llm/playground',
+      name: 'llm-playground',
+      component: () => import('@/views/llm/LLMPlayground.vue'),
+    },
+    {
       path: '/queue',
       name: 'queue',
       component: () => import('@/views/queue/QueueIndex.vue'),

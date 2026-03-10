@@ -141,6 +141,15 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     # 注入人事管理服务到增量事件处理器
     set_personnel_service(personnel_service)
 
+    # ── LLM 模块初始化 ──
+    from src.core.llm.api import set_llm_deps
+    from src.core.llm.completion import init_completion
+    from src.core.llm.service import LLMService
+
+    llm_service = LLMService(session_factory=session_factory, cache=cache_client)
+    set_llm_deps(llm_service)
+    init_completion(llm_service)
+
     # 扫描并注册处理器（包含 src.core.personnel 中的 PersonnelEventHandler）
     scan_packages = list(settings.HANDLER_SCAN_PACKAGES)
     if "src.core.personnel" not in scan_packages:
@@ -265,6 +274,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     yield
 
     # ── 关闭 ──
+    await llm_service.close()
     await cache_client.close()
     await engine.dispose()
     heartbeat.stop()

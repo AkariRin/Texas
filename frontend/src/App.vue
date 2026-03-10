@@ -115,6 +115,35 @@
         ></v-list-item>
       </v-list>
 
+      <!-- 大模型 -->
+      <v-list density="compact" nav class="nav-list">
+        <v-list-subheader v-if="!rail" class="nav-subheader">大模型</v-list-subheader>
+        <v-list-item
+          prepend-icon="mdi-server-network"
+          title="提供商"
+          value="llm-providers"
+          to="/llm/providers"
+          rounded="lg"
+          class="nav-item"
+        ></v-list-item>
+        <v-list-item
+          prepend-icon="mdi-brain"
+          title="模型管理"
+          value="llm-models"
+          to="/llm/models"
+          rounded="lg"
+          class="nav-item"
+        ></v-list-item>
+        <v-list-item
+          prepend-icon="mdi-chat"
+          title="对话测试"
+          value="llm-playground"
+          to="/llm/playground"
+          rounded="lg"
+          class="nav-item"
+        ></v-list-item>
+      </v-list>
+
       <!-- 系统 -->
       <v-list density="compact" nav class="nav-list">
         <v-list-subheader v-if="!rail" class="nav-subheader">系统</v-list-subheader>

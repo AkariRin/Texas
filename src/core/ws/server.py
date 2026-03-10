@@ -13,7 +13,8 @@ from src.core.protocol.event import parse_event
 from src.core.protocol.models.events import HeartbeatEvent
 
 if TYPE_CHECKING:
-    from collections.abc import Awaitable, Callable
+    from collections.abc import Callable, Coroutine
+    from typing import Any
 
     from src.core.protocol.api import BotAPI
     from src.core.ws.connection import ConnectionManager
@@ -28,7 +29,7 @@ _conn_mgr: ConnectionManager | None = None
 _bot_api: BotAPI | None = None
 _heartbeat: HeartbeatMonitor | None = None
 _access_token: str = ""
-_personnel_sync_callback: Callable[[], Awaitable[None]] | None = None
+_personnel_sync_callback: Callable[[], Coroutine[Any, Any, None]] | None = None
 
 
 def set_ws_dependencies(
@@ -44,7 +45,7 @@ def set_ws_dependencies(
     _access_token = access_token
 
 
-def set_personnel_sync_callback(callback: Callable[[], Awaitable[None]]) -> None:
+def set_personnel_sync_callback(callback: Callable[[], Coroutine[Any, Any, None]]) -> None:
     """设置人事数据同步回调（由 main.py 在启动时注入）。"""
     global _personnel_sync_callback
     _personnel_sync_callback = callback
@@ -172,10 +173,10 @@ async def onebot_ws_endpoint(
 
 # 事件分发回调 —— 在框架初始化后由 main.py 设置
 
-_event_dispatch_callback: Callable[[object], Awaitable[None]] | None = None
+_event_dispatch_callback: Callable[[object], Coroutine[Any, Any, None]] | None = None
 
 
-def set_event_dispatcher(callback: Callable[[object], Awaitable[None]]) -> None:
+def set_event_dispatcher(callback: Callable[[object], Coroutine[Any, Any, None]]) -> None:
     global _event_dispatch_callback
     _event_dispatch_callback = callback
 

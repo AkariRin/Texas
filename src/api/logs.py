@@ -45,7 +45,7 @@ class _BroadcastHandler(logging.Handler):
 
         # 附加 structlog 绑定字段（如 event_type）
         if hasattr(record, "positional_fields"):
-            entry.update(record.positional_fields)  # type: ignore[arg-type]
+            entry.update(record.positional_fields)
 
         line = json.dumps(entry, ensure_ascii=False)
         dead: list[asyncio.Queue[str]] = []

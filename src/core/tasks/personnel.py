@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from typing import Any
+from typing import Any, cast
 
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
@@ -73,12 +73,15 @@ def persist_personnel_data(
         if members:
             members_int = {int(k): v for k, v in members.items()}
 
-        result = _run_async(
-            _service.persist_sync_data(
-                friends=friends,
-                groups=groups,
-                members=members_int,
-            )
+        result: dict[str, int] = cast(
+            "dict[str, int]",
+            _run_async(
+                _service.persist_sync_data(
+                    friends=friends,
+                    groups=groups,
+                    members=members_int,
+                )
+            ),
         )
         return result
 

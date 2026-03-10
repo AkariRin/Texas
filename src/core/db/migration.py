@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import structlog
 from alembic import command
@@ -84,7 +84,7 @@ def _get_head_revision(alembic_cfg: Config) -> str | None:
     return heads[0] if heads else None
 
 
-async def _detect_schema_diff(engine: AsyncEngine) -> list:
+async def _detect_schema_diff(engine: AsyncEngine) -> list[Any]:
     """使用 autogenerate 比对 ORM 模型与数据库表结构差异。"""
 
     def _compare(connection):  # type: ignore[no-untyped-def]

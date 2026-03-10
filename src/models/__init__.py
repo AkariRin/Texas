@@ -3,6 +3,7 @@
 新增模型后在此导出即可。
 """
 
+from src.core.llm.models import LLM, LLMProvider
 from src.core.personnel.models import Group, GroupMembership, User
 
-__all__: list[str] = ["Group", "GroupMembership", "User"]
+__all__: list[str] = ["Group", "GroupMembership", "User", "LLMProvider", "LLM"]
