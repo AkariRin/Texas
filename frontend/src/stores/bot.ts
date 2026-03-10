@@ -120,4 +120,3 @@ export const useBotStore = defineStore('bot', () => {
 
   return { online, nickname, userId, avatarUrl, loading, fetchStatus, startPolling, stopPolling }
 })
-

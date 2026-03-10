@@ -1,5 +1,5 @@
 /**
- * Chat API 服务层 —— 封装 /api/v1/chat 所有后端接口调用。
+ * Chat API 接口层 —— 封装 /api/v1/chat 所有后端接口调用。
  */
 
 import axios from 'axios'
@@ -252,4 +252,3 @@ export async function queryArchive(
   })
   return data.data
 }
-

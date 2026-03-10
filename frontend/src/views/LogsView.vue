@@ -6,12 +6,12 @@
         <p class="text-body-2 text-medium-emphasis">实时日志流</p>
       </div>
       <div class="d-flex align-center ga-2">
-        <v-chip
-          :color="connected ? 'success' : 'error'"
-          variant="tonal"
-          size="small"
-        >
-          <v-icon start size="x-small" :icon="connected ? 'mdi-circle' : 'mdi-circle-outline'"></v-icon>
+        <v-chip :color="connected ? 'success' : 'error'" variant="tonal" size="small">
+          <v-icon
+            start
+            size="x-small"
+            :icon="connected ? 'mdi-circle' : 'mdi-circle-outline'"
+          ></v-icon>
           {{ connected ? '已连接' : '已断开' }}
         </v-chip>
         <v-select
@@ -50,19 +50,33 @@
     </div>
 
     <v-card class="log-card" variant="flat">
+      <div class="log-search-bar px-3 pt-2 pb-1">
+        <v-text-field
+          v-model="searchQuery"
+          density="compact"
+          variant="outlined"
+          hide-details
+          clearable
+          prepend-inner-icon="mdi-magnify"
+          placeholder="搜索日志..."
+          class="log-search-input"
+        ></v-text-field>
+      </div>
       <div ref="logContainer" class="log-viewport" @scroll="onScroll">
-        <div v-if="logs.length === 0" class="text-center text-medium-emphasis pa-8">
-          <v-icon size="48" class="mb-2">mdi-text-box-search-outline</v-icon>
+        <div v-if="logs.length === 0" class="text-center pa-8" style="color: #ffffff">
+          <v-icon size="48" class="mb-2" color="white">mdi-text-box-search-outline</v-icon>
           <div>等待日志...</div>
         </div>
         <div
-          v-for="(entry, idx) in logs"
+          v-for="(entry, idx) in filteredLogs"
           :key="idx"
           class="log-line"
           :class="`log-level-${entry.level.toLowerCase()}`"
         >
           <span class="log-time">{{ formatTime(entry.timestamp) }}</span>
-          <span class="log-level" :class="`level-${entry.level.toLowerCase()}`">{{ padLevel(entry.level) }}</span>
+          <span class="log-level" :class="`level-${entry.level.toLowerCase()}`">{{
+            padLevel(entry.level)
+          }}</span>
           <span class="log-logger">{{ entry.logger }}</span>
           <span class="log-message">{{ entry.message }}</span>
         </div>
@@ -72,7 +86,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 
 interface LogEntry {
   timestamp: string
@@ -88,7 +102,20 @@ const level = ref('DEBUG')
 const autoScroll = ref(true)
 const connected = ref(false)
 const logs = ref<LogEntry[]>([])
+const searchQuery = ref('')
 const logContainer = ref<HTMLElement | null>(null)
+
+const filteredLogs = computed(() => {
+  if (!searchQuery.value) return logs.value
+  const q = searchQuery.value.toLowerCase()
+  return logs.value.filter(
+    (e) =>
+      e.message.toLowerCase().includes(q) ||
+      e.logger.toLowerCase().includes(q) ||
+      e.level.toLowerCase().includes(q) ||
+      e.timestamp.toLowerCase().includes(q),
+  )
+})
 
 let eventSource: EventSource | null = null
 
@@ -152,8 +179,16 @@ function onScroll() {
 function formatTime(ts: string): string {
   try {
     const d = new Date(ts)
-    return d.toLocaleTimeString('zh-CN', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })
-      + '.' + String(d.getMilliseconds()).padStart(3, '0')
+    return (
+      d.toLocaleTimeString('zh-CN', {
+        hour12: false,
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+      }) +
+      '.' +
+      String(d.getMilliseconds()).padStart(3, '0')
+    )
   } catch {
     return ts
   }
@@ -202,6 +237,28 @@ onUnmounted(() => {
   flex-direction: column;
 }
 
+.log-search-bar {
+  flex-shrink: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+:deep(.log-search-input .v-field) {
+  background: rgba(255, 255, 255, 0.05) !important;
+  color: #c9d1d9 !important;
+}
+
+:deep(.log-search-input .v-field__outline) {
+  --v-field-border-opacity: 0.2;
+}
+
+:deep(.log-search-input input::placeholder) {
+  color: #6e7681 !important;
+}
+
+:deep(.log-search-input .v-icon) {
+  color: #6e7681 !important;
+}
+
 .log-viewport {
   flex: 1;
   overflow-y: auto;
@@ -242,12 +299,25 @@ onUnmounted(() => {
   min-width: 60px;
 }
 
-.level-debug { color: #8b949e; }
-.level-info { color: #58a6ff; }
-.level-warning { color: #d29922; }
-.level-error { color: #f85149; }
-.level-critical { color: #ff7b72; font-weight: 800; }
-.level-trace { color: #6e7681; }
+.level-debug {
+  color: #8b949e;
+}
+.level-info {
+  color: #58a6ff;
+}
+.level-warning {
+  color: #d29922;
+}
+.level-error {
+  color: #f85149;
+}
+.level-critical {
+  color: #ff7b72;
+  font-weight: 800;
+}
+.level-trace {
+  color: #6e7681;
+}
 
 .log-logger {
   color: #7ee787;
@@ -275,4 +345,3 @@ onUnmounted(() => {
   background: rgba(210, 153, 34, 0.04);
 }
 </style>
-

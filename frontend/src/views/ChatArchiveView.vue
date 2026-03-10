@@ -113,15 +113,103 @@
     </v-card>
 
     <!-- 详情弹窗 -->
-    <ArchiveDetailDialog v-model="detailDialog" :archive="selectedArchive" />
+    <v-dialog v-model="detailDialog" max-width="600" persistent>
+      <v-card rounded="lg">
+        <v-card-title class="d-flex align-center">
+          <v-icon class="mr-2">mdi-archive</v-icon>
+          归档详情
+          <v-spacer></v-spacer>
+          <v-btn icon="mdi-close" variant="text" size="small" @click="detailDialog = false"></v-btn>
+        </v-card-title>
+        <v-divider></v-divider>
+        <v-card-text v-if="selectedArchive">
+          <v-list density="compact" class="bg-transparent">
+            <v-list-item>
+              <v-list-item-title class="text-medium-emphasis">分区名称</v-list-item-title>
+              <v-list-item-subtitle class="font-weight-medium">{{
+                selectedArchive.partition_name
+              }}</v-list-item-subtitle>
+            </v-list-item>
+            <v-list-item>
+              <v-list-item-title class="text-medium-emphasis">归档周期</v-list-item-title>
+              <v-list-item-subtitle
+                >{{ selectedArchive.period_start }} —
+                {{ selectedArchive.period_end }}</v-list-item-subtitle
+              >
+            </v-list-item>
+            <v-list-item>
+              <v-list-item-title class="text-medium-emphasis">状态</v-list-item-title>
+              <v-list-item-subtitle>
+                <v-chip :color="statusColor(selectedArchive.status)" size="small" variant="flat">
+                  {{ selectedArchive.status }}
+                </v-chip>
+              </v-list-item-subtitle>
+            </v-list-item>
+            <v-list-item>
+              <v-list-item-title class="text-medium-emphasis">总行数</v-list-item-title>
+              <v-list-item-subtitle>{{
+                formatNumber(selectedArchive.total_rows)
+              }}</v-list-item-subtitle>
+            </v-list-item>
+            <v-list-item>
+              <v-list-item-title class="text-medium-emphasis">原始大小</v-list-item-title>
+              <v-list-item-subtitle>{{
+                formatBytes(selectedArchive.original_bytes)
+              }}</v-list-item-subtitle>
+            </v-list-item>
+            <v-list-item>
+              <v-list-item-title class="text-medium-emphasis">压缩后大小</v-list-item-title>
+              <v-list-item-subtitle>{{
+                formatBytes(selectedArchive.compressed_bytes)
+              }}</v-list-item-subtitle>
+            </v-list-item>
+            <v-list-item
+              v-if="selectedArchive.original_bytes > 0 && selectedArchive.compressed_bytes > 0"
+            >
+              <v-list-item-title class="text-medium-emphasis">压缩率</v-list-item-title>
+              <v-list-item-subtitle>
+                {{
+                  (selectedArchive.original_bytes / selectedArchive.compressed_bytes).toFixed(1)
+                }}:1
+              </v-list-item-subtitle>
+            </v-list-item>
+            <v-list-item>
+              <v-list-item-title class="text-medium-emphasis">S3 路径</v-list-item-title>
+              <v-list-item-subtitle class="text-caption" style="word-break: break-all">
+                s3://{{ selectedArchive.s3_bucket }}/{{ selectedArchive.s3_key }}
+              </v-list-item-subtitle>
+            </v-list-item>
+            <v-list-item>
+              <v-list-item-title class="text-medium-emphasis">创建时间</v-list-item-title>
+              <v-list-item-subtitle>{{
+                formatTime(selectedArchive.created_at)
+              }}</v-list-item-subtitle>
+            </v-list-item>
+            <v-list-item v-if="selectedArchive.completed_at">
+              <v-list-item-title class="text-medium-emphasis">完成时间</v-list-item-title>
+              <v-list-item-subtitle>{{
+                formatTime(selectedArchive.completed_at)
+              }}</v-list-item-subtitle>
+            </v-list-item>
+            <v-list-item v-if="selectedArchive.error_message">
+              <v-list-item-title class="text-medium-emphasis text-error"
+                >错误信息</v-list-item-title
+              >
+              <v-list-item-subtitle class="text-error">{{
+                selectedArchive.error_message
+              }}</v-list-item-subtitle>
+            </v-list-item>
+          </v-list>
+        </v-card-text>
+      </v-card>
+    </v-dialog>
   </v-container>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useChatStore } from '@/stores/chat'
-import type { ArchiveLog } from '@/services/chat'
-import ArchiveDetailDialog from './ArchiveDetailDialog.vue'
+import type { ArchiveLog } from '@/apis/chat'
 
 const store = useChatStore()
 
@@ -206,4 +294,3 @@ onMounted(() => {
   loadPage(1)
 })
 </script>
-

@@ -15,22 +15,22 @@ const router = createRouter({
     {
       path: '/personnel/users',
       name: 'personnel-users',
-      component: () => import('@/views/personnel/PersonnelUsers.vue'),
+      component: () => import('@/views/PersonnelUsersView.vue'),
     },
     {
       path: '/personnel/groups',
       name: 'personnel-groups',
-      component: () => import('@/views/personnel/PersonnelGroups.vue'),
+      component: () => import('@/views/PersonnelGroupsView.vue'),
     },
     {
       path: '/personnel/admins',
       name: 'personnel-admins',
-      component: () => import('@/views/personnel/PersonnelAdmins.vue'),
+      component: () => import('@/views/PersonnelAdminsView.vue'),
     },
     {
       path: '/personnel/sync',
       name: 'personnel-sync',
-      component: () => import('@/views/personnel/PersonnelSync.vue'),
+      component: () => import('@/views/PersonnelSyncView.vue'),
     },
     {
       path: '/llm',
@@ -39,12 +39,12 @@ const router = createRouter({
     {
       path: '/llm/providers',
       name: 'llm-providers',
-      component: () => import('@/views/llm/LLMProviders.vue'),
+      component: () => import('@/views/LLMProvidersView.vue'),
     },
     {
       path: '/llm/models',
       name: 'llm-models',
-      component: () => import('@/views/llm/LLMModels.vue'),
+      component: () => import('@/views/LLMModelsView.vue'),
     },
     {
       path: '/chat',
@@ -53,27 +53,32 @@ const router = createRouter({
     {
       path: '/chat/overview',
       name: 'chat-overview',
-      component: () => import('@/views/chat/ChatOverview.vue'),
+      component: () => import('@/views/ChatOverviewView.vue'),
     },
     {
       path: '/chat/messages',
       name: 'chat-messages',
-      component: () => import('@/views/chat/ChatMessages.vue'),
+      component: () => import('@/views/ChatMessagesView.vue'),
     },
     {
       path: '/chat/archive',
       name: 'chat-archive',
-      component: () => import('@/views/chat/ChatArchive.vue'),
+      component: () => import('@/views/ChatArchiveView.vue'),
     },
     {
       path: '/queue',
       name: 'queue',
-      component: () => import('@/views/queue/QueueIndex.vue'),
+      component: () => import('@/views/QueueView.vue'),
     },
     {
       path: '/logs',
       name: 'logs',
       component: () => import('@/views/LogsView.vue'),
+    },
+    {
+      path: '/settings',
+      name: 'settings',
+      component: () => import('@/views/SettingsView.vue'),
     },
   ],
 })

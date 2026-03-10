@@ -50,7 +50,11 @@
               size="small"
               class="mt-2"
             >
-              <v-icon start :icon="botStore.online ? 'mdi-circle' : 'mdi-circle-outline'" size="x-small"></v-icon>
+              <v-icon
+                start
+                :icon="botStore.online ? 'mdi-circle' : 'mdi-circle-outline'"
+                size="x-small"
+              ></v-icon>
               {{ botStore.online ? '在线' : '离线' }}
             </v-chip>
           </v-card-text>
@@ -256,14 +260,18 @@ onUnmounted(() => {
 /* Navigation drawer depth */
 :deep(.nav-drawer) {
   border-right: 1px solid rgba(0, 0, 0, 0.08) !important;
-  box-shadow: 2px 0 12px rgba(0, 0, 0, 0.1), 4px 0 24px rgba(0, 0, 0, 0.06) !important;
+  box-shadow:
+    2px 0 12px rgba(0, 0, 0, 0.1),
+    4px 0 24px rgba(0, 0, 0, 0.06) !important;
   background: linear-gradient(180deg, #fafafa 0%, #f5f5f5 100%) !important;
 }
 
 /* Dark mode drawer */
 :deep(.v-theme--dark .nav-drawer) {
   background: linear-gradient(180deg, #1e1e2e 0%, #181825 100%) !important;
-  box-shadow: 2px 0 12px rgba(0, 0, 0, 0.4), 4px 0 24px rgba(0, 0, 0, 0.25) !important;
+  box-shadow:
+    2px 0 12px rgba(0, 0, 0, 0.4),
+    4px 0 24px rgba(0, 0, 0, 0.25) !important;
   border-right: 1px solid rgba(255, 255, 255, 0.06) !important;
 }
 
@@ -314,7 +322,9 @@ onUnmounted(() => {
 :deep(.nav-item:hover) {
   background: rgba(229, 57, 53, 0.08) !important;
   border-color: rgba(229, 57, 53, 0.15) !important;
-  box-shadow: 0 2px 8px rgba(229, 57, 53, 0.12), 0 1px 3px rgba(0, 0, 0, 0.08) !important;
+  box-shadow:
+    0 2px 8px rgba(229, 57, 53, 0.12),
+    0 1px 3px rgba(0, 0, 0, 0.08) !important;
   transform: translateX(2px);
 }
 
@@ -331,11 +341,17 @@ onUnmounted(() => {
 :deep(.v-theme--dark .nav-item:hover) {
   background: rgba(239, 154, 154, 0.1) !important;
   border-color: rgba(239, 154, 154, 0.2) !important;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3), 0 1px 3px rgba(0, 0, 0, 0.2) !important;
+  box-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.3),
+    0 1px 3px rgba(0, 0, 0, 0.2) !important;
 }
 
 :deep(.v-theme--dark .nav-item.v-list-item--active) {
-  background: linear-gradient(135deg, rgba(239, 154, 154, 0.18), rgba(239, 154, 154, 0.08)) !important;
+  background: linear-gradient(
+    135deg,
+    rgba(239, 154, 154, 0.18),
+    rgba(239, 154, 154, 0.08)
+  ) !important;
   border-color: rgba(239, 154, 154, 0.3) !important;
   box-shadow:
     0 3px 10px rgba(0, 0, 0, 0.35),

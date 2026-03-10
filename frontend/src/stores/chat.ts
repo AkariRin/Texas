@@ -4,7 +4,7 @@
 
 import { ref } from 'vue'
 import { defineStore } from 'pinia'
-import * as api from '@/services/chat'
+import * as api from '@/apis/chat'
 import type {
   OverviewStats,
   TrendItem,
@@ -14,7 +14,7 @@ import type {
   ChatMessage,
   ArchiveLog,
   PaginatedResult,
-} from '@/services/chat'
+} from '@/apis/chat'
 
 export const useChatStore = defineStore('chat', () => {
   // ── 概览 ──
@@ -98,10 +98,7 @@ export const useChatStore = defineStore('chat', () => {
     }
   }
 
-  async function loadPrivateMessages(
-    userId: number,
-    params?: { before?: string; limit?: number },
-  ) {
+  async function loadPrivateMessages(userId: number, params?: { before?: string; limit?: number }) {
     messagesLoading.value = true
     try {
       const result = await api.fetchPrivateMessages(userId, params)
@@ -175,4 +172,3 @@ export const useChatStore = defineStore('chat', () => {
     doTriggerArchive,
   }
 })
-

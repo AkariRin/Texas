@@ -4,8 +4,8 @@
 
 import { ref } from 'vue'
 import { defineStore } from 'pinia'
-import * as api from '@/services/llm'
-import type { ProviderItem, ProviderDetail, ModelItem } from '@/services/llm'
+import * as api from '@/apis/llm'
+import type { ProviderItem, ProviderDetail, ModelItem } from '@/apis/llm'
 
 export const useLLMStore = defineStore('llm', () => {
   // ── 提供商列表 ──
@@ -95,4 +95,3 @@ export const useLLMStore = defineStore('llm', () => {
     deleteModel,
   }
 })
-

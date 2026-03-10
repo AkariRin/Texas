@@ -4,7 +4,7 @@
 
 import { ref } from 'vue'
 import { defineStore } from 'pinia'
-import * as api from '@/services/personnel'
+import * as api from '@/apis/personnel'
 import type {
   UserItem,
   UserDetail,
@@ -12,7 +12,7 @@ import type {
   GroupMemberItem,
   SyncStatus,
   PaginatedResult,
-} from '@/services/personnel'
+} from '@/apis/personnel'
 
 export const usePersonnelStore = defineStore('personnel', () => {
   // ── 用户列表 ──
@@ -174,4 +174,3 @@ export const usePersonnelStore = defineStore('personnel', () => {
     unsetAdmin,
   }
 })
-

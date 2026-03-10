@@ -25,6 +25,6 @@ createApp(App)
       theme: {
         defaultTheme: 'light',
       },
-    })
+    }),
   )
   .mount('#app')

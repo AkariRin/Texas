@@ -1,5 +1,5 @@
 /**
- * Personnel API 服务层 —— 封装 /api/v1/personnel 所有后端接口调用。
+ * Personnel API 接口层 —— 封装 /api/v1/personnel 所有后端接口调用。
  */
 
 import axios from 'axios'
@@ -113,7 +113,8 @@ export async function fetchGroups(params: {
   if (params.page) query.page = params.page
   if (params.page_size) query.page_size = params.page_size
   if (params.group_name) query.group_name = params.group_name
-  if (params.is_active !== null && params.is_active !== undefined) query.is_active = params.is_active
+  if (params.is_active !== null && params.is_active !== undefined)
+    query.is_active = params.is_active
 
   const { data } = await axios.get<ApiResponse<PaginatedResult<GroupItem>>>(`${BASE}/groups`, {
     params: query,
@@ -169,4 +170,3 @@ export async function addAdmin(qq: number): Promise<void> {
 export async function removeAdmin(qq: number): Promise<void> {
   await axios.post<ApiResponse<null>>(`${BASE}/admins/${qq}/delete`)
 }
-

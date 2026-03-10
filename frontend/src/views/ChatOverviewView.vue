@@ -26,7 +26,9 @@
               <v-icon color="blue" size="28">mdi-message-text</v-icon>
             </v-avatar>
             <div>
-              <div class="text-h5 font-weight-bold">{{ formatNumber(store.overview.total_messages) }}</div>
+              <div class="text-h5 font-weight-bold">
+                {{ formatNumber(store.overview.total_messages) }}
+              </div>
               <div class="text-body-2 text-medium-emphasis">总消息数</div>
             </div>
           </v-card-text>
@@ -39,7 +41,9 @@
               <v-icon color="green" size="28">mdi-trending-up</v-icon>
             </v-avatar>
             <div>
-              <div class="text-h5 font-weight-bold">+{{ formatNumber(store.overview.today_messages) }}</div>
+              <div class="text-h5 font-weight-bold">
+                +{{ formatNumber(store.overview.today_messages) }}
+              </div>
               <div class="text-body-2 text-medium-emphasis">今日新增</div>
             </div>
           </v-card-text>
@@ -65,7 +69,9 @@
               <v-icon color="purple" size="28">mdi-account</v-icon>
             </v-avatar>
             <div>
-              <div class="text-h5 font-weight-bold">{{ formatNumber(store.overview.active_users) }}</div>
+              <div class="text-h5 font-weight-bold">
+                {{ formatNumber(store.overview.active_users) }}
+              </div>
               <div class="text-body-2 text-medium-emphasis">活跃用户</div>
             </div>
           </v-card-text>
@@ -81,21 +87,35 @@
             <v-icon class="mr-2">mdi-chart-line</v-icon>
             消息趋势（近 {{ trendDays }} 天）
             <v-spacer></v-spacer>
-            <v-btn-toggle v-model="trendDays" density="compact" mandatory color="primary" variant="outlined">
+            <v-btn-toggle
+              v-model="trendDays"
+              density="compact"
+              mandatory
+              color="primary"
+              variant="outlined"
+            >
               <v-btn :value="7" size="small">7天</v-btn>
               <v-btn :value="30" size="small">30天</v-btn>
               <v-btn :value="90" size="small">90天</v-btn>
             </v-btn-toggle>
           </v-card-title>
           <v-card-text>
-            <div v-if="store.trendLoading" class="d-flex justify-center align-center" style="height: 240px;">
+            <div
+              v-if="store.trendLoading"
+              class="d-flex justify-center align-center"
+              style="height: 240px"
+            >
               <v-progress-circular indeterminate color="primary"></v-progress-circular>
             </div>
-            <div v-else-if="store.trend.length > 0" style="height: 240px;">
+            <div v-else-if="store.trend.length > 0" style="height: 240px">
               <!-- 简易文本柱状图（待集成图表库） -->
-              <div class="d-flex flex-column ga-1 overflow-y-auto" style="max-height: 240px;">
-                <div v-for="item in store.trend" :key="item.period" class="d-flex align-center ga-2">
-                  <span class="text-caption text-medium-emphasis" style="min-width: 80px;">
+              <div class="d-flex flex-column ga-1 overflow-y-auto" style="max-height: 240px">
+                <div
+                  v-for="item in store.trend"
+                  :key="item.period"
+                  class="d-flex align-center ga-2"
+                >
+                  <span class="text-caption text-medium-emphasis" style="min-width: 80px">
                     {{ item.period.slice(0, 10) }}
                   </span>
                   <v-progress-linear
@@ -111,7 +131,11 @@
                 </div>
               </div>
             </div>
-            <div v-else class="d-flex justify-center align-center text-medium-emphasis" style="height: 240px;">
+            <div
+              v-else
+              class="d-flex justify-center align-center text-medium-emphasis"
+              style="height: 240px"
+            >
               暂无趋势数据
             </div>
           </v-card-text>
@@ -120,7 +144,7 @@
 
       <!-- 消息类型分布 -->
       <v-col cols="12" lg="4">
-        <v-card rounded="lg" elevation="2" style="height: 100%;">
+        <v-card rounded="lg" elevation="2" style="height: 100%">
           <v-card-title>
             <v-icon class="mr-2">mdi-chart-pie</v-icon>
             消息类型分布
@@ -129,7 +153,9 @@
             <v-list density="compact">
               <v-list-item v-for="(count, type) in stats.type_distribution" :key="type">
                 <template #prepend>
-                  <v-icon :color="getTypeColor(Number(type))">{{ getTypeIcon(Number(type)) }}</v-icon>
+                  <v-icon :color="getTypeColor(Number(type))">{{
+                    getTypeIcon(Number(type))
+                  }}</v-icon>
                 </template>
                 <v-list-item-title>{{ getTypeName(Number(type)) }}</v-list-item-title>
                 <template #append>
@@ -248,7 +274,7 @@
                   </thead>
                   <tbody>
                     <tr v-for="d in 7" :key="d">
-                      <td class="text-caption text-medium-emphasis" style="min-width: 40px;">
+                      <td class="text-caption text-medium-emphasis" style="min-width: 40px">
                         {{ dayNames[d - 1] }}
                       </td>
                       <td
@@ -274,8 +300,8 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue'
 import { useChatStore } from '@/stores/chat'
-import { fetchStats } from '@/services/chat'
-import type { MessageStats } from '@/services/chat'
+import { fetchStats } from '@/apis/chat'
+import type { MessageStats } from '@/apis/chat'
 
 const store = useChatStore()
 
@@ -378,4 +404,3 @@ onMounted(() => {
   border-radius: 2px;
 }
 </style>
-

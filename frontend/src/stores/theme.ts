@@ -21,7 +21,7 @@ export const useThemeStore = defineStore(
     const preference = ref<ThemePreference>('light')
 
     function applyTheme(vuetifyTheme: ReturnType<typeof useTheme>) {
-      vuetifyTheme.global.name.value = resolveTheme(preference.value)
+      vuetifyTheme.change(resolveTheme(preference.value))
     }
 
     function setPreference(value: ThemePreference, vuetifyTheme: ReturnType<typeof useTheme>) {

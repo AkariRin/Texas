@@ -1,5 +1,5 @@
 /**
- * LLM API 服务层 —— 封装 /api/v1/llm 所有后端接口调用。
+ * LLM API 接口层 —— 封装 /api/v1/llm 所有后端接口调用。
  */
 
 import axios from 'axios'
@@ -130,10 +130,7 @@ export async function updateProvider(
   id: string,
   payload: ProviderUpdateData,
 ): Promise<ProviderItem> {
-  const { data } = await axios.post<ApiResponse<ProviderItem>>(
-    `${BASE}/providers/${id}`,
-    payload,
-  )
+  const { data } = await axios.post<ApiResponse<ProviderItem>>(`${BASE}/providers/${id}`, payload)
   return data.data
 }
 
@@ -258,4 +255,3 @@ export async function chatStream(
   }
   onDone()
 }
-
