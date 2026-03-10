@@ -52,9 +52,7 @@ class LLM(Base):
         ForeignKey("llm_providers.id"), nullable=False, index=True, comment="所属提供商"
     )
     model_name: Mapped[str] = mapped_column(String(128), nullable=False, comment="模型标识")
-    display_name: Mapped[str | None] = mapped_column(
-        String(128), nullable=True, comment="展示名称"
-    )
+    display_name: Mapped[str | None] = mapped_column(String(128), nullable=True, comment="展示名称")
     input_price: Mapped[Decimal] = mapped_column(
         Numeric(12, 6), default=Decimal("0"), comment="输入价格 (每百万 token, USD)"
     )
@@ -65,18 +63,13 @@ class LLM(Base):
     max_tokens: Mapped[int | None] = mapped_column(
         Integer, nullable=True, comment="最大输出 token 数"
     )
-    force_stream: Mapped[bool] = mapped_column(
-        Boolean, default=False, comment="是否强制流式输出"
-    )
+    force_stream: Mapped[bool] = mapped_column(Boolean, default=False, comment="是否强制流式输出")
     extra_params: Mapped[dict[str, Any]] = mapped_column(
         JSONB, default=dict, comment="额外请求参数"
     )
     is_enabled: Mapped[bool] = mapped_column(Boolean, default=True, comment="是否启用")
 
-    __table_args__ = (
-        UniqueConstraint("provider_id", "model_name", name="uq_provider_model"),
-    )
+    __table_args__ = (UniqueConstraint("provider_id", "model_name", name="uq_provider_model"),)
 
     # 关联
     provider: Mapped[LLMProvider] = relationship(back_populates="models")
-

@@ -20,7 +20,6 @@ from src.core.llm.schemas import (  # noqa: TC001
 )
 
 if TYPE_CHECKING:
-
     from src.core.cache.client import CacheClient
 
 logger = structlog.get_logger()
@@ -144,9 +143,7 @@ class LLMService:
     #  模型 CRUD
     # ══════════════════════════════════════════════
 
-    async def list_models(
-        self, provider_id: uuid.UUID | None = None
-    ) -> list[dict[str, Any]]:
+    async def list_models(self, provider_id: uuid.UUID | None = None) -> list[dict[str, Any]]:
         """列出模型（可按提供商筛选）。"""
         async with self._session_factory() as session:
             stmt = select(LLM).options(selectinload(LLM.provider))
@@ -159,11 +156,7 @@ class LLMService:
     async def get_model(self, model_id: uuid.UUID) -> dict[str, Any] | None:
         """获取单个模型详情。"""
         async with self._session_factory() as session:
-            stmt = (
-                select(LLM)
-                .where(LLM.id == model_id)
-                .options(selectinload(LLM.provider))
-            )
+            stmt = select(LLM).where(LLM.id == model_id).options(selectinload(LLM.provider))
             result = await session.execute(stmt)
             model = result.scalar_one_or_none()
             if model is None:
@@ -196,16 +189,10 @@ class LLMService:
             )
             return self._model_to_dict(model)
 
-    async def update_model(
-        self, model_id: uuid.UUID, data: ModelUpdate
-    ) -> dict[str, Any] | None:
+    async def update_model(self, model_id: uuid.UUID, data: ModelUpdate) -> dict[str, Any] | None:
         """更新模型（字段级部分更新）。"""
         async with self._session_factory() as session:
-            stmt = (
-                select(LLM)
-                .where(LLM.id == model_id)
-                .options(selectinload(LLM.provider))
-            )
+            stmt = select(LLM).where(LLM.id == model_id).options(selectinload(LLM.provider))
             result = await session.execute(stmt)
             model = result.scalar_one_or_none()
             if model is None:
@@ -410,4 +397,3 @@ class LLMService:
             "extra_params": model.extra_params or {},
             "is_enabled": model.is_enabled,
         }
-

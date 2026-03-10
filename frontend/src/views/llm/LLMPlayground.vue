@@ -192,7 +192,8 @@ async function sendMessage() {
     selectedModel.value,
     apiMessages,
     (chunk) => {
-      messages.value[assistantIdx].content += chunk
+      const msg = messages.value[assistantIdx]
+      if (msg) msg.content += chunk
       scrollToBottom()
     },
     () => {
@@ -200,7 +201,8 @@ async function sendMessage() {
       scrollToBottom()
     },
     (err) => {
-      messages.value[assistantIdx].content += `\n\n[错误: ${err}]`
+      const msg = messages.value[assistantIdx]
+      if (msg) msg.content += `\n\n[错误: ${err}]`
       isStreaming.value = false
       scrollToBottom()
     },

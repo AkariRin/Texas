@@ -101,4 +101,3 @@ class ChatRequest(BaseModel):
     temperature: float | None = Field(None, ge=0.0, le=2.0, description="覆盖温度")
     max_tokens: int | None = Field(None, description="覆盖最大 token 数")
     stream: bool = Field(False, description="是否流式输出")
-

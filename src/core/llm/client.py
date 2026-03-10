@@ -73,7 +73,9 @@ class LLMClient:
         - 当 stream=True 时，返回 AsyncStream 异步迭代器
         """
         client = self._get_or_create(
-            provider_id, api_base, api_key,
+            provider_id,
+            api_base,
+            api_key,
             max_retries=max_retries,
             timeout=timeout,
             retry_interval=retry_interval,
@@ -110,4 +112,3 @@ class LLMClient:
         for client in self._clients.values():
             await client.close()
         self._clients.clear()
-

@@ -238,4 +238,3 @@ async def chat(req: ChatRequest) -> Any:
             "X-Accel-Buffering": "no",
         },
     )
-

@@ -124,7 +124,6 @@ class PersonnelService:
 
         return total
 
-
     async def upsert_groups(
         self,
         session: AsyncSession,
