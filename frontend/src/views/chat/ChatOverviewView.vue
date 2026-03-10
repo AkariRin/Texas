@@ -7,7 +7,7 @@
       </div>
       <v-spacer></v-spacer>
       <v-btn
-        variant="tonal"
+        variant="elevated"
         color="primary"
         prepend-icon="mdi-refresh"
         :loading="store.overviewLoading"
@@ -92,7 +92,7 @@
               density="compact"
               mandatory
               color="primary"
-              variant="outlined"
+              variant="elevated"
             >
               <v-btn :value="7" size="small">7天</v-btn>
               <v-btn :value="30" size="small">30天</v-btn>
@@ -159,7 +159,7 @@
                 </template>
                 <v-list-item-title>{{ getTypeName(Number(type)) }}</v-list-item-title>
                 <template #append>
-                  <v-chip size="small" variant="tonal" :color="getTypeColor(Number(type))">
+                  <v-chip size="small" variant="elevated" :color="getTypeColor(Number(type))">
                     {{ formatNumber(count) }}
                   </v-chip>
                 </template>
@@ -197,7 +197,7 @@
                     <v-chip
                       size="x-small"
                       :color="index < 3 ? ['amber', 'grey', 'brown'][index] : 'default'"
-                      variant="flat"
+                      variant="elevated"
                     >
                       #{{ index + 1 }}
                     </v-chip>
@@ -236,7 +236,7 @@
                     <v-chip
                       size="x-small"
                       :color="index < 3 ? ['amber', 'grey', 'brown'][index] : 'default'"
-                      variant="flat"
+                      variant="elevated"
                     >
                       #{{ index + 1 }}
                     </v-chip>
@@ -282,7 +282,7 @@
                         :key="h"
                         class="heatmap-cell"
                         :style="{ backgroundColor: getHeatmapColor(getHeatmapValue(d - 1, h - 1)) }"
-                        :title="`${dayNames[d - 1]} ${h - 1}:00 — ${getHeatmapValue(d - 1, h - 1)} 条`"
+                        :title="`${dayNames[d - 1]} ${h - 1}:00 共 ${getHeatmapValue(d - 1, h - 1)} 条`"
                       ></td>
                     </tr>
                   </tbody>

@@ -6,7 +6,7 @@
         <p class="text-body-2 text-medium-emphasis">实时日志流</p>
       </div>
       <div class="d-flex align-center ga-2">
-        <v-chip :color="connected ? 'success' : 'error'" variant="tonal" size="small">
+        <v-chip :color="connected ? 'success' : 'error'" variant="elevated" size="small">
           <v-icon
             start
             size="x-small"
@@ -18,7 +18,7 @@
           v-model="level"
           :items="levels"
           density="compact"
-          variant="outlined"
+          variant="solo-filled"
           hide-details
           style="max-width: 140px"
           label="级别"
@@ -29,7 +29,7 @@
               v-bind="props"
               :icon="autoScroll ? 'mdi-arrow-down-bold' : 'mdi-arrow-down-bold-outline'"
               :color="autoScroll ? 'red' : undefined"
-              variant="text"
+              variant="elevated"
               size="small"
               @click="autoScroll = !autoScroll"
             ></v-btn>
@@ -40,7 +40,7 @@
             <v-btn
               v-bind="props"
               icon="mdi-delete-outline"
-              variant="text"
+              variant="elevated"
               size="small"
               @click="clearLogs"
             ></v-btn>
@@ -49,12 +49,12 @@
       </div>
     </div>
 
-    <v-card class="log-card" variant="flat">
+    <v-card class="log-card" variant="elevated">
       <div class="log-search-bar px-3 pt-2 pb-1">
         <v-text-field
           v-model="searchQuery"
           density="compact"
-          variant="outlined"
+          variant="solo-filled"
           hide-details
           clearable
           prepend-inner-icon="mdi-magnify"

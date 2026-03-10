@@ -10,7 +10,7 @@
           v-model="filterNickname"
           label="昵称搜索"
           density="compact"
-          variant="outlined"
+          variant="solo-filled"
           hide-details
           clearable
           prepend-inner-icon="mdi-magnify"
@@ -21,7 +21,7 @@
           v-model="filterQQ"
           label="QQ 号"
           density="compact"
-          variant="outlined"
+          variant="solo-filled"
           hide-details
           clearable
           prepend-inner-icon="mdi-identifier"
@@ -33,12 +33,21 @@
           :items="relationOptions"
           label="关系等级"
           density="compact"
-          variant="outlined"
+          variant="solo-filled"
           hide-details
           clearable
           style="max-width: 160px"
           @update:model-value="loadPage(1)"
         />
+        <v-btn
+          variant="elevated"
+          color="red"
+          prepend-icon="mdi-sync"
+          size="small"
+          @click="syncDialog = true"
+        >
+          数据同步
+        </v-btn>
       </v-card-title>
 
       <v-data-table-server
@@ -65,7 +74,7 @@
 
         <!-- 关系等级列 -->
         <template #[`item.relation`]="{ item }">
-          <v-chip :color="relationColor(item.relation)" size="small" variant="tonal">
+          <v-chip :color="relationColor(item.relation)" size="small" variant="elevated">
             <v-icon start size="x-small">{{ relationIcon(item.relation) }}</v-icon>
             {{ relationLabel(item.relation) }}
           </v-chip>
@@ -80,13 +89,16 @@
 
         <!-- 操作列 -->
         <template #[`item.actions`]="{ item }">
-          <v-btn icon size="small" variant="text" @click="openDetail(item.qq)">
+          <v-btn icon size="small" variant="elevated" @click="openDetail(item.qq)">
             <v-icon>mdi-eye</v-icon>
             <v-tooltip activator="parent" location="top">查看详情</v-tooltip>
           </v-btn>
         </template>
       </v-data-table-server>
     </v-card>
+
+    <!-- 数据同步弹窗 -->
+    <sync-dialog v-model="syncDialog" />
 
     <!-- 用户详情弹窗 -->
     <v-dialog
@@ -104,7 +116,7 @@
             <div class="text-caption text-medium-emphasis">QQ: {{ detailUser.qq }}</div>
           </div>
           <v-spacer />
-          <v-chip :color="relationColor(detailUser.relation)" variant="tonal">
+          <v-chip :color="relationColor(detailUser.relation)" variant="elevated">
             <v-icon start size="small">{{ relationIcon(detailUser.relation) }}</v-icon>
             {{ relationLabel(detailUser.relation) }}
           </v-chip>
@@ -149,21 +161,25 @@
                 <td>{{ g.group_name }}</td>
                 <td>{{ g.member_count }} / {{ g.max_member_count }}</td>
                 <td>
-                  <v-chip :color="g.is_active ? 'success' : 'grey'" size="x-small" variant="tonal">
+                  <v-chip
+                    :color="g.is_active ? 'success' : 'grey'"
+                    size="x-small"
+                    variant="elevated"
+                  >
                     {{ g.is_active ? '活跃' : '已退出' }}
                   </v-chip>
                 </td>
               </tr>
             </tbody>
           </v-table>
-          <v-alert v-else type="info" variant="tonal" density="compact" class="mt-2">
+          <v-alert v-else type="info" variant="elevated" density="compact" class="mt-2">
             该用户不在任何群聊中
           </v-alert>
         </v-card-text>
 
         <v-card-actions>
           <v-spacer />
-          <v-btn color="red" variant="text" @click="detailDialog = false">关闭</v-btn>
+          <v-btn color="red" variant="elevated" @click="detailDialog = false">关闭</v-btn>
         </v-card-actions>
       </v-card>
 
@@ -181,6 +197,7 @@
 import { ref, watch, onMounted } from 'vue'
 import { usePersonnelStore } from '@/stores/personnel'
 import type { UserDetail, GroupItem } from '@/apis/personnel'
+import SyncDialog from './SyncDialog.vue'
 
 const store = usePersonnelStore()
 
@@ -190,6 +207,7 @@ const filterRelation = ref<string | null>(null)
 const filterQQ = ref<string | null>(null)
 const filterNickname = ref<string | null>(null)
 
+const syncDialog = ref(false)
 const detailDialog = ref(false)
 const detailQQ = ref(0)
 const detailUser = ref<UserDetail | null>(null)

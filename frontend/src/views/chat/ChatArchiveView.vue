@@ -7,7 +7,7 @@
       </div>
       <v-spacer></v-spacer>
       <v-btn
-        variant="tonal"
+        variant="elevated"
         color="primary"
         prepend-icon="mdi-refresh"
         :loading="store.archivesLoading"
@@ -50,7 +50,7 @@
       >
         <!-- 状态列 -->
         <template #item.status="{ item }">
-          <v-chip :color="statusColor(item.status)" size="small" variant="flat">
+          <v-chip :color="statusColor(item.status)" size="small" variant="elevated">
             {{ item.status }}
           </v-chip>
         </template>
@@ -85,7 +85,7 @@
           <v-btn
             icon="mdi-information-outline"
             size="small"
-            variant="text"
+            variant="elevated"
             @click="showDetail(item)"
           ></v-btn>
         </template>
@@ -119,7 +119,12 @@
           <v-icon class="mr-2">mdi-archive</v-icon>
           归档详情
           <v-spacer></v-spacer>
-          <v-btn icon="mdi-close" variant="text" size="small" @click="detailDialog = false"></v-btn>
+          <v-btn
+            icon="mdi-close"
+            variant="elevated"
+            size="small"
+            @click="detailDialog = false"
+          ></v-btn>
         </v-card-title>
         <v-divider></v-divider>
         <v-card-text v-if="selectedArchive">
@@ -133,14 +138,18 @@
             <v-list-item>
               <v-list-item-title class="text-medium-emphasis">归档周期</v-list-item-title>
               <v-list-item-subtitle
-                >{{ selectedArchive.period_start }} —
+                >{{ selectedArchive.period_start }} 至
                 {{ selectedArchive.period_end }}</v-list-item-subtitle
               >
             </v-list-item>
             <v-list-item>
               <v-list-item-title class="text-medium-emphasis">状态</v-list-item-title>
               <v-list-item-subtitle>
-                <v-chip :color="statusColor(selectedArchive.status)" size="small" variant="flat">
+                <v-chip
+                  :color="statusColor(selectedArchive.status)"
+                  size="small"
+                  variant="elevated"
+                >
                   {{ selectedArchive.status }}
                 </v-chip>
               </v-list-item-subtitle>

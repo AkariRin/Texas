@@ -5,7 +5,7 @@
         <v-icon start>mdi-shield-account</v-icon>
         <span>管理员列表</span>
         <v-spacer />
-        <v-btn color="red" variant="tonal" prepend-icon="mdi-plus" @click="addDialog = true">
+        <v-btn color="red" variant="elevated" prepend-icon="mdi-plus" @click="addDialog = true">
           添加管理员
         </v-btn>
       </v-card-title>
@@ -15,8 +15,8 @@
       </v-card-text>
 
       <template v-else>
-        <v-alert v-if="store.admins.length === 0" type="info" variant="tonal" class="ma-4">
-          暂无管理员，点击右上角"添加管理员"来设置
+        <v-alert v-if="store.admins.length === 0" type="info" variant="elevated" class="ma-4">
+          暂无管理员，点击右上角「添加管理员」来设置
         </v-alert>
 
         <v-list v-else lines="two">
@@ -33,7 +33,13 @@
             <v-list-item-subtitle> QQ: {{ admin.qq }} </v-list-item-subtitle>
 
             <template #append>
-              <v-btn icon size="small" variant="text" color="error" @click="confirmRemove(admin)">
+              <v-btn
+                icon
+                size="small"
+                variant="elevated"
+                color="error"
+                @click="confirmRemove(admin)"
+              >
                 <v-icon>mdi-shield-off</v-icon>
                 <v-tooltip activator="parent" location="top">移除管理员</v-tooltip>
               </v-btn>
@@ -51,7 +57,7 @@
               v-model="addQQ"
               label="QQ 号"
               type="number"
-              variant="outlined"
+              variant="solo-filled"
               hide-details="auto"
               prepend-inner-icon="mdi-identifier"
               :error-messages="addError"
@@ -59,10 +65,10 @@
           </v-card-text>
           <v-card-actions>
             <v-spacer />
-            <v-btn variant="text" @click="addDialog = false">取消</v-btn>
+            <v-btn variant="elevated" @click="addDialog = false">取消</v-btn>
             <v-btn
               color="red"
-              variant="tonal"
+              variant="elevated"
               :loading="addLoading"
               :disabled="!addQQ"
               @click="doAdd"
@@ -84,8 +90,8 @@
           </v-card-text>
           <v-card-actions>
             <v-spacer />
-            <v-btn variant="text" @click="removeDialog = false">取消</v-btn>
-            <v-btn color="error" variant="tonal" :loading="removeLoading" @click="doRemove">
+            <v-btn variant="elevated" @click="removeDialog = false">取消</v-btn>
+            <v-btn color="error" variant="elevated" :loading="removeLoading" @click="doRemove">
               确认移除
             </v-btn>
           </v-card-actions>

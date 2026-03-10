@@ -46,7 +46,7 @@
             <div class="text-caption text-medium-emphasis">{{ botStore.userId ?? '-' }}</div>
             <v-chip
               :color="botStore.online ? 'success' : 'grey'"
-              variant="tonal"
+              variant="elevated"
               size="small"
               class="mt-2"
             >
@@ -83,9 +83,9 @@
         ></v-list-item>
       </v-list>
 
-      <!-- 用户与群聊 -->
+      <!-- 用户与群组 -->
       <v-list density="compact" nav class="nav-list">
-        <v-list-subheader v-if="!rail" class="nav-subheader">用户与群聊</v-list-subheader>
+        <v-list-subheader v-if="!rail" class="nav-subheader">用户与群组</v-list-subheader>
         <v-list-item
           prepend-icon="mdi-account-group"
           title="用户管理"
@@ -110,14 +110,6 @@
           rounded="lg"
           class="nav-item"
         ></v-list-item>
-        <v-list-item
-          prepend-icon="mdi-sync"
-          title="数据同步"
-          value="personnel-sync"
-          to="/personnel/sync"
-          rounded="lg"
-          class="nav-item"
-        ></v-list-item>
       </v-list>
 
       <!-- 聊天记录 -->
@@ -127,7 +119,7 @@
           prepend-icon="mdi-chart-bar"
           title="消息概览"
           value="chat-overview"
-          to="/chat/overview"
+          to="/chat"
           rounded="lg"
           class="nav-item"
         ></v-list-item>

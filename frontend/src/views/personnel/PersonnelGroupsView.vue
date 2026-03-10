@@ -9,7 +9,7 @@
           v-model="filterName"
           label="群名搜索"
           density="compact"
-          variant="outlined"
+          variant="solo-filled"
           hide-details
           clearable
           prepend-inner-icon="mdi-magnify"
@@ -21,12 +21,21 @@
           :items="activeOptions"
           label="状态"
           density="compact"
-          variant="outlined"
+          variant="solo-filled"
           hide-details
           clearable
           style="max-width: 140px"
           @update:model-value="loadPage(1)"
         />
+        <v-btn
+          variant="elevated"
+          color="red"
+          prepend-icon="mdi-sync"
+          size="small"
+          @click="syncDialog = true"
+        >
+          数据同步
+        </v-btn>
       </v-card-title>
 
       <v-data-table-server
@@ -58,7 +67,7 @@
 
         <!-- 状态 -->
         <template #[`item.is_active`]="{ item }">
-          <v-chip :color="item.is_active ? 'success' : 'grey'" size="small" variant="tonal">
+          <v-chip :color="item.is_active ? 'success' : 'grey'" size="small" variant="elevated">
             <v-icon start size="x-small">{{
               item.is_active ? 'mdi-check-circle' : 'mdi-close-circle'
             }}</v-icon>
@@ -75,13 +84,16 @@
 
         <!-- 操作列 -->
         <template #[`item.actions`]="{ item }">
-          <v-btn icon size="small" variant="text" @click="openMembers(item)">
+          <v-btn icon size="small" variant="elevated" @click="openMembers(item)">
             <v-icon>mdi-account-multiple</v-icon>
             <v-tooltip activator="parent" location="top">查看成员</v-tooltip>
           </v-btn>
         </template>
       </v-data-table-server>
     </v-card>
+
+    <!-- 数据同步弹窗 -->
+    <sync-dialog v-model="syncDialog" />
 
     <!-- 群成员弹窗 -->
     <v-dialog
@@ -102,7 +114,7 @@
           <v-spacer />
           <v-chip
             :color="selectedGroup.is_active ? 'success' : 'grey'"
-            variant="tonal"
+            variant="elevated"
             size="small"
           >
             {{ selectedGroup.is_active ? '活跃' : '已退出' }}
@@ -119,7 +131,7 @@
                 v-model="memberFilterNickname"
                 label="搜索昵称 / 群名片"
                 density="compact"
-                variant="outlined"
+                variant="solo-filled"
                 hide-details
                 clearable
                 prepend-inner-icon="mdi-magnify"
@@ -132,7 +144,7 @@
                 :items="roleOptions"
                 label="群内角色"
                 density="compact"
-                variant="outlined"
+                variant="solo-filled"
                 hide-details
                 clearable
                 @update:model-value="loadMembers(1)"
@@ -167,14 +179,14 @@
 
           <!-- 群内角色 -->
           <template #[`item.role`]="{ item }">
-            <v-chip :color="roleColor(item.role)" size="x-small" variant="tonal">
+            <v-chip :color="roleColor(item.role)" size="x-small" variant="elevated">
               {{ roleLabel(item.role) }}
             </v-chip>
           </template>
 
           <!-- 系统关系 -->
           <template #[`item.relation`]="{ item }">
-            <v-chip :color="relationColor(item.relation)" size="x-small" variant="tonal">
+            <v-chip :color="relationColor(item.relation)" size="x-small" variant="elevated">
               {{ relationLabel(item.relation) }}
             </v-chip>
           </template>
@@ -189,7 +201,7 @@
 
         <v-card-actions>
           <v-spacer />
-          <v-btn color="red" variant="text" @click="memberDialog = false">关闭</v-btn>
+          <v-btn color="red" variant="elevated" @click="memberDialog = false">关闭</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -200,6 +212,7 @@
 import { ref, watch, onMounted } from 'vue'
 import { usePersonnelStore } from '@/stores/personnel'
 import type { GroupItem } from '@/apis/personnel'
+import SyncDialog from './SyncDialog.vue'
 
 const store = usePersonnelStore()
 
@@ -208,6 +221,7 @@ const pageSize = ref(20)
 const filterName = ref<string | null>(null)
 const filterActive = ref<boolean | null>(null)
 
+const syncDialog = ref(false)
 const memberDialog = ref(false)
 const selectedGroup = ref<GroupItem | null>(null)
 

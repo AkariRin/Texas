@@ -10,7 +10,7 @@
           :items="providerOptions"
           label="提供商筛选"
           density="compact"
-          variant="outlined"
+          variant="solo-filled"
           hide-details
           clearable
           style="max-width: 200px"
@@ -33,14 +33,14 @@
         <!-- 价格列 -->
         <template #[`item.price`]="{ item }">
           <div class="text-caption">
-            <div>入: &#xFFE5;{{ item.input_price.toFixed(2) }}/M</div>
-            <div>出: &#xFFE5;{{ item.output_price.toFixed(2) }}/M</div>
+            <div>入 &#xFFE5;{{ item.input_price.toFixed(2) }}/M</div>
+            <div>出 &#xFFE5;{{ item.output_price.toFixed(2) }}/M</div>
           </div>
         </template>
 
         <!-- 温度列 -->
         <template #[`item.temperature`]="{ item }">
-          <v-chip size="small" variant="tonal">{{ item.temperature.toFixed(1) }}</v-chip>
+          <v-chip size="small" variant="elevated">{{ item.temperature.toFixed(1) }}</v-chip>
         </template>
 
         <!-- 流式列 -->
@@ -52,11 +52,11 @@
 
         <!-- 操作列 -->
         <template #[`item.actions`]="{ item }">
-          <v-btn icon size="small" variant="text" @click="openEdit(item)">
+          <v-btn icon size="small" variant="elevated" @click="openEdit(item)">
             <v-icon>mdi-pencil</v-icon>
             <v-tooltip activator="parent" location="top">编辑</v-tooltip>
           </v-btn>
-          <v-btn icon size="small" variant="text" color="error" @click="confirmDelete(item)">
+          <v-btn icon size="small" variant="elevated" color="error" @click="confirmDelete(item)">
             <v-icon>mdi-delete</v-icon>
             <v-tooltip activator="parent" location="top">删除</v-tooltip>
           </v-btn>
@@ -79,7 +79,7 @@
                 :items="providerOptions"
                 label="所属提供商"
                 :rules="[rules.required]"
-                variant="outlined"
+                variant="solo-filled"
                 density="compact"
                 class="mb-3"
               />
@@ -89,7 +89,7 @@
                 label="模型标识"
                 :rules="[rules.required]"
                 :disabled="isEditModel"
-                variant="outlined"
+                variant="solo-filled"
                 density="compact"
                 class="mb-3"
                 placeholder="如 gpt-4o, deepseek-chat"
@@ -98,7 +98,7 @@
               <v-text-field
                 v-model="modelForm.display_name"
                 label="展示名称 (可选)"
-                variant="outlined"
+                variant="solo-filled"
                 density="compact"
                 class="mb-3"
                 placeholder="如 GPT-4o"
@@ -109,7 +109,7 @@
                   <v-text-field
                     v-model.number="modelForm.input_price"
                     label="输入价格 (&#xFFE5;/M tokens)"
-                    variant="outlined"
+                    variant="solo-filled"
                     density="compact"
                     type="number"
                     step="0.01"
@@ -120,7 +120,7 @@
                   <v-text-field
                     v-model.number="modelForm.output_price"
                     label="输出价格 (&#xFFE5;/M tokens)"
-                    variant="outlined"
+                    variant="solo-filled"
                     density="compact"
                     type="number"
                     step="0.01"
@@ -144,7 +144,7 @@
               <v-text-field
                 v-model.number="modelForm.max_tokens"
                 label="最大输出 Token (可选)"
-                variant="outlined"
+                variant="solo-filled"
                 density="compact"
                 class="mb-3"
                 type="number"
@@ -165,7 +165,7 @@
               <v-textarea
                 v-model="extraParamsStr"
                 label="额外参数 (JSON)"
-                variant="outlined"
+                variant="solo-filled"
                 density="compact"
                 rows="3"
                 :error-messages="jsonError"

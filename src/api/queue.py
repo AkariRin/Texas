@@ -22,6 +22,19 @@ logger = structlog.get_logger()
 
 router = APIRouter(prefix="/queue", tags=["queue"])
 
+# ── 任务函数路径 → 中文显示名称 ──
+TASK_DISPLAY_NAMES: dict[str, str] = {
+    "src.core.tasks.personnel.persist_personnel_data": "同步用户数据",
+    "src.core.tasks.personnel.schedule_personnel_sync": "定时同步用户数据",
+    "src.core.tasks.chat_archive.archive_chat_history": "聊天记录归档",
+    "src.core.tasks.chat_archive.ensure_chat_partitions": "分区预创建",
+}
+
+
+def _display_name(task_path: str) -> str:
+    """将任务函数路径翻译为中文显示名称，无匹配时返回原始值。"""
+    return TASK_DISPLAY_NAMES.get(task_path, task_path)
+
 
 @router.get("/scheduled-tasks")
 async def get_scheduled_tasks() -> dict[str, Any]:
@@ -43,7 +56,7 @@ async def get_scheduled_tasks() -> dict[str, Any]:
         options = config.get("options", {})
         tasks.append(
             {
-                "name": name,
+                "name": _display_name(config.get("task", "")),
                 "task": config.get("task", ""),
                 "schedule": schedule_display,
                 "schedule_raw": schedule if isinstance(schedule, (int, float)) else None,
@@ -74,7 +87,7 @@ async def get_active_tasks() -> dict[str, Any]:
                     {
                         "worker": worker_name,
                         "id": task.get("id"),
-                        "name": task.get("name"),
+                        "name": _display_name(task.get("name", "")),
                         "args": task.get("args"),
                         "kwargs": task.get("kwargs"),
                         "started": task.get("time_start"),
@@ -102,7 +115,7 @@ async def get_reserved_tasks() -> dict[str, Any]:
                     {
                         "worker": worker_name,
                         "id": task.get("id"),
-                        "name": task.get("name"),
+                        "name": _display_name(task.get("name", "")),
                         "args": task.get("args"),
                         "kwargs": task.get("kwargs"),
                         "acknowledged": task.get("acknowledged"),
@@ -196,7 +209,7 @@ def _parse_pending_tasks(max_count: int = 200) -> list[dict[str, Any]]:
                     pending.append(
                         {
                             "id": task_id,
-                            "name": task_name,
+                            "name": _display_name(task_name),
                             "args": str(task_args) if task_args else None,
                             "kwargs": str(task_kwargs) if task_kwargs else None,
                         }
@@ -241,7 +254,7 @@ def _collect_all() -> dict[str, Any]:
         options = config.get("options", {})
         scheduled_tasks.append(
             {
-                "name": name,
+                "name": _display_name(config.get("task", "")),
                 "task": config.get("task", ""),
                 "schedule": schedule_display,
                 "schedule_raw": schedule if isinstance(schedule, (int, float)) else None,
@@ -270,7 +283,7 @@ def _collect_all() -> dict[str, Any]:
                     {
                         "worker": worker_name,
                         "id": task.get("id"),
-                        "name": task.get("name"),
+                        "name": _display_name(task.get("name", "")),
                         "args": task.get("args"),
                         "kwargs": task.get("kwargs"),
                         "started": task.get("time_start"),
@@ -284,7 +297,7 @@ def _collect_all() -> dict[str, Any]:
                     {
                         "worker": worker_name,
                         "id": task.get("id"),
-                        "name": task.get("name"),
+                        "name": _display_name(task.get("name", "")),
                         "args": task.get("args"),
                         "kwargs": task.get("kwargs"),
                         "acknowledged": task.get("acknowledged"),

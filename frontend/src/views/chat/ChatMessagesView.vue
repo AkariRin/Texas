@@ -1,15 +1,15 @@
 <template>
   <v-container fluid class="pa-0" style="height: calc(100vh - 64px)">
     <v-row no-gutters style="height: 100%">
-      <!-- 左侧：群聊/私聊选择器 -->
+      <!-- 左侧：群/私聊选择器 -->
       <v-col cols="3" style="height: 100%; border-right: 1px solid rgba(0, 0, 0, 0.12)">
         <div class="group-selector d-flex flex-column" style="height: 100%">
-          <!-- 搜索框 -->
+          <!-- 搜索栏 -->
           <div class="pa-2">
             <v-text-field
               v-model="selectorSearchQuery"
               density="compact"
-              variant="outlined"
+              variant="solo-filled"
               placeholder="搜索群聊 / 用户..."
               prepend-inner-icon="mdi-magnify"
               hide-details
@@ -32,7 +32,12 @@
           <v-divider></v-divider>
 
           <!-- 列表 -->
-          <v-list density="compact" nav class="flex-grow-1 overflow-y-auto" style="min-height: 0">
+          <v-list
+            density="compact"
+            nav
+            class="flex-grow-1 overflow-y-auto selector-list"
+            style="min-height: 0"
+          >
             <template v-if="selectorTab === 'groups'">
               <v-list-item
                 v-for="group in filteredGroups"
@@ -120,7 +125,7 @@
             <!-- 日期跳转 -->
             <v-menu :close-on-content-click="false">
               <template #activator="{ props }">
-                <v-btn icon="mdi-calendar" size="small" variant="text" v-bind="props"></v-btn>
+                <v-btn icon="mdi-calendar" size="small" variant="elevated" v-bind="props"></v-btn>
               </template>
               <v-date-picker @update:model-value="onDateJump" color="primary"></v-date-picker>
             </v-menu>
@@ -133,7 +138,7 @@
                 <v-text-field
                   v-model="searchKeyword"
                   density="compact"
-                  variant="outlined"
+                  variant="solo-filled"
                   placeholder="搜索消息..."
                   prepend-inner-icon="mdi-magnify"
                   hide-details
@@ -146,7 +151,7 @@
                 <v-text-field
                   v-model="filterUserId"
                   density="compact"
-                  variant="outlined"
+                  variant="solo-filled"
                   placeholder="按 QQ 号筛选"
                   hide-details
                   clearable
@@ -156,7 +161,7 @@
               <v-col cols="2">
                 <v-btn
                   block
-                  variant="tonal"
+                  variant="elevated"
                   color="primary"
                   @click="doSearch"
                   :loading="store.messagesLoading"
@@ -165,7 +170,7 @@
                 </v-btn>
               </v-col>
               <v-col cols="2">
-                <v-btn block variant="outlined" @click="clearSearch"> 重置 </v-btn>
+                <v-btn block variant="elevated" @click="clearSearch"> 重置 </v-btn>
               </v-col>
             </v-row>
           </div>
@@ -177,7 +182,7 @@
             <!-- 加载更多按钮 -->
             <div v-if="store.hasMore" class="text-center mb-4">
               <v-btn
-                variant="text"
+                variant="elevated"
                 size="small"
                 color="primary"
                 :loading="store.messagesLoading"
@@ -189,7 +194,7 @@
 
             <!-- 消息气泡 -->
             <div
-              v-for="msg in store.messages"
+              v-for="msg in reversedMessages"
               :key="`${msg.id}-${msg.created_at}`"
               class="message-bubble d-flex mb-3"
               :class="{ 'flex-row-reverse': isSelf(msg) }"
@@ -221,9 +226,12 @@
                     {{ msg.sender_card || msg.sender_nickname || String(msg.user_id) }}
                   </span>
                   <span v-if="msg.sender_role && msg.sender_role !== 'member'" class="text-caption">
-                    <v-chip size="x-small" variant="tonal" :color="getRoleColor(msg.sender_role)">{{
-                      getRoleLabel(msg.sender_role)
-                    }}</v-chip>
+                    <v-chip
+                      size="x-small"
+                      variant="elevated"
+                      :color="getRoleColor(msg.sender_role)"
+                      >{{ getRoleLabel(msg.sender_role) }}</v-chip
+                    >
                   </span>
                   <span class="text-caption text-medium-emphasis">
                     {{ formatMsgTime(msg.created_at) }}
@@ -271,7 +279,7 @@
                         v-else-if="seg.type === 'at'"
                         size="small"
                         color="blue-lighten-4"
-                        variant="flat"
+                        variant="elevated"
                         class="mx-1"
                       >
                         @{{ seg.data?.qq === 'all' ? '全体成员' : seg.data?.qq }}
@@ -280,7 +288,7 @@
                         v-else-if="seg.type === 'reply'"
                         size="x-small"
                         color="grey-lighten-2"
-                        variant="flat"
+                        variant="elevated"
                         prepend-icon="mdi-reply"
                         class="mr-1"
                       >
@@ -293,7 +301,7 @@
                       >
                         [表情{{ seg.data?.id }}]
                       </span>
-                      <v-chip v-else size="x-small" color="grey-lighten-2" variant="flat">
+                      <v-chip v-else size="x-small" color="grey-lighten-2" variant="elevated">
                         [{{ seg.type }}]
                       </v-chip>
                     </template>
@@ -328,13 +336,16 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, nextTick } from 'vue'
 import { useChatStore } from '@/stores/chat'
 import { fetchGroups, fetchUsers } from '@/apis/personnel'
 import type { GroupItem, UserItem } from '@/apis/personnel'
 import type { ChatMessage } from '@/apis/chat'
 
 const store = useChatStore()
+
+// 反转消息列表：后端返回 newest-first，展示需要 oldest-first（新消息在底部）
+const reversedMessages = computed(() => [...store.messages].reverse())
 
 // ── 会话选择器状态 ──
 
@@ -451,10 +462,17 @@ function onSessionSelect(type: 'group' | 'private', id: number, name: string) {
   searchKeyword.value = ''
   filterUserId.value = ''
   store.clearMessages()
-  loadMessages()
+  loadMessages(true)
 }
 
-function loadMessages() {
+function scrollToBottom() {
+  nextTick(() => {
+    const el = messageContainer.value
+    if (el) el.scrollTop = el.scrollHeight
+  })
+}
+
+async function loadMessages(scrollBottom = false) {
   if (!currentSession.value) return
 
   const params: {
@@ -467,10 +485,12 @@ function loadMessages() {
   if (filterUserId.value) params.userId = Number(filterUserId.value)
 
   if (currentSession.value.type === 'group') {
-    store.loadGroupMessages(currentSession.value.id, params)
+    await store.loadGroupMessages(currentSession.value.id, params)
   } else {
-    store.loadPrivateMessages(currentSession.value.id, { limit: params.limit })
+    await store.loadPrivateMessages(currentSession.value.id, { limit: params.limit })
   }
+
+  if (scrollBottom) scrollToBottom()
 }
 
 function loadMore() {
@@ -540,6 +560,19 @@ onMounted(() => {
 </script>
 
 <style scoped>
+.group-selector :deep(.v-tabs) {
+  flex: none;
+}
+
+.group-selector :deep(.v-tabs .v-window) {
+  display: none;
+}
+
+.selector-list {
+  padding-top: 4px !important;
+  padding-bottom: 0 !important;
+}
+
 .message-bubble {
   padding: 0 4px;
 }

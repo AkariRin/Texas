@@ -28,7 +28,7 @@
           md="4"
           lg="3"
         >
-          <v-card variant="outlined" class="h-100">
+          <v-card variant="elevated" class="h-100">
             <v-card-title class="d-flex align-center">
               <span class="text-truncate">{{ provider.name }}</span>
             </v-card-title>
@@ -55,23 +55,23 @@
                 </div>
               </div>
 
-              <v-chip size="small" variant="tonal" color="blue">
+              <v-chip size="small" variant="elevated" color="blue">
                 <v-icon start size="x-small">mdi-brain</v-icon>
                 {{ provider.model_count }} 个模型
               </v-chip>
             </v-card-text>
 
             <v-card-actions>
-              <v-btn size="small" variant="text" color="blue" @click="doTest(provider)">
+              <v-btn size="small" variant="elevated" color="blue" @click="doTest(provider)">
                 <v-icon start>mdi-connection</v-icon>
                 测试
               </v-btn>
-              <v-btn size="small" variant="text" @click="openEdit(provider)">
+              <v-btn size="small" variant="elevated" @click="openEdit(provider)">
                 <v-icon start>mdi-pencil</v-icon>
                 编辑
               </v-btn>
               <v-spacer />
-              <v-btn size="small" variant="text" color="error" @click="confirmDelete(provider)">
+              <v-btn size="small" variant="elevated" color="error" @click="confirmDelete(provider)">
                 <v-icon>mdi-delete</v-icon>
               </v-btn>
             </v-card-actions>
@@ -92,7 +92,7 @@
                 v-model="form.name"
                 label="提供商名称"
                 :rules="[rules.required]"
-                variant="outlined"
+                variant="solo-filled"
                 density="compact"
                 class="mb-3"
                 placeholder="如 OpenAI、DeepSeek"
@@ -101,7 +101,7 @@
                 v-model="form.api_base"
                 label="API 基础地址"
                 :rules="[rules.required]"
-                variant="outlined"
+                variant="solo-filled"
                 density="compact"
                 class="mb-3"
                 placeholder="https://api.openai.com/v1"
@@ -110,7 +110,7 @@
                 v-model="form.api_key"
                 :label="isEdit ? 'API Key (留空则不修改)' : 'API Key'"
                 :rules="isEdit ? [] : [rules.required]"
-                variant="outlined"
+                variant="solo-filled"
                 density="compact"
                 class="mb-3"
                 :type="showKey ? 'text' : 'password'"
@@ -124,7 +124,7 @@
                     v-model.number="form.max_retries"
                     label="最大重试"
                     type="number"
-                    variant="outlined"
+                    variant="solo-filled"
                     density="compact"
                     :rules="[rules.nonNegativeInt]"
                     suffix="次"
@@ -137,7 +137,7 @@
                     v-model.number="form.timeout"
                     label="超时"
                     type="number"
-                    variant="outlined"
+                    variant="solo-filled"
                     density="compact"
                     :rules="[rules.positiveInt]"
                     suffix="秒"
@@ -150,7 +150,7 @@
                     v-model.number="form.retry_interval"
                     label="重试间隔"
                     type="number"
-                    variant="outlined"
+                    variant="solo-filled"
                     density="compact"
                     :rules="[rules.nonNegativeInt]"
                     suffix="秒"

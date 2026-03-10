@@ -8,6 +8,7 @@ import 'unfonts.css'
 import { createVuetify } from 'vuetify'
 import * as components from 'vuetify/components'
 import * as directives from 'vuetify/directives'
+import { zhHans } from 'vuetify/locale'
 
 import App from './App.vue'
 import router from './router'
@@ -24,6 +25,10 @@ createApp(App)
       },
       theme: {
         defaultTheme: 'light',
+      },
+      locale: {
+        locale: 'zhHans',
+        messages: { zhHans },
       },
     }),
   )
