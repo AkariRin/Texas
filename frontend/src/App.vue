@@ -116,6 +116,35 @@
         ></v-list-item>
       </v-list>
 
+      <!-- 聊天记录 -->
+      <v-list density="compact" nav class="nav-list">
+        <v-list-subheader v-if="!rail" class="nav-subheader">聊天记录</v-list-subheader>
+        <v-list-item
+          prepend-icon="mdi-chart-bar"
+          title="消息概览"
+          value="chat-overview"
+          to="/chat/overview"
+          rounded="lg"
+          class="nav-item"
+        ></v-list-item>
+        <v-list-item
+          prepend-icon="mdi-message-text-outline"
+          title="消息浏览"
+          value="chat-messages"
+          to="/chat/messages"
+          rounded="lg"
+          class="nav-item"
+        ></v-list-item>
+        <v-list-item
+          prepend-icon="mdi-archive-outline"
+          title="归档管理"
+          value="chat-archive"
+          to="/chat/archive"
+          rounded="lg"
+          class="nav-item"
+        ></v-list-item>
+      </v-list>
+
       <!-- 大模型 -->
       <v-list density="compact" nav class="nav-list">
         <v-list-subheader v-if="!rail" class="nav-subheader">大模型</v-list-subheader>

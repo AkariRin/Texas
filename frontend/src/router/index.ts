@@ -47,6 +47,25 @@ const router = createRouter({
       component: () => import('@/views/llm/LLMModels.vue'),
     },
     {
+      path: '/chat',
+      redirect: '/chat/overview',
+    },
+    {
+      path: '/chat/overview',
+      name: 'chat-overview',
+      component: () => import('@/views/chat/ChatOverview.vue'),
+    },
+    {
+      path: '/chat/messages',
+      name: 'chat-messages',
+      component: () => import('@/views/chat/ChatMessages.vue'),
+    },
+    {
+      path: '/chat/archive',
+      name: 'chat-archive',
+      component: () => import('@/views/chat/ChatArchive.vue'),
+    },
+    {
       path: '/queue',
       name: 'queue',
       component: () => import('@/views/queue/QueueIndex.vue'),

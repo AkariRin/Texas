@@ -21,6 +21,8 @@ dependencies = [
     "httpx>=0.28",
     "openai>=1.0",
     "celery-types>=0.24.0",
+    "boto3>=1.35",
+    "pyarrow>=18.0",
 ]
 
 [dependency-groups]
@@ -38,6 +40,7 @@ select = ["E", "F", "W", "I", "N", "UP", "B", "A", "SIM", "TCH"]
 
 [tool.ruff.lint.per-file-ignores]
 "src/core/db/migrations/versions/*.py" = ["E501", "TC003", "UP035", "UP007", "I001"]
+"src/core/chat/migrations/versions/*.py" = ["E501", "TC003", "UP035", "UP007", "I001"]
 
 [tool.mypy]
 python_version = "3.14"

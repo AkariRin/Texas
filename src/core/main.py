@@ -21,7 +21,7 @@ from src.api.handlers import set_scanner_provider
 from src.api.router import api_router
 from src.core.config import Settings, validate_settings
 from src.core.db.engine import create_engine as create_db_engine
-from src.core.db.migration import run_startup_db_check
+from src.core.db.migration import run_startup_chat_db_check, run_startup_db_check
 from src.core.framework.dispatcher import EventDispatcher
 from src.core.framework.interceptors.logging import LoggingInterceptor
 from src.core.framework.interceptors.metrics import MetricsInterceptor
@@ -150,6 +150,23 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     set_llm_deps(llm_service)
     init_completion(llm_service)
 
+    # ── 聊天记录模块初始化 ──
+    from src.core.chat.api import set_chat_api_deps
+    from src.core.chat.archive_service import ArchiveService
+    from src.core.chat.engine import create_chat_engine, create_chat_session_factory
+    from src.core.chat.service import ChatHistoryService
+
+    chat_engine = create_chat_engine(settings)
+    await run_startup_chat_db_check(chat_engine, settings)
+    chat_session_factory = create_chat_session_factory(chat_engine)
+    chat_service = ChatHistoryService(session_factory=chat_session_factory)
+    archive_service = ArchiveService(
+        chat_session_factory=chat_session_factory,
+        main_session_factory=session_factory,
+        settings=settings,
+    )
+    set_chat_api_deps(chat_service, archive_service)
+
     # 扫描并注册处理器（包含 src.core.personnel 中的 PersonnelEventHandler）
     scan_packages = list(settings.HANDLER_SCAN_PACKAGES)
     if "src.core.personnel" not in scan_packages:
@@ -167,8 +184,23 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     # 注入 WebSocket 依赖
     set_ws_dependencies(conn_mgr, bot_api, heartbeat, settings.NAPCAT_ACCESS_TOKEN)
 
-    # 将事件调度器绑定到 WS 服务端
+    # 将事件调度器绑定到 WS 服务端（含消息持久化）
+    from src.core.protocol.models.events import MessageEvent, MessageSentEvent
+
+    async def _save_chat_message(event: Any) -> None:
+        try:
+            await chat_service.save_message(event)
+        except Exception:
+            logger.warning(
+                "聊天记录持久化失败（非致命）",
+                message_id=getattr(event, "message_id", None),
+                event_type="chat.save_error",
+            )
+
     async def _dispatch(event: Any) -> None:
+        # 异步持久化消息（fire-and-forget）
+        if isinstance(event, (MessageEvent, MessageSentEvent)):
+            asyncio.create_task(_save_chat_message(event))
         await dispatcher.dispatch(event, bot_api)
 
     set_event_dispatcher(_dispatch)
@@ -276,6 +308,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     # ── 关闭 ──
     await llm_service.close()
     await cache_client.close()
+    await chat_engine.dispose()
     await engine.dispose()
     heartbeat.stop()
     logger.info("Texas 已停止", event_type="app.stopped")

@@ -11,7 +11,7 @@ settings = Settings()
 celery_app = Celery(
     "texas",
     broker=settings.CELERY_BROKER_URL,
-    include=["src.core.tasks.personnel"],
+    include=["src.core.tasks.personnel", "src.core.tasks.chat_archive"],
 )
 
 celery_app.conf.update(

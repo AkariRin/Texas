@@ -67,6 +67,24 @@ class Settings(BaseSettings):
     PERSONNEL_SYNC_API_DELAY: float = 0.5  # 每个群 API 调用之间的延迟（秒），防止 NapCat 限流
     PERSONNEL_SYNC_LOCK_TTL: int = 600  # 同步锁超时时间（秒）
 
+    # ── 聊天记录数据库 ──
+    CHAT_DATABASE_URL: str = "postgresql+asyncpg://texas:texas@localhost:5432/chat_history"
+    CHAT_DB_POOL_SIZE: int = 5
+    CHAT_DB_MAX_OVERFLOW: int = 10
+
+    # ── S3 归档 ──
+    S3_ENDPOINT_URL: str = ""
+    S3_ACCESS_KEY_ID: str = ""
+    S3_SECRET_ACCESS_KEY: str = ""
+    S3_REGION: str = "us-east-1"
+    S3_ARCHIVE_BUCKET: str = "texas-chat-archive"
+    S3_ARCHIVE_PREFIX: str = "v1"
+
+    # ── 聊天归档策略 ──
+    CHAT_ARCHIVE_RETENTION_MONTHS: int = 12
+    CHAT_ARCHIVE_BATCH_SIZE: int = 5000
+    CHAT_ARCHIVE_COMPRESSION: str = "zstd"
+
     # 运行环境：development | production
     ENV: str = "development"
 

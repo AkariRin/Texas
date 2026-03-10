@@ -22,7 +22,7 @@ from sqlalchemy import text
 
 # ── 确保 Base.metadata 包含所有模型 ──
 import src.models  # noqa: F401
-from src.core.db.base import Base
+from src.core.db.base import Base, ChatBase
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncEngine
@@ -35,9 +35,17 @@ logger = structlog.get_logger()
 _PROJECT_ROOT = Path(__file__).resolve().parents[3]
 
 
-def _build_alembic_config(db_url: str) -> Config:
-    """构建 Alembic Config 并注入数据库连接字符串。"""
-    ini_path = _PROJECT_ROOT / "alembic.ini"
+def _build_alembic_config(
+    db_url: str,
+    ini_name: str = "alembic.ini",
+) -> Config:
+    """构建 Alembic Config 并注入数据库连接字符串。
+
+    Args:
+        db_url: asyncpg 格式的数据库 URL。
+        ini_name: alembic 配置文件名（相对项目根目录）。
+    """
+    ini_path = _PROJECT_ROOT / ini_name
     cfg = Config(str(ini_path))
     # 将 asyncpg URL 转为同步 psycopg URL 供 Alembic CLI 使用
     sync_url = db_url.replace("+asyncpg", "+psycopg")
@@ -85,11 +93,56 @@ def _get_head_revision(alembic_cfg: Config) -> str | None:
 
 
 async def _detect_schema_diff(engine: AsyncEngine) -> list[Any]:
-    """使用 autogenerate 比对 ORM 模型与数据库表结构差异。"""
+    """使用 autogenerate 比对主库 ORM 模型与数据库表结构差异。
+
+    排除 chat schema，只比对 Base.metadata 管辖的表。
+    """
+
+    def _include_name(
+        name: str | None,
+        type_: str,
+        parent_names: dict[str, str | None],  # noqa: ARG001
+    ) -> bool:
+        if type_ == "schema":
+            return name not in {"chat"}
+        return True
 
     def _compare(connection):  # type: ignore[no-untyped-def]
-        ctx = MigrationContext.configure(connection)
+        ctx = MigrationContext.configure(
+            connection,
+            opts={"include_schemas": True, "include_name": _include_name},
+        )
         return compare_metadata(ctx, Base.metadata)
+
+    async with engine.connect() as conn:
+        return await conn.run_sync(_compare)
+
+
+async def _detect_chat_schema_diff(engine: AsyncEngine) -> list[Any]:
+    """使用 autogenerate 比对聊天库 ORM 模型与数据库表结构差异。
+
+    只比对 chat schema，使用 ChatBase.metadata。
+    """
+
+    def _include_name(
+        name: str | None,
+        type_: str,
+        parent_names: dict[str, str | None],  # noqa: ARG001
+    ) -> bool:
+        if type_ == "schema":
+            return name == "chat"
+        return True
+
+    def _compare(connection):  # type: ignore[no-untyped-def]
+        ctx = MigrationContext.configure(
+            connection,
+            opts={
+                "version_table_schema": "chat",
+                "include_schemas": True,
+                "include_name": _include_name,
+            },
+        )
+        return compare_metadata(ctx, ChatBase.metadata)
 
     async with engine.connect() as conn:
         return await conn.run_sync(_compare)
@@ -204,18 +257,116 @@ async def _handle_development(
         await _force_clear_alembic_version(engine)
         current_rev = None
 
-    # 1. 检测模型与表结构差异，自动生成迁移脚本
+    # 1. 先将数据库升级到当前 head（autogenerate 要求数据库处于最新版本）
+    if head_rev and current_rev != head_rev:
+        _upgrade_head(alembic_cfg)
+        logger.info("数据库迁移完成", event_type="db.upgrade_done")
+
+    # 2. 检测模型与表结构差异，自动生成迁移脚本
     diff = await _detect_schema_diff(engine)
     if diff:
         _autogenerate_revision(alembic_cfg, message="auto")
         head_rev = _get_head_revision(alembic_cfg)
 
-    # 2. 升级到最新
-    current_rev = await _get_current_revision(engine)
-    if head_rev and current_rev != head_rev:
+        # 3. 应用刚生成的迁移脚本
         _upgrade_head(alembic_cfg)
         logger.info("数据库迁移完成", event_type="db.upgrade_done")
     elif head_rev is None and current_rev is None:
         logger.info("数据库无迁移脚本，跳过", event_type="db.no_migrations")
     else:
         logger.info("数据库已是最新版本", event_type="db.up_to_date")
+
+
+# ─────────────────────── 聊天记录库迁移 ───────────────────────
+
+
+async def _get_chat_current_revision(engine: AsyncEngine) -> str | None:
+    """获取聊天库当前的 Alembic revision（版本表位于 chat schema）。"""
+
+    def _inspect(connection):  # type: ignore[no-untyped-def]
+        ctx = MigrationContext.configure(
+            connection,
+            opts={"version_table_schema": "chat"},
+        )
+        return ctx.get_current_revision()
+
+    async with engine.connect() as conn:
+        return await conn.run_sync(_inspect)
+
+
+async def _force_clear_chat_alembic_version(engine: AsyncEngine) -> None:
+    """清空聊天库的 alembic_version 表（chat schema）。"""
+    async with engine.begin() as conn:
+        await conn.execute(text("DELETE FROM chat.alembic_version"))
+
+
+async def run_startup_chat_db_check(engine: AsyncEngine, settings: Settings) -> None:
+    """聊天记录库的启动检查与迁移管理。
+
+    与主库逻辑类似，但使用 alembic_chat.ini 配置和 ChatBase.metadata，
+    版本表位于 chat schema，且不做 autogenerate（分区表需手写迁移）。
+    """
+    # 确保 ChatBase.metadata 已注册 chat 模型
+    import src.core.chat.models  # noqa: F401
+
+    # 1. 连接检查
+    await _check_connection(engine)
+
+    # 2. 确保 chat schema 存在（Alembic 需要该 schema 来存放 alembic_version 表）
+    async with engine.begin() as conn:
+        await conn.execute(text("CREATE SCHEMA IF NOT EXISTS chat"))
+
+    alembic_cfg = _build_alembic_config(
+        settings.CHAT_DATABASE_URL, ini_name="alembic_chat.ini"
+    )
+    head_rev = _get_head_revision(alembic_cfg)
+    current_rev = await _get_chat_current_revision(engine)
+
+    if settings.is_production:
+        has_error = False
+
+        # 版本不匹配检查
+        if head_rev and current_rev != head_rev:
+            logger.critical(
+                "聊天库迁移版本不匹配，拒绝启动",
+                current=current_rev,
+                expected=head_rev,
+                event_type="chat_db.migration_pending",
+            )
+            has_error = True
+
+        # 模型与表结构漂移检查（使用 ChatBase.metadata）
+        diff = await _detect_chat_schema_diff(engine)
+        if diff:
+            logger.critical(
+                "聊天库 ORM 模型与数据库表结构不一致，拒绝启动",
+                diff_count=len(diff),
+                event_type="chat_db.schema_drift",
+            )
+            has_error = True
+
+        if has_error:
+            sys.exit(1)
+
+        logger.info("聊天库版本匹配", event_type="chat_db.production_check_ok")
+    else:
+        # 开发环境：自动升级（不做 autogenerate，分区表迁移需手写）
+
+        # 处理孤立版本
+        if current_rev is not None and not _revision_exists(alembic_cfg, current_rev):
+            logger.warning(
+                "聊天库记录的迁移版本在脚本目录中不存在，重置为 base",
+                stale_revision=current_rev,
+                event_type="chat_db.stale_revision_reset",
+            )
+            await _force_clear_chat_alembic_version(engine)
+            current_rev = None
+
+        if head_rev and current_rev != head_rev:
+            _upgrade_head(alembic_cfg)
+            logger.info("聊天库迁移完成", event_type="chat_db.upgrade_done")
+        elif head_rev is None and current_rev is None:
+            logger.info("聊天库无迁移脚本，跳过", event_type="chat_db.no_migrations")
+        else:
+            logger.info("聊天库已是最新版本", event_type="chat_db.up_to_date")
+
