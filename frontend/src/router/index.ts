@@ -47,11 +47,6 @@ const router = createRouter({
       component: () => import('@/views/llm/LLMModels.vue'),
     },
     {
-      path: '/llm/playground',
-      name: 'llm-playground',
-      component: () => import('@/views/llm/LLMPlayground.vue'),
-    },
-    {
       path: '/queue',
       name: 'queue',
       component: () => import('@/views/queue/QueueIndex.vue'),

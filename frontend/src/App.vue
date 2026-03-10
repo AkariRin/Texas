@@ -134,14 +134,6 @@
           rounded="lg"
           class="nav-item"
         ></v-list-item>
-        <v-list-item
-          prepend-icon="mdi-chat"
-          title="对话测试"
-          value="llm-playground"
-          to="/llm/playground"
-          rounded="lg"
-          class="nav-item"
-        ></v-list-item>
       </v-list>
 
       <!-- 系统 -->

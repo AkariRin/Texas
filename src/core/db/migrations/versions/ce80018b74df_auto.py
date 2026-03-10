@@ -79,8 +79,6 @@ def upgrade() -> None:
         sa.Column("title_expire_time", sa.BigInteger(), nullable=False, comment="头衔过期时间戳"),
         sa.Column("level", sa.String(length=10), nullable=False, comment="群等级"),
         sa.Column("is_active", sa.Boolean(), nullable=False, comment="是否仍在群中"),
-        sa.Column("created_at", sa.DateTime(), server_default=sa.text("now()"), nullable=False),
-        sa.Column("updated_at", sa.DateTime(), server_default=sa.text("now()"), nullable=False),
         sa.ForeignKeyConstraint(
             ["group_id"],
             ["groups.group_id"],

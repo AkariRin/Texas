@@ -1,9 +1,7 @@
 """人事管理 ORM 模型 —— User, Group, GroupMembership。"""
 
-from __future__ import annotations
-
 import uuid
-from typing import TYPE_CHECKING
+from datetime import datetime
 
 from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, Integer, String, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
@@ -11,9 +9,6 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
 from src.core.db.base import Base
-
-if TYPE_CHECKING:
-    from datetime import datetime
 
 
 class User(Base):
@@ -37,7 +32,7 @@ class User(Base):
     )
 
     # 关联
-    memberships: Mapped[list[GroupMembership]] = relationship(
+    memberships: Mapped[list["GroupMembership"]] = relationship(
         back_populates="user", lazy="selectin"
     )
 
@@ -61,7 +56,7 @@ class Group(Base):
     )
 
     # 关联
-    memberships: Mapped[list[GroupMembership]] = relationship(
+    memberships: Mapped[list["GroupMembership"]] = relationship(
         back_populates="group", lazy="selectin"
     )
 
@@ -93,12 +88,9 @@ class GroupMembership(Base):
         Boolean, default=True, index=True, comment="是否仍在群中"
     )
 
-    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
-    updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
-
     # 唯一约束：同一用户在同一群中只有一条记录
     __table_args__ = (UniqueConstraint("user_id", "group_id", name="uq_user_group"),)
 
     # 关联
-    user: Mapped[User] = relationship(back_populates="memberships")
-    group: Mapped[Group] = relationship(back_populates="memberships")
+    user: Mapped["User"] = relationship(back_populates="memberships")
+    group: Mapped["Group"] = relationship(back_populates="memberships")
