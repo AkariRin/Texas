@@ -7,17 +7,14 @@ from typing import TYPE_CHECKING, Any
 
 import structlog
 from sqlalchemy import Date, Integer, cast, extract, func, select, text
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.chat.models import ChatMessage, MessageType
 
 if TYPE_CHECKING:
-    from sqlalchemy.ext.asyncio import async_sessionmaker
+    from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
     from src.core.protocol.models.events import (
-        GroupMessageEvent,
         MessageEvent,
-        MessageSentEvent,
     )
 
 logger = structlog.get_logger()
@@ -62,7 +59,7 @@ class ChatHistoryService:
             user_id=event.user_id,
             self_id=event.self_id,
             raw_message=event.raw_message,
-            segments=segments,  # type: ignore[arg-type]
+            segments=segments,
             sender_nickname=event.sender.nickname or "",
             sender_card=getattr(event.sender, "card", None),
             sender_role=getattr(event.sender, "role", None),
@@ -106,9 +103,7 @@ class ChatHistoryService:
             stmt = stmt.where(ChatMessage.created_at < before)
         elif not start_date:
             # 默认只查最近 30 天，强制分区裁剪
-            stmt = stmt.where(
-                ChatMessage.created_at > func.now() - text("INTERVAL '30 days'")
-            )
+            stmt = stmt.where(ChatMessage.created_at > func.now() - text("INTERVAL '30 days'"))
 
         if keyword:
             stmt = stmt.where(ChatMessage.raw_message.ilike(f"%{keyword}%"))
@@ -143,9 +138,7 @@ class ChatHistoryService:
         if before:
             stmt = stmt.where(ChatMessage.created_at < before)
         else:
-            stmt = stmt.where(
-                ChatMessage.created_at > func.now() - text("INTERVAL '30 days'")
-            )
+            stmt = stmt.where(ChatMessage.created_at > func.now() - text("INTERVAL '30 days'"))
 
         async with self._session_factory() as session:
             result = await session.execute(stmt)
@@ -175,9 +168,8 @@ class ChatHistoryService:
             if target.group_id:
                 session_filter = ChatMessage.group_id == target.group_id
             else:
-                session_filter = (
-                    (ChatMessage.user_id == target.user_id)
-                    & (ChatMessage.message_type == MessageType.PRIVATE)
+                session_filter = (ChatMessage.user_id == target.user_id) & (
+                    ChatMessage.message_type == MessageType.PRIVATE
                 )
 
             # 获取之前的消息
@@ -188,9 +180,7 @@ class ChatHistoryService:
                 .limit(context_size)
             )
             before_result = await session.execute(before_stmt)
-            before_msgs = [
-                self._row_to_dict(r) for r in reversed(before_result.scalars().all())
-            ]
+            before_msgs = [self._row_to_dict(r) for r in reversed(before_result.scalars().all())]
 
             # 获取之后的消息
             after_stmt = (
@@ -225,8 +215,10 @@ class ChatHistoryService:
             .order_by(ChatMessage.created_at.desc())
         )
 
-        count_stmt = select(func.count()).select_from(ChatMessage).where(
-            ChatMessage.raw_message.ilike(f"%{keyword}%")
+        count_stmt = (
+            select(func.count())
+            .select_from(ChatMessage)
+            .where(ChatMessage.raw_message.ilike(f"%{keyword}%"))
         )
 
         if group_id:
@@ -262,9 +254,7 @@ class ChatHistoryService:
     #  统计
     # ════════════════════════════════════════════
 
-    async def get_overview_stats(
-        self, group_id: int | None = None
-    ) -> dict[str, Any]:
+    async def get_overview_stats(self, group_id: int | None = None) -> dict[str, Any]:
         """获取消息统计概览。"""
         async with self._session_factory() as session:
             base_filter = []
@@ -291,22 +281,16 @@ class ChatHistoryService:
             today_messages = today_result.scalar() or 0
 
             # 活跃群数（近 7 天有消息的群）
-            active_groups_stmt = (
-                select(func.count(func.distinct(ChatMessage.group_id)))
-                .where(
-                    ChatMessage.group_id.is_not(None),
-                    ChatMessage.created_at > func.now() - text("INTERVAL '7 days'"),
-                )
+            active_groups_stmt = select(func.count(func.distinct(ChatMessage.group_id))).where(
+                ChatMessage.group_id.is_not(None),
+                ChatMessage.created_at > func.now() - text("INTERVAL '7 days'"),
             )
             groups_result = await session.execute(active_groups_stmt)
             active_groups = groups_result.scalar() or 0
 
             # 活跃用户数（近 7 天有消息的用户）
-            active_users_stmt = (
-                select(func.count(func.distinct(ChatMessage.user_id)))
-                .where(
-                    ChatMessage.created_at > func.now() - text("INTERVAL '7 days'"),
-                )
+            active_users_stmt = select(func.count(func.distinct(ChatMessage.user_id))).where(
+                ChatMessage.created_at > func.now() - text("INTERVAL '7 days'"),
             )
             for f in base_filter:
                 active_users_stmt = active_users_stmt.where(f)
@@ -349,14 +333,9 @@ class ChatHistoryService:
 
         async with self._session_factory() as session:
             result = await session.execute(stmt)
-            return [
-                {"period": row.period.isoformat(), "count": row.count}
-                for row in result.all()
-            ]
+            return [{"period": row.period.isoformat(), "count": row.count} for row in result.all()]
 
-    async def get_heatmap_data(
-        self, group_id: int | None = None
-    ) -> list[dict[str, Any]]:
+    async def get_heatmap_data(self, group_id: int | None = None) -> list[dict[str, Any]]:
         """获取时段热力图数据（星期 × 小时）。"""
         since = datetime.now(UTC) - timedelta(days=90)
 
@@ -380,8 +359,7 @@ class ChatHistoryService:
         async with self._session_factory() as session:
             result = await session.execute(stmt)
             return [
-                {"day_of_week": row[0], "hour": row[1], "count": row[2]}
-                for row in result.all()
+                {"day_of_week": row[0], "hour": row[1], "count": row[2]} for row in result.all()
             ]
 
     async def get_group_ranking(self, limit: int = 10) -> list[dict[str, Any]]:
@@ -446,9 +424,7 @@ class ChatHistoryService:
                 for row in result.all()
             ]
 
-    async def get_message_stats(
-        self, group_id: int | None = None
-    ) -> dict[str, Any]:
+    async def get_message_stats(self, group_id: int | None = None) -> dict[str, Any]:
         """获取消息统计详情。"""
         async with self._session_factory() as session:
             base_where = []
@@ -456,19 +432,14 @@ class ChatHistoryService:
                 base_where.append(ChatMessage.group_id == group_id)
 
             # 消息类型分布
-            type_stmt = (
-                select(
-                    ChatMessage.message_type,
-                    func.count().label("count"),
-                )
-                .group_by(ChatMessage.message_type)
-            )
+            type_stmt = select(
+                ChatMessage.message_type,
+                func.count().label("count"),
+            ).group_by(ChatMessage.message_type)
             for f in base_where:
                 type_stmt = type_stmt.where(f)
             type_result = await session.execute(type_stmt)
-            type_dist = {
-                str(row.message_type): row.count for row in type_result.all()
-            }
+            type_dist = {str(row.message_type): row.count for row in type_result.all()}
 
             # 近 7 天每天消息数
             since = datetime.now(UTC) - timedelta(days=7)
@@ -484,10 +455,7 @@ class ChatHistoryService:
             for f in base_where:
                 daily_stmt = daily_stmt.where(f)
             daily_result = await session.execute(daily_stmt)
-            daily = [
-                {"day": str(row.day), "count": row.count}
-                for row in daily_result.all()
-            ]
+            daily = [{"day": str(row.day), "count": row.count} for row in daily_result.all()]
 
             return {
                 "type_distribution": type_dist,
@@ -516,4 +484,3 @@ class ChatHistoryService:
             "created_at": msg.created_at.isoformat() if msg.created_at else None,
             "stored_at": msg.stored_at.isoformat() if msg.stored_at else None,
         }
-

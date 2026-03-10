@@ -30,4 +30,3 @@ def create_chat_engine(settings: Settings) -> AsyncEngine:
 def create_chat_session_factory(engine: AsyncEngine) -> async_sessionmaker[AsyncSession]:
     """创建聊天库 session factory。"""
     return async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
-

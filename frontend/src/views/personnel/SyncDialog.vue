@@ -45,7 +45,10 @@
               </div>
               <div class="text-body-1 font-weight-medium">
                 {{ status.last_sync_time ? formatTime(status.last_sync_time) : '从未同步' }}
-                <span v-if="status.duration_seconds != null" class="text-caption text-medium-emphasis ml-2">
+                <span
+                  v-if="status.duration_seconds != null"
+                  class="text-caption text-medium-emphasis ml-2"
+                >
                   耗时 {{ status.duration_seconds.toFixed(2) }} 秒
                 </span>
               </div>
@@ -174,4 +177,3 @@ function onDialogChange(open: boolean) {
   }
 }
 </script>
-

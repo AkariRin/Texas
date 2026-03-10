@@ -98,7 +98,7 @@
     </v-card>
 
     <!-- 数据同步弹窗 -->
-    <sync-dialog v-model="syncDialog" />
+    <SyncDialog v-model="syncDialog" />
 
     <!-- 用户详情弹窗 -->
     <v-dialog

@@ -21,6 +21,7 @@ from src.core.db.base import ChatBase
 if TYPE_CHECKING:
     from sqlalchemy.engine import Connection
 
+
 config = context.config
 
 # 仅管理 chat schema 下的表
@@ -62,7 +63,7 @@ def run_migrations_offline() -> None:
         dialect_opts={"paramstyle": "named"},
         version_table_schema=_CHAT_SCHEMA,
         include_schemas=True,
-        include_name=_include_name,
+        include_name=_include_name,  # type: ignore[arg-type]
     )
 
     with context.begin_transaction():
@@ -76,7 +77,7 @@ def do_run_migrations(connection: Connection) -> None:
         target_metadata=target_metadata,
         version_table_schema=_CHAT_SCHEMA,
         include_schemas=True,
-        include_name=_include_name,
+        include_name=_include_name,  # type: ignore[arg-type]
     )
 
     with context.begin_transaction():
@@ -121,4 +122,3 @@ if context.is_offline_mode():
     run_migrations_offline()
 else:
     run_migrations_online()
-

@@ -17,6 +17,7 @@ from src.core.db.base import Base
 if TYPE_CHECKING:
     from sqlalchemy.engine import Connection
 
+
 # Alembic Config 对象
 config = context.config
 
@@ -66,7 +67,7 @@ def run_migrations_offline() -> None:
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
         include_schemas=True,
-        include_name=_include_name,
+        include_name=_include_name,  # type: ignore[arg-type]
     )
 
     with context.begin_transaction():
@@ -75,8 +76,12 @@ def run_migrations_offline() -> None:
 
 def do_run_migrations(connection: Connection) -> None:
     """在同步连接上执行迁移。"""
-    context.configure(connection=connection, target_metadata=target_metadata,
-                      include_schemas=True, include_name=_include_name)
+    context.configure(
+        connection=connection,
+        target_metadata=target_metadata,
+        include_schemas=True,
+        include_name=_include_name,  # type: ignore[arg-type]
+    )
 
     with context.begin_transaction():
         context.run_migrations()

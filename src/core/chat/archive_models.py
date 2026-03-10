@@ -3,13 +3,16 @@
 from __future__ import annotations
 
 import uuid
-from datetime import date, datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy import BigInteger, Date, Index, String, Text
 from sqlalchemy.dialects.postgresql import TIMESTAMP, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.core.db.base import Base
+
+if TYPE_CHECKING:
+    from datetime import date, datetime
 
 
 class ChatArchiveLog(Base):
@@ -103,4 +106,3 @@ class ChatArchiveLog(Base):
         TIMESTAMP(timezone=True),
         nullable=True,
     )
-

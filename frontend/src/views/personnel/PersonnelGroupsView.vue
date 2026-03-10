@@ -93,7 +93,7 @@
     </v-card>
 
     <!-- 数据同步弹窗 -->
-    <sync-dialog v-model="syncDialog" />
+    <SyncDialog v-model="syncDialog" />
 
     <!-- 群成员弹窗 -->
     <v-dialog

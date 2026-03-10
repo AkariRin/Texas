@@ -29,4 +29,3 @@ class ChatBase(DeclarativeBase):
     与 Base 拥有完全独立的 metadata，确保两个 Alembic 实例
     各自只感知属于自己的表定义，互不污染。
     """
-

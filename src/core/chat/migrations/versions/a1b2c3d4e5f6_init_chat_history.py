@@ -97,4 +97,3 @@ def downgrade() -> None:
     op.execute("DROP FUNCTION IF EXISTS chat.create_monthly_partition(DATE)")
     op.execute("DROP TABLE IF EXISTS chat.chat_history CASCADE")
     op.execute("DROP SCHEMA IF EXISTS chat CASCADE")
-

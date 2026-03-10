@@ -32,7 +32,11 @@
       </v-col>
 
       <v-col cols="12" sm="6" md="3">
-        <v-card variant="elevated" :color="store.workers.length > 0 ? 'success' : 'grey'" class="pa-4">
+        <v-card
+          variant="elevated"
+          :color="store.workers.length > 0 ? 'success' : 'grey'"
+          class="pa-4"
+        >
           <div class="d-flex align-center ga-2 mb-2">
             <v-icon :color="store.workers.length > 0 ? 'success' : 'grey'">mdi-server</v-icon>
             <span class="text-subtitle-2">Worker 节点</span>

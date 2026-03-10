@@ -160,7 +160,9 @@ async def get_private_messages(
     svc = _get_chat_service()
     before_dt = datetime.fromisoformat(before) if before else None
     result = await svc.get_private_messages(
-        user_id=user_id, before=before_dt, limit=limit,
+        user_id=user_id,
+        before=before_dt,
+        limit=limit,
     )
     return _ok(result)
 
@@ -175,7 +177,9 @@ async def get_message_context(
     svc = _get_chat_service()
     created_at_dt = datetime.fromisoformat(created_at)
     result = await svc.get_message_context(
-        message_id=message_id, created_at=created_at_dt, context_size=context,
+        message_id=message_id,
+        created_at=created_at_dt,
+        context_size=context,
     )
     return _ok(result)
 
@@ -217,7 +221,8 @@ async def query_archive(
     """查询归档数据。"""
     svc = _get_archive_service()
     result = await svc.query_archived_messages(
-        period_start=period_start, group_id=group_id, limit=limit,
+        period_start=period_start,
+        group_id=group_id,
+        limit=limit,
     )
     return _ok(result)
-

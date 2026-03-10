@@ -7,16 +7,19 @@ import json
 import os
 import tempfile
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import pyarrow as pa
 import pyarrow.parquet as pq
 import structlog
 from sqlalchemy import select, text, update
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from src.core.chat.archive_models import ChatArchiveLog
-from src.core.config import Settings
+
+if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+
+    from src.core.config import Settings
 
 logger = structlog.get_logger()
 
@@ -61,9 +64,7 @@ class ArchiveService:
     async def ensure_partitions(self) -> dict[str, str]:
         """确保当月和下月的分区存在。"""
         async with self._chat_sf() as session:
-            await session.execute(
-                text("SELECT chat.create_monthly_partition(CURRENT_DATE)")
-            )
+            await session.execute(text("SELECT chat.create_monthly_partition(CURRENT_DATE)"))
             await session.execute(
                 text("SELECT chat.create_monthly_partition(CURRENT_DATE + INTERVAL '1 month')")
             )
@@ -156,10 +157,7 @@ class ArchiveService:
         from datetime import date
 
         period_start = date(year, month, 1)
-        if month == 12:
-            period_end = date(year + 1, 1, 1)
-        else:
-            period_end = date(year, month + 1, 1)
+        period_end = date(year + 1, 1, 1) if month == 12 else date(year, month + 1, 1)
 
         # ② 创建归档记录
         archive_log = ChatArchiveLog(
@@ -184,9 +182,12 @@ class ArchiveService:
                 tmp_path = tmp.name
 
             try:
-                total_rows, original_bytes, compressed_bytes, sha256_hex = (
-                    await self._export_partition_to_parquet(partition_name, tmp_path)
-                )
+                (
+                    total_rows,
+                    original_bytes,
+                    compressed_bytes,
+                    sha256_hex,
+                ) = await self._export_partition_to_parquet(partition_name, tmp_path)
 
                 if total_rows == 0:
                     await self._update_archive_status(
@@ -201,18 +202,27 @@ class ArchiveService:
                     f"{self._settings.S3_ARCHIVE_PREFIX}"
                     f"/{year:04d}/{month:02d}/{partition_name}.parquet"
                 )
-                await self._upload_to_s3(tmp_path, s3_key, {
-                    "partition": partition_name,
-                    "period_start": str(period_start),
-                    "period_end": str(period_end),
-                    "total_rows": str(total_rows),
-                    "sha256": sha256_hex,
-                })
+                await self._upload_to_s3(
+                    tmp_path,
+                    s3_key,
+                    {
+                        "partition": partition_name,
+                        "period_start": str(period_start),
+                        "period_end": str(period_end),
+                        "total_rows": str(total_rows),
+                        "sha256": sha256_hex,
+                    },
+                )
 
                 # 上传 manifest
                 manifest = self._build_manifest(
-                    partition_name, period_start, period_end,
-                    total_rows, original_bytes, compressed_bytes, sha256_hex,
+                    partition_name,
+                    period_start,
+                    period_end,
+                    total_rows,
+                    original_bytes,
+                    compressed_bytes,
+                    sha256_hex,
                 )
                 manifest_key = s3_key.replace(".parquet", ".manifest.json")
                 await self._upload_manifest(manifest, manifest_key)
@@ -276,9 +286,7 @@ class ArchiveService:
             }
 
         except Exception as e:
-            await self._update_archive_status(
-                archive_id, "failed", error_message=str(e)
-            )
+            await self._update_archive_status(archive_id, "failed", error_message=str(e))
             raise
 
     # ════════════════════════════════════════════
@@ -319,9 +327,7 @@ class ArchiveService:
                     row_dict["segments"] = json.dumps(
                         row_dict["segments"], default=str, ensure_ascii=False
                     )
-                    original_bytes += len(
-                        json.dumps(row_dict, default=str).encode("utf-8")
-                    )
+                    original_bytes += len(json.dumps(row_dict, default=str).encode("utf-8"))
                     batch_rows.append(row_dict)
                     total_rows += 1
 
@@ -365,9 +371,7 @@ class ArchiveService:
 
         return boto3.client("s3", **kwargs)
 
-    async def _upload_to_s3(
-        self, file_path: str, s3_key: str, metadata: dict[str, str]
-    ) -> None:
+    async def _upload_to_s3(self, file_path: str, s3_key: str, metadata: dict[str, str]) -> None:
         """上传文件到 S3。"""
         s3 = self._get_s3_client()
         s3.upload_file(
@@ -446,9 +450,7 @@ class ArchiveService:
 
         async with self._main_sf() as session:
             await session.execute(
-                update(ChatArchiveLog)
-                .where(ChatArchiveLog.id == archive_id)
-                .values(**values)
+                update(ChatArchiveLog).where(ChatArchiveLog.id == archive_id).values(**values)
             )
             await session.commit()
 
@@ -456,9 +458,7 @@ class ArchiveService:
     #  归档数据查询
     # ════════════════════════════════════════════
 
-    async def get_archive_logs(
-        self, page: int = 1, page_size: int = 20
-    ) -> dict[str, Any]:
+    async def get_archive_logs(self, page: int = 1, page_size: int = 20) -> dict[str, Any]:
         """获取归档日志列表。"""
         async with self._main_sf() as session:
             count_stmt = select(func.count()).select_from(ChatArchiveLog)
@@ -474,21 +474,23 @@ class ArchiveService:
             result = await session.execute(stmt)
             items = []
             for row in result.scalars().all():
-                items.append({
-                    "id": str(row.id),
-                    "partition_name": row.partition_name,
-                    "period_start": str(row.period_start),
-                    "period_end": str(row.period_end),
-                    "total_rows": row.total_rows,
-                    "original_bytes": row.original_bytes,
-                    "compressed_bytes": row.compressed_bytes,
-                    "s3_bucket": row.s3_bucket,
-                    "s3_key": row.s3_key,
-                    "status": row.status,
-                    "error_message": row.error_message,
-                    "created_at": row.created_at.isoformat() if row.created_at else None,
-                    "completed_at": row.completed_at.isoformat() if row.completed_at else None,
-                })
+                items.append(
+                    {
+                        "id": str(row.id),
+                        "partition_name": row.partition_name,
+                        "period_start": str(row.period_start),
+                        "period_end": str(row.period_end),
+                        "total_rows": row.total_rows,
+                        "original_bytes": row.original_bytes,
+                        "compressed_bytes": row.compressed_bytes,
+                        "s3_bucket": row.s3_bucket,
+                        "s3_key": row.s3_key,
+                        "status": row.status,
+                        "error_message": row.error_message,
+                        "created_at": row.created_at.isoformat() if row.created_at else None,
+                        "completed_at": row.completed_at.isoformat() if row.completed_at else None,
+                    }
+                )
 
             return {
                 "items": items,
@@ -505,10 +507,10 @@ class ArchiveService:
         limit: int = 100,
     ) -> list[dict[str, Any]]:
         """从 S3 归档中查询历史消息。"""
-        import pyarrow.fs as pafs
-
         # 查找归档记录
         from datetime import date as date_type
+
+        import pyarrow.fs as pafs
 
         target_date = date_type.fromisoformat(period_start)
 
@@ -537,9 +539,18 @@ class ArchiveService:
         s3_path = f"{archive.s3_bucket}/{archive.s3_key}"
 
         columns = [
-            "id", "message_id", "message_type", "group_id", "user_id",
-            "self_id", "raw_message", "segments", "sender_nickname",
-            "sender_card", "sender_role", "created_at",
+            "id",
+            "message_id",
+            "message_type",
+            "group_id",
+            "user_id",
+            "self_id",
+            "raw_message",
+            "segments",
+            "sender_nickname",
+            "sender_card",
+            "sender_role",
+            "created_at",
         ]
 
         filters = None
@@ -557,7 +568,7 @@ class ArchiveService:
             if len(table) > limit:
                 table = table.slice(len(table) - limit)
 
-            rows = table.to_pylist()
+            rows: list[dict[str, Any]] = table.to_pylist()
             for row in rows:
                 if isinstance(row.get("segments"), str):
                     row["segments"] = json.loads(row["segments"])
@@ -575,4 +586,3 @@ class ArchiveService:
 
 # 为了 get_archive_logs 中的 func.count
 from sqlalchemy import func  # noqa: E402
-

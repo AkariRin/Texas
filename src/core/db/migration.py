@@ -316,9 +316,7 @@ async def run_startup_chat_db_check(engine: AsyncEngine, settings: Settings) -> 
     async with engine.begin() as conn:
         await conn.execute(text("CREATE SCHEMA IF NOT EXISTS chat"))
 
-    alembic_cfg = _build_alembic_config(
-        settings.CHAT_DATABASE_URL, ini_name="alembic_chat.ini"
-    )
+    alembic_cfg = _build_alembic_config(settings.CHAT_DATABASE_URL, ini_name="alembic_chat.ini")
     head_rev = _get_head_revision(alembic_cfg)
     current_rev = await _get_chat_current_revision(engine)
 
@@ -369,4 +367,3 @@ async def run_startup_chat_db_check(engine: AsyncEngine, settings: Settings) -> 
             logger.info("聊天库无迁移脚本，跳过", event_type="chat_db.no_migrations")
         else:
             logger.info("聊天库已是最新版本", event_type="chat_db.up_to_date")
-

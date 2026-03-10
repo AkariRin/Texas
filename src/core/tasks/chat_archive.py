@@ -56,14 +56,15 @@ def archive_chat_history(self: Any, partition_name: str | None = None) -> dict[s
     """
     try:
         service, _ = _build_services()
-        return _run_async(service.archive(partition_name))
+        result: dict[str, Any] = _run_async(service.archive(partition_name))
+        return result
     except Exception as exc:
         logger.exception(
             "归档任务失败",
             partition=partition_name,
             event_type="task.archive_failed",
         )
-        raise self.retry(exc=exc)
+        raise self.retry(exc=exc) from exc
 
 
 @celery_app.task
@@ -71,11 +72,11 @@ def ensure_chat_partitions() -> dict[str, str]:
     """确保当月和下月的分区存在。由定时任务每月 25 号调用。"""
     try:
         service, _ = _build_services()
-        return _run_async(service.ensure_partitions())
+        result: dict[str, str] = _run_async(service.ensure_partitions())
+        return result
     except Exception:
         logger.exception(
             "分区预创建失败",
             event_type="task.partition_ensure_failed",
         )
         return {"status": "error", "message": "分区预创建失败"}
-

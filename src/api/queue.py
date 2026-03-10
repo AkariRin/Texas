@@ -45,7 +45,7 @@ async def get_scheduled_tasks() -> dict[str, Any]:
     beat_schedule: dict[str, Any] = getattr(scheduled_app.conf, "beat_schedule", {}) or {}
 
     tasks: list[dict[str, Any]] = []
-    for name, config in beat_schedule.items():
+    for _name, config in beat_schedule.items():
         schedule = config.get("schedule")
         # schedule 可能是 int/float（秒）或 crontab 等
         if isinstance(schedule, (int, float)):
@@ -201,10 +201,20 @@ def _parse_pending_tasks(max_count: int = 200) -> list[dict[str, Any]]:
                             except Exception:
                                 body = {}
 
-                    task_id = headers.get("id") or msg.get("properties", {}).get("correlation_id", "")
+                    task_id = headers.get("id") or msg.get("properties", {}).get(
+                        "correlation_id", ""
+                    )
                     task_name = headers.get("task") or ""
-                    task_args = body[0] if isinstance(body, (list, tuple)) and len(body) > 0 else headers.get("argsrepr")
-                    task_kwargs = body[1] if isinstance(body, (list, tuple)) and len(body) > 1 else headers.get("kwargsrepr")
+                    task_args = (
+                        body[0]
+                        if isinstance(body, (list, tuple)) and len(body) > 0
+                        else headers.get("argsrepr")
+                    )
+                    task_kwargs = (
+                        body[1]
+                        if isinstance(body, (list, tuple)) and len(body) > 1
+                        else headers.get("kwargsrepr")
+                    )
 
                     pending.append(
                         {
@@ -245,7 +255,7 @@ def _collect_all() -> dict[str, Any]:
     # 定时任务
     beat_schedule: dict[str, Any] = getattr(scheduled_app.conf, "beat_schedule", {}) or {}
     scheduled_tasks: list[dict[str, Any]] = []
-    for name, config in beat_schedule.items():
+    for _name, config in beat_schedule.items():
         schedule = config.get("schedule")
         if isinstance(schedule, (int, float)):
             schedule_display = f"每 {int(schedule)} 秒"
@@ -341,7 +351,7 @@ def _collect_all() -> dict[str, Any]:
     }
 
 
-async def _sse_event_stream(interval: float) -> AsyncGenerator[str, None]:
+async def _sse_event_stream(interval: float) -> AsyncGenerator[str]:
     """按固定间隔推送全部队列状态的 SSE 事件流。"""
     loop = asyncio.get_running_loop()
     try:
@@ -371,4 +381,3 @@ async def stream_queue_status(
             "X-Accel-Buffering": "no",
         },
     )
-

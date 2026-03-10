@@ -251,11 +251,7 @@ class LLMService:
             stream=True  → AsyncStream[ChatCompletionChunk] 异步迭代器
         """
         async with self._session_factory() as session:
-            stmt = (
-                select(LLM)
-                .where(LLM.id == model_id)
-                .options(selectinload(LLM.provider))
-            )
+            stmt = select(LLM).where(LLM.id == model_id).options(selectinload(LLM.provider))
             result = await session.execute(stmt)
             model = result.scalar_one_or_none()
 

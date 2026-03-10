@@ -8,11 +8,11 @@
 
 # ── 主库模型（Base.metadata） ──
 from src.core.chat.archive_models import ChatArchiveLog
-from src.core.llm.models import LLM, LLMProvider
-from src.core.personnel.models import Group, GroupMembership, User
 
 # ── 聊天库模型（ChatBase.metadata） ──
 from src.core.chat.models import ChatMessage
+from src.core.llm.models import LLM, LLMProvider
+from src.core.personnel.models import Group, GroupMembership, User
 
 __all__: list[str] = [
     # 主库
