@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from enum import IntEnum
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from sqlalchemy import (
     BigInteger,
@@ -16,9 +17,6 @@ from sqlalchemy.dialects.postgresql import JSONB, TIMESTAMP
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.core.db.base import ChatBase
-
-if TYPE_CHECKING:
-    from datetime import datetime
 
 
 class MessageType(IntEnum):

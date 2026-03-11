@@ -1,7 +1,7 @@
 """人事管理 ORM 模型 —— User, Group, GroupMembership。"""
 
 import uuid
-from typing import TYPE_CHECKING
+from datetime import datetime
 
 from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, Integer, String, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
@@ -9,9 +9,6 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
 from src.core.db.base import Base
-
-if TYPE_CHECKING:
-    from datetime import datetime
 
 
 class User(Base):
