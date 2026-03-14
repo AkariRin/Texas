@@ -46,7 +46,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: deploy/Dockerfile
+          file: Dockerfile
           push: true
           platforms: linux/amd64,linux/arm64
           tags: ${{ steps.meta.outputs.tags }}
@@ -77,8 +77,8 @@ jobs:
         run: |
           VERSION="${{ github.event.workflow_run.head_branch }}"
           VERSION="${VERSION#v}"
-          sed -i "s/^version:.*/version: ${VERSION}/" deploy/helm/texas/Chart.yaml
-          sed -i "s/^appVersion:.*/appVersion: \"${VERSION}\"/" deploy/helm/texas/Chart.yaml
+          sed -i "s/^version:.*/version: ${VERSION}/" helm/texas/Chart.yaml
+          sed -i "s/^appVersion:.*/appVersion: \"${VERSION}\"/" helm/texas/Chart.yaml
 
       - name: Add Helm dependency repos
         run: |
@@ -86,10 +86,10 @@ jobs:
           helm repo update
 
       - name: Build Helm dependencies
-        run: helm dependency build deploy/helm/texas
+        run: helm dependency build helm/texas
 
       - name: Package Helm chart
-        run: helm package deploy/helm/texas -d .helm-out
+        run: helm package helm/texas -d .helm-out
 
       - name: Push Helm chart to GHCR (OCI)
         run: helm push .helm-out/*.tgz oci://ghcr.io/akaririn/texas

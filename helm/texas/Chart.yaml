@@ -1,0 +1,24 @@
+apiVersion: v2
+name: texas
+description: A high-performance, extensible QQ Bot framework based on NapCat / OneBot 11
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+keywords:
+  - qq-bot
+  - napcat
+  - onebot
+  - fastapi
+home: https://github.com/your-org/texas
+maintainers:
+  - name: Texas Team
+
+dependencies:
+  - name: postgresql
+    version: "~16.4"
+    repository: https://charts.bitnami.com/bitnami
+    condition: postgresql.enabled
+  - name: redis
+    version: "~20.6"
+    repository: https://charts.bitnami.com/bitnami
+    condition: redis.enabled

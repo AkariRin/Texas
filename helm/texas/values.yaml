@@ -1,0 +1,214 @@
+# ─────────────────────────────────────────────
+# Texas Helm Chart - Default Values
+# ─────────────────────────────────────────────
+
+# -- 全局镜像配置
+image:
+  repository: texas
+  tag: ""  # 默认使用 Chart appVersion
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+# ─── ServiceAccount ───
+serviceAccount:
+  create: true
+  automount: true
+  annotations: {}
+  name: ""
+
+# ─── 通用 Pod 配置 ───
+podAnnotations: {}
+podLabels: {}
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop: [ALL]
+
+# ─── Bot (FastAPI 主服务) ───
+bot:
+  replicaCount: 1
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  # 额外环境变量（key-value 列表）
+  extraEnv: []
+
+# ─── Celery Worker ───
+worker:
+  enabled: true
+  replicaCount: 1
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  extraEnv: []
+
+# ─── Celery Beat ───
+beat:
+  enabled: true
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  extraEnv: []
+
+# ─── Service ───
+service:
+  type: ClusterIP
+  port: 8000
+
+# ─── Ingress ───
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+    # kubernetes.io/ingress.class: nginx
+    # cert-manager.io/cluster-issuer: letsencrypt-prod
+  hosts:
+    - host: texas.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+  #  - secretName: texas-tls
+  #    hosts:
+  #      - texas.local
+
+# ─── Autoscaling (仅 bot) ───
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 80
+  # targetMemoryUtilizationPercentage: 80
+
+# ─── 应用配置 (写入 ConfigMap) ───
+config:
+  ENV: production
+  LOG_LEVEL: INFO
+  LOG_FORMAT: json
+  HOST: "0.0.0.0"
+  PORT: "8000"
+  METRICS_ENABLED: "true"
+  FRONTEND_DIST_DIR: frontend/dist
+  HANDLER_SCAN_PACKAGES: "src.handlers"
+
+  # NapCat
+  NAPCAT_MESSAGE_POST_FORMAT: array
+  NAPCAT_REPORT_SELF_MESSAGE: "false"
+  NAPCAT_HEART_INTERVAL: "30000"
+  NAPCAT_RECONNECT_INTERVAL: "5000"
+  IMAGE_URL_TTL: "7200"
+  ENABLE_RKEY_REFRESH: "true"
+
+  # PostgreSQL (如果使用内置子 chart，会自动覆盖)
+  DB_POOL_SIZE: "10"
+  DB_MAX_OVERFLOW: "20"
+
+  # Redis / Celery
+  # CELERY_BROKER_URL, CELERY_REDBEAT_URL, CACHE_REDIS_URL 通过 secret 注入
+
+  # 人事管理
+  PERSONNEL_SYNC_INTERVAL: "300"
+  PERSONNEL_SYNC_INITIAL_DELAY: "3"
+  PERSONNEL_SYNC_BATCH_SIZE: "500"
+  PERSONNEL_SYNC_API_DELAY: "0.5"
+  PERSONNEL_SYNC_LOCK_TTL: "600"
+
+  # 聊天数据库
+  CHAT_DB_POOL_SIZE: "5"
+  CHAT_DB_MAX_OVERFLOW: "10"
+
+  # 归档策略
+  CHAT_ARCHIVE_RETENTION_MONTHS: "12"
+  CHAT_ARCHIVE_BATCH_SIZE: "5000"
+  CHAT_ARCHIVE_COMPRESSION: zstd
+
+# ─── 敏感配置 (写入 Secret) ───
+secret:
+  NAPCAT_ACCESS_TOKEN: ""
+  DATABASE_URL: "postgresql+asyncpg://texas:texas@texas-postgresql:5432/texas"
+  CHAT_DATABASE_URL: "postgresql+asyncpg://texas:texas@texas-postgresql:5432/chat_history"
+  CELERY_BROKER_URL: "redis://texas-redis-master:6379/0"
+  CELERY_REDBEAT_URL: "redis://texas-redis-master:6379/2"
+  CACHE_REDIS_URL: "redis://texas-redis-master:6379/1"
+  # S3
+  S3_ENDPOINT_URL: ""
+  S3_ACCESS_KEY_ID: ""
+  S3_SECRET_ACCESS_KEY: ""
+  S3_REGION: us-east-1
+  S3_ARCHIVE_BUCKET: texas-chat-archive
+  S3_ARCHIVE_PREFIX: v1
+
+# 使用已存在的 Secret（优先级高于上方 secret 块）
+existingSecret: ""
+
+# ─── 健康检查 ───
+probes:
+  liveness:
+    httpGet:
+      path: /health
+      port: http
+    initialDelaySeconds: 15
+    periodSeconds: 20
+    timeoutSeconds: 3
+    failureThreshold: 3
+  readiness:
+    httpGet:
+      path: /health
+      port: http
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    timeoutSeconds: 3
+    failureThreshold: 3
+
+# ─── Bitnami PostgreSQL 子 chart ───
+postgresql:
+  enabled: true
+  auth:
+    username: texas
+    password: texas
+    database: texas
+  primary:
+    persistence:
+      enabled: true
+      size: 10Gi
+
+# ─── Bitnami Redis 子 chart ───
+redis:
+  enabled: true
+  architecture: standalone
+  auth:
+    enabled: false
+  master:
+    persistence:
+      enabled: true
+      size: 2Gi
