@@ -24,12 +24,11 @@ from alembic.script import ScriptDirectory
 from alembic.util.exc import CommandError
 from sqlalchemy import text
 
-from src.core.db.migration_registry import MigrationTarget
-
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncEngine
 
     from src.core.config import Settings
+    from src.core.db.migration_registry import MigrationTarget
 
 logger = structlog.get_logger()
 
@@ -68,9 +67,7 @@ async def _check_connection(engine: AsyncEngine, target_name: str) -> None:
 # ─────────────────────── 迁移状态检测 ───────────────────────
 
 
-async def _get_current_revision(
-    engine: AsyncEngine, target: MigrationTarget
-) -> str | None:
+async def _get_current_revision(engine: AsyncEngine, target: MigrationTarget) -> str | None:
     """获取数据库当前的 Alembic revision。"""
 
     def _inspect(connection):  # type: ignore[no-untyped-def]
@@ -109,9 +106,7 @@ def _build_include_name(target: MigrationTarget):  # type: ignore[no-untyped-def
     return _include_name
 
 
-async def _detect_schema_diff(
-    engine: AsyncEngine, target: MigrationTarget
-) -> list[Any]:
+async def _detect_schema_diff(engine: AsyncEngine, target: MigrationTarget) -> list[Any]:
     """使用 autogenerate 比对 ORM 模型与数据库表结构差异。"""
     _include_name = _build_include_name(target)
 
@@ -135,13 +130,11 @@ def _revision_exists(alembic_cfg: Config, rev_id: str) -> bool:
     try:
         script.get_revision(rev_id)
         return True
-    except (CommandError, Exception):
+    except CommandError, Exception:
         return False
 
 
-async def _force_clear_alembic_version(
-    engine: AsyncEngine, target: MigrationTarget
-) -> None:
+async def _force_clear_alembic_version(engine: AsyncEngine, target: MigrationTarget) -> None:
     """直接清空 alembic_version 表，用于处理孤立 revision。"""
     schema = target.version_table_schema
     table = f"{schema}.alembic_version" if schema else "alembic_version"
@@ -240,17 +233,13 @@ async def _handle_development(
         if diff:
             _autogenerate_revision(alembic_cfg, message="auto")
             _upgrade_head(alembic_cfg)
-            logger.info(
-                "数据库迁移完成", target=target.name, event_type=f"{evt}_db.upgrade_done"
-            )
+            logger.info("数据库迁移完成", target=target.name, event_type=f"{evt}_db.upgrade_done")
         elif head_rev is None and current_rev is None:
             logger.info(
                 "数据库无迁移脚本，跳过", target=target.name, event_type=f"{evt}_db.no_migrations"
             )
         else:
-            logger.info(
-                "数据库已是最新版本", target=target.name, event_type=f"{evt}_db.up_to_date"
-            )
+            logger.info("数据库已是最新版本", target=target.name, event_type=f"{evt}_db.up_to_date")
     else:
         # 不做 autogenerate（如分区表需手写迁移）
         if head_rev is None and current_rev is None:
@@ -258,9 +247,7 @@ async def _handle_development(
                 "数据库无迁移脚本，跳过", target=target.name, event_type=f"{evt}_db.no_migrations"
             )
         elif not head_rev or current_rev == head_rev:
-            logger.info(
-                "数据库已是最新版本", target=target.name, event_type=f"{evt}_db.up_to_date"
-            )
+            logger.info("数据库已是最新版本", target=target.name, event_type=f"{evt}_db.up_to_date")
 
 
 # ─────────────────────── 公共入口 ───────────────────────
@@ -288,9 +275,7 @@ async def run_startup_migration(
         async with engine.begin() as conn:
             await conn.execute(text(f"CREATE SCHEMA IF NOT EXISTS {target.schema}"))
 
-    alembic_cfg = _build_alembic_config(
-        target.get_db_url(settings), ini_name=target.ini_name
-    )
+    alembic_cfg = _build_alembic_config(target.get_db_url(settings), ini_name=target.ini_name)
     head_rev = _get_head_revision(alembic_cfg)
     current_rev = await _get_current_revision(engine, target)
 

@@ -209,15 +209,17 @@ async def chat(
     # 非流式：直接返回完整结果
     if not req.stream:
         content = result.choices[0].message.content if result.choices else ""
-        return ok({
-            "content": content,
-            "model": result.model,
-            "usage": {
-                "prompt_tokens": result.usage.prompt_tokens if result.usage else 0,
-                "completion_tokens": result.usage.completion_tokens if result.usage else 0,
-                "total_tokens": result.usage.total_tokens if result.usage else 0,
-            },
-        })
+        return ok(
+            {
+                "content": content,
+                "model": result.model,
+                "usage": {
+                    "prompt_tokens": result.usage.prompt_tokens if result.usage else 0,
+                    "completion_tokens": result.usage.completion_tokens if result.usage else 0,
+                    "total_tokens": result.usage.total_tokens if result.usage else 0,
+                },
+            }
+        )
 
     # 流式：SSE 响应
     async def _stream_generator() -> AsyncIterator[str]:

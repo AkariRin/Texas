@@ -67,4 +67,3 @@ def get_target(name: str) -> MigrationTarget | None:
         if t.name == name:
             return t
     return None
-

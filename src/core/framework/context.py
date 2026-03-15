@@ -51,7 +51,7 @@ class Context:
                 f"Service {service_type.__name__} not registered in context. "
                 f"Available: {[t.__name__ for t in self._services]}"
             )
-        return service  # type: ignore[return-value]
+        return service  # type: ignore[no-any-return]
 
     def has_service(self, service_type: type) -> bool:
         """检查服务是否已注册。"""

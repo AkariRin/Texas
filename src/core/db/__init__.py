@@ -15,4 +15,3 @@ register_migration_target(
         model_import="src.models",
     )
 )
-

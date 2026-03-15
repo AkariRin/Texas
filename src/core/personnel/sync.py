@@ -104,4 +104,3 @@ async def do_personnel_sync(
             error=str(exc),
             event_type="personnel.sync_error",
         )
-

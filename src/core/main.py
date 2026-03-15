@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import asyncio
+import functools
 from contextlib import asynccontextmanager
 from functools import partial
 from pathlib import Path
@@ -20,7 +21,7 @@ from starlette.responses import Response
 from src.api.router import api_router
 from src.core.config import get_settings, validate_settings
 from src.core.db.engine import create_engine, create_session_factory
-from src.core.db.migration import run_startup_db_check, run_startup_chat_db_check
+from src.core.db.migration import run_startup_chat_db_check, run_startup_db_check
 from src.core.framework.dispatcher import EventDispatcher
 from src.core.framework.interceptors.logging import LoggingInterceptor
 from src.core.framework.interceptors.metrics import MetricsInterceptor
@@ -46,7 +47,16 @@ from src.core.ws.heartbeat import HeartbeatMonitor  # noqa: E402
 from src.core.ws.server import ws_router  # noqa: E402
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncGenerator
+    from collections.abc import AsyncGenerator, Callable, Coroutine
+
+    from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
+
+    from src.core.cache.client import CacheClient
+    from src.core.chat.archive_service import ArchiveService
+    from src.core.chat.service import ChatHistoryService
+    from src.core.config import Settings
+    from src.core.llm.service import LLMService
+    from src.core.personnel.service import PersonnelService
 
 logger = structlog.get_logger()
 
@@ -80,7 +90,9 @@ scanner = ComponentScanner(mapping=composite_mapping)
 # ─────────────────────── 模块启动函数 ───────────────────────
 
 
-async def _startup_database(settings):  # type: ignore[no-untyped-def]
+async def _startup_database(
+    settings: Settings,
+) -> tuple[AsyncEngine, async_sessionmaker[AsyncSession]]:
     """主库引擎创建 & 迁移检查，返回 (engine, session_factory)。"""
     # 确保迁移目标已注册
     import src.core.db  # noqa: F401
@@ -95,7 +107,10 @@ async def _startup_database(settings):  # type: ignore[no-untyped-def]
     return engine, session_factory
 
 
-async def _startup_chat(settings, session_factory):  # type: ignore[no-untyped-def]
+async def _startup_chat(
+    settings: Settings,
+    session_factory: async_sessionmaker[AsyncSession],
+) -> tuple[AsyncEngine, ChatHistoryService, ArchiveService]:
     """聊天库引擎创建 & 迁移检查，返回 (chat_engine, chat_service, archive_service)。"""
     import src.core.chat  # noqa: F401
     from src.core.chat.archive_service import ArchiveService
@@ -117,7 +132,11 @@ async def _startup_chat(settings, session_factory):  # type: ignore[no-untyped-d
     return chat_engine, chat_service, archive_service
 
 
-def _startup_personnel(session_factory, cache_client, settings):  # type: ignore[no-untyped-def]
+def _startup_personnel(
+    session_factory: async_sessionmaker[AsyncSession],
+    cache_client: CacheClient,
+    settings: Settings,
+) -> tuple[PersonnelService, functools.partial[Coroutine[Any, Any, None]]]:
     """人事管理模块初始化，返回 (personnel_service, sync_callback)。"""
     from src.core.personnel.service import PersonnelService
     from src.core.personnel.sync import do_personnel_sync
@@ -138,7 +157,10 @@ def _startup_personnel(session_factory, cache_client, settings):  # type: ignore
     return personnel_service, sync_callback
 
 
-def _startup_llm(session_factory, cache_client):  # type: ignore[no-untyped-def]
+def _startup_llm(
+    session_factory: async_sessionmaker[AsyncSession],
+    cache_client: CacheClient,
+) -> LLMService:
     """LLM 模块初始化，返回 LLMService。"""
     from src.core.llm.completion import init_completion
     from src.core.llm.service import LLMService
@@ -148,7 +170,7 @@ def _startup_llm(session_factory, cache_client):  # type: ignore[no-untyped-def]
     return llm_service
 
 
-def _startup_framework(settings):  # type: ignore[no-untyped-def]
+def _startup_framework(settings: Settings) -> None:
     """扫描处理器。"""
     scan_packages = list(settings.HANDLER_SCAN_PACKAGES)
     if "src.core.personnel" not in scan_packages:
@@ -164,7 +186,11 @@ def _startup_framework(settings):  # type: ignore[no-untyped-def]
     )
 
 
-def _build_event_dispatch_callback(chat_service, dispatcher_instance, bot_api_instance):  # type: ignore[no-untyped-def]
+def _build_event_dispatch_callback(
+    chat_service: ChatHistoryService,
+    dispatcher_instance: EventDispatcher,
+    bot_api_instance: BotAPI,
+) -> Callable[[Any], Coroutine[Any, Any, None]]:
     """构建事件分发回调（含消息持久化）。"""
     from src.core.protocol.models.events import MessageEvent, MessageSentEvent
 
@@ -187,12 +213,12 @@ def _build_event_dispatch_callback(chat_service, dispatcher_instance, bot_api_in
 
 
 def _register_services_to_dispatcher(
-    dispatcher_instance,  # type: ignore[no-untyped-def]
+    dispatcher_instance: EventDispatcher,
     *,
-    personnel_service=None,
-    llm_service=None,
-    cache_client=None,
-):  # type: ignore[no-untyped-def]
+    personnel_service: PersonnelService | None = None,
+    llm_service: LLMService | None = None,
+    cache_client: CacheClient | None = None,
+) -> None:
     """将业务服务注册到 EventDispatcher 的服务注册表。
 
     供 Controller 通过 ctx.get_service() 获取。

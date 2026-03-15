@@ -24,7 +24,4 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.execute(
-        "ALTER TABLE chat.chat_history ADD COLUMN self_id BIGINT NOT NULL DEFAULT 0"
-    )
-
+    op.execute("ALTER TABLE chat.chat_history ADD COLUMN self_id BIGINT NOT NULL DEFAULT 0")

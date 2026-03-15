@@ -37,8 +37,10 @@ async def bot_info(
         except Exception:
             pass
 
-    return ok({
-        "nickname": nickname,
-        "user_id": user_id,
-        "avatar_url": avatar_url,
-    })
+    return ok(
+        {
+            "nickname": nickname,
+            "user_id": user_id,
+            "avatar_url": avatar_url,
+        }
+    )

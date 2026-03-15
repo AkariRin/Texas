@@ -135,4 +135,3 @@ def _run_migrations_online(
             future.result()
     else:
         asyncio.run(run_async_migrations())
-

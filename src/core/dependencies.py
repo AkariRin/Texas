@@ -84,8 +84,14 @@ def get_sync_callback(request: Request) -> Callable[[], Coroutine[Any, Any, None
 class WsDeps:
     """从 WebSocket 的 app.state 中提取 WS 依赖的辅助类。"""
 
-    __slots__ = ("conn_mgr", "bot_api", "heartbeat", "access_token",
-                 "event_dispatch_callback", "personnel_sync_callback")
+    __slots__ = (
+        "conn_mgr",
+        "bot_api",
+        "heartbeat",
+        "access_token",
+        "event_dispatch_callback",
+        "personnel_sync_callback",
+    )
 
     def __init__(self, websocket: WebSocket) -> None:
         state = websocket.app.state
@@ -99,4 +105,3 @@ class WsDeps:
         self.personnel_sync_callback: Callable[[], Coroutine[Any, Any, None]] | None = (
             state.personnel_sync_callback
         )
-

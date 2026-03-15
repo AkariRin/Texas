@@ -17,4 +17,3 @@ def ok(data: Any = None, message: str = "ok") -> dict[str, Any]:
 def fail(message: str, code: int = -1, data: Any = None) -> dict[str, Any]:
     """构造失败响应。"""
     return {"code": code, "data": data, "message": message}
-

@@ -23,4 +23,3 @@ def run_async(coro: Any) -> Any:
         with concurrent.futures.ThreadPoolExecutor() as pool:
             return pool.submit(asyncio.run, coro).result()
     return asyncio.run(coro)
-
