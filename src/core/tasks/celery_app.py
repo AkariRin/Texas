@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from celery import Celery
 
-from src.core.config import Settings
+from src.core.config import get_settings
 
-settings = Settings()
+settings = get_settings()
 
 celery_app = Celery(
     "texas",

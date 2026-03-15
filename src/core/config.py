@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sys
+from functools import lru_cache
 
 import structlog
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -92,6 +93,12 @@ class Settings(BaseSettings):
     def is_production(self) -> bool:
         """是否处于生产环境。"""
         return self.ENV.lower() == "production"
+
+
+@lru_cache(maxsize=1)
+def get_settings() -> Settings:
+    """返回全局唯一的 Settings 实例（线程安全，延迟创建）。"""
+    return Settings()
 
 
 def validate_settings(settings: Settings) -> None:

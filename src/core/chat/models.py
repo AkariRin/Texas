@@ -105,11 +105,6 @@ class ChatMessage(ChatBase):
         nullable=False,
         comment="发送者 QQ",
     )
-    self_id: Mapped[int] = mapped_column(
-        BigInteger,
-        nullable=False,
-        comment="机器人 QQ",
-    )
 
     # ── 消息内容 ──
     raw_message: Mapped[str] = mapped_column(

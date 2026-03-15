@@ -2,41 +2,34 @@
 
 from __future__ import annotations
 
-import asyncio
 from typing import Any
 
 import structlog
 
 from src.core.tasks.celery_app import celery_app
+from src.core.tasks.utils import run_async
 
 logger = structlog.get_logger()
-
-
-def _run_async(coro: Any) -> Any:
-    """在 Celery 同步 Worker 中运行异步协程。"""
-    try:
-        loop = asyncio.get_running_loop()
-    except RuntimeError:
-        loop = None
-    if loop and loop.is_running():
-        import concurrent.futures
-
-        with concurrent.futures.ThreadPoolExecutor() as pool:
-            return pool.submit(asyncio.run, coro).result()
-    return asyncio.run(coro)
 
 
 def _build_services() -> tuple[Any, Any]:
     """延迟构建归档服务所需的引擎和 session factory。"""
     from src.core.chat.archive_service import ArchiveService
-    from src.core.chat.engine import create_chat_engine, create_chat_session_factory
-    from src.core.config import Settings
+    from src.core.config import get_settings
     from src.core.db.engine import create_engine, create_session_factory
 
-    settings = Settings()
-    chat_engine = create_chat_engine(settings)
-    chat_sf = create_chat_session_factory(chat_engine)
-    main_engine = create_engine(settings)
+    settings = get_settings()
+    chat_engine = create_engine(
+        settings.CHAT_DATABASE_URL,
+        pool_size=settings.CHAT_DB_POOL_SIZE,
+        max_overflow=settings.CHAT_DB_MAX_OVERFLOW,
+    )
+    chat_sf = create_session_factory(chat_engine)
+    main_engine = create_engine(
+        settings.DATABASE_URL,
+        pool_size=settings.DB_POOL_SIZE,
+        max_overflow=settings.DB_MAX_OVERFLOW,
+    )
     main_sf = create_session_factory(main_engine)
     service = ArchiveService(chat_sf, main_sf, settings)
     return service, settings
@@ -56,7 +49,7 @@ def archive_chat_history(self: Any, partition_name: str | None = None) -> dict[s
     """
     try:
         service, _ = _build_services()
-        result: dict[str, Any] = _run_async(service.archive(partition_name))
+        result: dict[str, Any] = run_async(service.archive(partition_name))
         return result
     except Exception as exc:
         logger.exception(
@@ -72,7 +65,7 @@ def ensure_chat_partitions() -> dict[str, str]:
     """确保当月和下月的分区存在。由定时任务每月 25 号调用。"""
     try:
         service, _ = _build_services()
-        result: dict[str, str] = _run_async(service.ensure_partitions())
+        result: dict[str, str] = run_async(service.ensure_partitions())
         return result
     except Exception:
         logger.exception(

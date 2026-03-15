@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, TypeVar
 
 from src.core.protocol.models.events import GroupMessageEvent, MessageEvent
 from src.core.protocol.segment import Seg
@@ -12,6 +12,8 @@ if TYPE_CHECKING:
 
     from src.core.protocol.api import BotAPI
     from src.core.protocol.models.base import MessageSegment, OneBotEvent
+
+_T = TypeVar("_T")
 
 
 class FinishError(Exception):
@@ -25,12 +27,35 @@ class Context:
         self,
         event: OneBotEvent,
         bot: BotAPI,
+        services: dict[type, Any] | None = None,
     ) -> None:
         self.event = event
         self.bot = bot
         self.handler_method: Any = None  # 在调用处理器前由调度器设置
         self._attributes: dict[str, Any] = {}
         self._regex_match: re.Match[str] | None = None
+        self._services: dict[type, Any] = services or {}
+
+    # ── 服务注册表（Handler DI） ──
+
+    def get_service(self, service_type: type[_T]) -> _T:
+        """从上下文获取服务实例（类型安全）。
+
+        用法::
+
+            personnel = ctx.get_service(PersonnelService)
+        """
+        service = self._services.get(service_type)
+        if service is None:
+            raise RuntimeError(
+                f"Service {service_type.__name__} not registered in context. "
+                f"Available: {[t.__name__ for t in self._services]}"
+            )
+        return service  # type: ignore[return-value]
+
+    def has_service(self, service_type: type) -> bool:
+        """检查服务是否已注册。"""
+        return service_type in self._services
 
     # ── 属性存储（拦截器 <-> 处理器数据传递） ──
 

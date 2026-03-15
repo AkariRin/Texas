@@ -544,7 +544,6 @@ class ArchiveService:
             "message_type",
             "group_id",
             "user_id",
-            "self_id",
             "raw_message",
             "segments",
             "sender_nickname",

@@ -475,7 +475,6 @@ class ChatHistoryService:
             "message_type": msg.message_type,
             "group_id": msg.group_id,
             "user_id": msg.user_id,
-            "self_id": msg.self_id,
             "raw_message": msg.raw_message,
             "segments": msg.segments,
             "sender_nickname": msg.sender_nickname,

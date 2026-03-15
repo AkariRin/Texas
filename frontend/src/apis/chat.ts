@@ -42,7 +42,6 @@ export interface ChatMessage {
   message_type: number
   group_id: number | null
   user_id: number
-  self_id: number
   raw_message: string
   segments: MessageSegment[]
   sender_nickname: string

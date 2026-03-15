@@ -24,12 +24,14 @@ class EventDispatcher:
         self,
         mapping: CompositeHandlerMapping,
         interceptors: list[HandlerInterceptor] | None = None,
+        services: dict[type, Any] | None = None,
     ) -> None:
         self.mapping = mapping
         self.interceptors = interceptors or []
+        self.services: dict[type, Any] = services or {}
 
     async def dispatch(self, event: OneBotEvent, bot: BotAPI) -> None:
-        ctx = Context(event=event, bot=bot)
+        ctx = Context(event=event, bot=bot, services=self.services)
         result: Any = None
         exc: Exception | None = None
 

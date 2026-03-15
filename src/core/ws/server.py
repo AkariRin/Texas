@@ -4,59 +4,25 @@ from __future__ import annotations
 
 import asyncio
 import json
-from typing import TYPE_CHECKING
 
 import structlog
 from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
 
+from src.core.dependencies import WsDeps
 from src.core.protocol.event import parse_event
 from src.core.protocol.models.events import HeartbeatEvent
-
-if TYPE_CHECKING:
-    from collections.abc import Callable, Coroutine
-    from typing import Any
-
-    from src.core.protocol.api import BotAPI
-    from src.core.ws.connection import ConnectionManager
-    from src.core.ws.heartbeat import HeartbeatMonitor
 
 logger = structlog.get_logger()
 
 ws_router = APIRouter()
 
-# 这些将在应用启动时通过 set_ws_dependencies() 设置
-_conn_mgr: ConnectionManager | None = None
-_bot_api: BotAPI | None = None
-_heartbeat: HeartbeatMonitor | None = None
-_access_token: str = ""
-_personnel_sync_callback: Callable[[], Coroutine[Any, Any, None]] | None = None
 
-
-def set_ws_dependencies(
-    conn_mgr: ConnectionManager,
-    bot_api: BotAPI,
-    heartbeat: HeartbeatMonitor,
-    access_token: str,
-) -> None:
-    global _conn_mgr, _bot_api, _heartbeat, _access_token
-    _conn_mgr = conn_mgr
-    _bot_api = bot_api
-    _heartbeat = heartbeat
-    _access_token = access_token
-
-
-def set_personnel_sync_callback(callback: Callable[[], Coroutine[Any, Any, None]]) -> None:
-    """设置人事数据同步回调（由 main.py 在启动时注入）。"""
-    global _personnel_sync_callback
-    _personnel_sync_callback = callback
-
-
-def _check_token(token_param: str | None, headers: dict[str, str]) -> bool:
+def _check_token(token_param: str | None, headers: dict[str, str], access_token: str) -> bool:
     """从 URL 参数或 Authorization 请求头中验证访问令牌。"""
-    if token_param and token_param == _access_token:
+    if token_param and token_param == access_token:
         return True
     auth = headers.get("authorization", "")
-    return bool(auth.startswith("Bearer ") and auth[7:] == _access_token)
+    return bool(auth.startswith("Bearer ") and auth[7:] == access_token)
 
 
 @ws_router.websocket("")
@@ -65,13 +31,14 @@ async def onebot_ws_endpoint(
     access_token: str | None = Query(default=None),
 ) -> None:
     """NapCat 反向 WebSocket 端点。NapCat 以客户端身份连接至此（仅允许单连接）。"""
-    assert _conn_mgr is not None
-    assert _bot_api is not None
-    assert _heartbeat is not None
+    deps = WsDeps(ws)
+    conn_mgr = deps.conn_mgr
+    bot_api = deps.bot_api
+    heartbeat = deps.heartbeat
 
     # 令牌鉴权
     headers = {k.decode(): v.decode() for k, v in ws.scope.get("headers", [])}
-    if not _check_token(access_token, headers):
+    if not _check_token(access_token, headers, deps.access_token):
         logger.critical(
             "WebSocket 连接已拒绝：访问令牌无效",
             event_type="ws.auth_failed",
@@ -80,7 +47,7 @@ async def onebot_ws_endpoint(
         return
 
     # 一对一架构：拒绝重复连接
-    if _conn_mgr.connected:
+    if conn_mgr.connected:
         logger.warning(
             "WebSocket 连接已拒绝：已有活跃连接",
             event_type="ws.duplicate_rejected",
@@ -88,8 +55,8 @@ async def onebot_ws_endpoint(
         await ws.close(code=4002, reason="Already connected")
         return
 
-    await _conn_mgr.accept(ws)
-    _heartbeat.start()
+    await conn_mgr.accept(ws)
+    heartbeat.start()
 
     # 追踪后台事件处理任务，以便在断连时做清理
     background_tasks: set[asyncio.Task[None]] = set()
@@ -104,10 +71,19 @@ async def onebot_ws_endpoint(
             )
 
     # ── 触发首次人事数据同步 ──
-    if _personnel_sync_callback is not None:
-        _sync_task: asyncio.Task[None] = asyncio.create_task(_personnel_sync_callback())
+    if deps.personnel_sync_callback is not None:
+        _sync_task: asyncio.Task[None] = asyncio.create_task(deps.personnel_sync_callback())
         background_tasks.add(_sync_task)
         _sync_task.add_done_callback(_on_task_done)
+
+    # 获取事件分发回调
+    event_dispatch_callback = deps.event_dispatch_callback
+
+    async def _dispatch_event(event: object) -> None:
+        if event_dispatch_callback is not None:
+            await event_dispatch_callback(event)
+        else:
+            logger.debug("未设置事件分发器，已忽略事件", event_type="ws.no_dispatcher")
 
     try:
         while True:
@@ -121,7 +97,7 @@ async def onebot_ws_endpoint(
                 continue
 
             # 检查是否为 API 响应（含有 echo 字段且与挂起的调用匹配）
-            if _bot_api.handle_response(data):
+            if bot_api.handle_response(data):
                 continue
 
             # 跳过迟到的 API 响应（超时后才到达的响应，不在 _pending 中但仍属于 API 响应）
@@ -149,7 +125,7 @@ async def onebot_ws_endpoint(
             # 处理心跳事件
             if isinstance(event, HeartbeatEvent):
                 status = event.status.model_dump() if event.status else None
-                _heartbeat.record_heartbeat(status)
+                heartbeat.record_heartbeat(status)
                 continue
 
             # 分发至框架（作为后台任务，避免阻塞接收循环导致 API 响应无法被处理）
@@ -167,23 +143,5 @@ async def onebot_ws_endpoint(
             task.cancel()
         if background_tasks:
             await asyncio.gather(*background_tasks, return_exceptions=True)
-        _conn_mgr.disconnect()
-        _heartbeat.stop()
-
-
-# 事件分发回调 —— 在框架初始化后由 main.py 设置
-
-_event_dispatch_callback: Callable[[object], Coroutine[Any, Any, None]] | None = None
-
-
-def set_event_dispatcher(callback: Callable[[object], Coroutine[Any, Any, None]]) -> None:
-    global _event_dispatch_callback
-    _event_dispatch_callback = callback
-
-
-async def _dispatch_event(event: object) -> None:
-    callback = _event_dispatch_callback
-    if callback is not None:
-        await callback(event)
-    else:
-        logger.debug("未设置事件分发器，已忽略事件", event_type="ws.no_dispatcher")
+        conn_mgr.disconnect()
+        heartbeat.stop()

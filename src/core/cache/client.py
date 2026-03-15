@@ -29,7 +29,7 @@ class CacheClient:
             return None
         try:
             return json.loads(val)
-        except json.JSONDecodeError, TypeError:
+        except (json.JSONDecodeError, TypeError):
             return val
 
     async def set(self, key: str, value: Any, ttl: int | None = None) -> None:

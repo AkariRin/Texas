@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import asyncio
 from contextlib import asynccontextmanager
+from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -16,12 +17,10 @@ from fastapi.staticfiles import StaticFiles
 from prometheus_client import generate_latest
 from starlette.responses import Response
 
-from src.api.bot import set_bot_providers
-from src.api.handlers import set_scanner_provider
 from src.api.router import api_router
-from src.core.config import Settings, validate_settings
-from src.core.db.engine import create_engine as create_db_engine
-from src.core.db.migration import run_startup_chat_db_check, run_startup_db_check
+from src.core.config import get_settings, validate_settings
+from src.core.db.engine import create_engine, create_session_factory
+from src.core.db.migration import run_startup_db_check, run_startup_chat_db_check
 from src.core.framework.dispatcher import EventDispatcher
 from src.core.framework.interceptors.logging import LoggingInterceptor
 from src.core.framework.interceptors.metrics import MetricsInterceptor
@@ -44,12 +43,7 @@ from src.core.monitoring.metrics import handlers_registered  # noqa: E402
 from src.core.protocol.api import BotAPI  # noqa: E402
 from src.core.ws.connection import ConnectionManager  # noqa: E402
 from src.core.ws.heartbeat import HeartbeatMonitor  # noqa: E402
-from src.core.ws.server import (  # noqa: E402
-    set_event_dispatcher,
-    set_personnel_sync_callback,
-    set_ws_dependencies,
-    ws_router,
-)
+from src.core.ws.server import ws_router  # noqa: E402
 
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator
@@ -57,117 +51,105 @@ if TYPE_CHECKING:
 logger = structlog.get_logger()
 
 # ── 全局实例（模块级单例） ──
-settings = Settings()
+settings = get_settings()
 conn_mgr = ConnectionManager()
 heartbeat = HeartbeatMonitor(interval_ms=settings.NAPCAT_HEART_INTERVAL)
 bot_api = BotAPI(connection_manager=conn_mgr)
 
 # ── 构建 HandlerMapping 链 ──
-command_mapping = CommandHandlerMapping()
-regex_mapping = RegexHandlerMapping()
-keyword_mapping = KeywordHandlerMapping()
-startswith_mapping = StartsWithHandlerMapping()
-endswith_mapping = EndsWithHandlerMapping()
-fullmatch_mapping = FullMatchHandlerMapping()
-event_type_mapping = EventTypeHandlerMapping()
-
 composite_mapping = CompositeHandlerMapping(
     [
-        command_mapping,
-        regex_mapping,
-        keyword_mapping,
-        startswith_mapping,
-        endswith_mapping,
-        fullmatch_mapping,
-        event_type_mapping,
+        CommandHandlerMapping(),
+        RegexHandlerMapping(),
+        KeywordHandlerMapping(),
+        StartsWithHandlerMapping(),
+        EndsWithHandlerMapping(),
+        FullMatchHandlerMapping(),
+        EventTypeHandlerMapping(),
     ]
 )
 
-# ── 拦截器 ──
-interceptors = [
-    LoggingInterceptor(),
-    MetricsInterceptor(),
-]
-
-# ── 核心调度器 ──
-dispatcher = EventDispatcher(mapping=composite_mapping, interceptors=interceptors)
-
-# ── 组件扫描器 ──
+# ── 核心调度器 & 扫描器 ──
+dispatcher = EventDispatcher(
+    mapping=composite_mapping,
+    interceptors=[LoggingInterceptor(), MetricsInterceptor()],
+)
 scanner = ComponentScanner(mapping=composite_mapping)
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
-    """应用生命周期：启动与关闭逻辑。"""
+# ─────────────────────── 模块启动函数 ───────────────────────
 
-    # ── 启动 ──
-    setup_logging(log_level=settings.LOG_LEVEL, log_format=settings.LOG_FORMAT)
-    validate_settings(settings)
 
-    # 安装日志 SSE 广播 handler
-    from src.api.logs import install_log_broadcast
+async def _startup_database(settings):  # type: ignore[no-untyped-def]
+    """主库引擎创建 & 迁移检查，返回 (engine, session_factory)。"""
+    # 确保迁移目标已注册
+    import src.core.db  # noqa: F401
 
-    install_log_broadcast()
-
-    logger.info(
-        "Texas 正在启动",
-        version="0.1.0",
-        event_type="app.starting",
+    engine = create_engine(
+        settings.DATABASE_URL,
+        pool_size=settings.DB_POOL_SIZE,
+        max_overflow=settings.DB_MAX_OVERFLOW,
     )
-
-    # 数据库连接检查 & Alembic 迁移管理
-    engine = create_db_engine(settings)
     await run_startup_db_check(engine, settings)
-
-    # ── 人事管理模块初始化 ──
-    from src.core.cache.client import CacheClient
-    from src.core.db.engine import create_session_factory
-    from src.core.monitoring.metrics import personnel_api_errors
-    from src.core.personnel.api import set_personnel_api_deps
-    from src.core.personnel.handler import set_personnel_service
-    from src.core.personnel.service import PersonnelService
-
     session_factory = create_session_factory(engine)
-    cache_client = CacheClient(
-        url=settings.CACHE_REDIS_URL,
-        default_ttl=settings.CACHE_DEFAULT_TTL,
-    )
-    personnel_service = PersonnelService(
-        session_factory=session_factory,
-        cache=cache_client,
-        settings=settings,
-    )
+    return engine, session_factory
 
-    # 注入人事管理服务到增量事件处理器
-    set_personnel_service(personnel_service)
 
-    # ── LLM 模块初始化 ──
-    from src.core.llm.api import set_llm_deps
-    from src.core.llm.completion import init_completion
-    from src.core.llm.service import LLMService
-
-    llm_service = LLMService(session_factory=session_factory, cache=cache_client)
-    set_llm_deps(llm_service)
-    init_completion(llm_service)
-
-    # ── 聊天记录模块初始化 ──
-    from src.core.chat.api import set_chat_api_deps
+async def _startup_chat(settings, session_factory):  # type: ignore[no-untyped-def]
+    """聊天库引擎创建 & 迁移检查，返回 (chat_engine, chat_service, archive_service)。"""
+    import src.core.chat  # noqa: F401
     from src.core.chat.archive_service import ArchiveService
-    from src.core.chat.engine import create_chat_engine, create_chat_session_factory
     from src.core.chat.service import ChatHistoryService
 
-    chat_engine = create_chat_engine(settings)
+    chat_engine = create_engine(
+        settings.CHAT_DATABASE_URL,
+        pool_size=settings.CHAT_DB_POOL_SIZE,
+        max_overflow=settings.CHAT_DB_MAX_OVERFLOW,
+    )
     await run_startup_chat_db_check(chat_engine, settings)
-    chat_session_factory = create_chat_session_factory(chat_engine)
+    chat_session_factory = create_session_factory(chat_engine)
     chat_service = ChatHistoryService(session_factory=chat_session_factory)
     archive_service = ArchiveService(
         chat_session_factory=chat_session_factory,
         main_session_factory=session_factory,
         settings=settings,
     )
-    set_chat_api_deps(chat_service, archive_service)
+    return chat_engine, chat_service, archive_service
 
-    # 扫描并注册处理器（包含 src.core.personnel 中的 PersonnelEventHandler）
+
+def _startup_personnel(session_factory, cache_client, settings):  # type: ignore[no-untyped-def]
+    """人事管理模块初始化，返回 (personnel_service, sync_callback)。"""
+    from src.core.personnel.service import PersonnelService
+    from src.core.personnel.sync import do_personnel_sync
+
+    personnel_service = PersonnelService(
+        session_factory=session_factory,
+        cache=cache_client,
+        settings=settings,
+    )
+
+    # 构建同步回调（绑定运行时依赖）
+    sync_callback = partial(
+        do_personnel_sync,
+        bot_api=bot_api,
+        conn_mgr=conn_mgr,
+        settings=settings,
+    )
+    return personnel_service, sync_callback
+
+
+def _startup_llm(session_factory, cache_client):  # type: ignore[no-untyped-def]
+    """LLM 模块初始化，返回 LLMService。"""
+    from src.core.llm.completion import init_completion
+    from src.core.llm.service import LLMService
+
+    llm_service = LLMService(session_factory=session_factory, cache=cache_client)
+    init_completion(llm_service)
+    return llm_service
+
+
+def _startup_framework(settings):  # type: ignore[no-untyped-def]
+    """扫描处理器。"""
     scan_packages = list(settings.HANDLER_SCAN_PACKAGES)
     if "src.core.personnel" not in scan_packages:
         scan_packages.append("src.core.personnel")
@@ -181,10 +163,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
         event_type="app.scan_complete",
     )
 
-    # 注入 WebSocket 依赖
-    set_ws_dependencies(conn_mgr, bot_api, heartbeat, settings.NAPCAT_ACCESS_TOKEN)
 
-    # 将事件调度器绑定到 WS 服务端（含消息持久化）
+def _build_event_dispatch_callback(chat_service, dispatcher_instance, bot_api_instance):  # type: ignore[no-untyped-def]
+    """构建事件分发回调（含消息持久化）。"""
     from src.core.protocol.models.events import MessageEvent, MessageSentEvent
 
     async def _save_chat_message(event: Any) -> None:
@@ -198,95 +179,93 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
             )
 
     async def _dispatch(event: Any) -> None:
-        # 异步持久化消息（fire-and-forget）
         if isinstance(event, (MessageEvent, MessageSentEvent)):
             asyncio.create_task(_save_chat_message(event))
-        await dispatcher.dispatch(event, bot_api)
+        await dispatcher_instance.dispatch(event, bot_api_instance)
 
-    set_event_dispatcher(_dispatch)
+    return _dispatch
 
-    # 注入管理 API 提供者
-    set_scanner_provider(lambda: scanner.controllers)
-    set_bot_providers(conn_mgr, bot_api)
 
-    # ── 人事管理：数据采集编排（主进程采集 + Celery 写入） ──
-    async def _do_personnel_sync() -> None:
-        """全量同步人事数据（主进程采集，Celery 写入）。"""
-        await asyncio.sleep(settings.PERSONNEL_SYNC_INITIAL_DELAY)
+def _register_services_to_dispatcher(
+    dispatcher_instance,  # type: ignore[no-untyped-def]
+    *,
+    personnel_service=None,
+    llm_service=None,
+    cache_client=None,
+):  # type: ignore[no-untyped-def]
+    """将业务服务注册到 EventDispatcher 的服务注册表。
 
-        if not conn_mgr.connected:
-            logger.warning("连接已断开，取消人事同步", event_type="personnel.sync_aborted")
-            return
+    供 Controller 通过 ctx.get_service() 获取。
+    """
+    from src.core.personnel.service import PersonnelService
 
-        logger.info("开始人事数据同步", event_type="personnel.sync_start")
+    if personnel_service is not None:
+        dispatcher_instance.services[PersonnelService] = personnel_service
 
-        try:
-            # 1. 获取好友列表
-            friends_resp = await bot_api.get_friend_list()
-            friends_data = friends_resp.data if friends_resp.ok else None
+    # 未来可在此处注册更多服务类型:
+    # from src.core.llm.service import LLMService
+    # if llm_service is not None:
+    #     dispatcher_instance.services[LLMService] = llm_service
 
-            # 2. 获取群列表
-            groups_resp = await bot_api.get_group_list()
-            groups_data = groups_resp.data if groups_resp.ok else None
 
-            # 3. 逐群获取成员列表
-            members_data: dict[int, list[Any]] = {}
-            if groups_data and isinstance(groups_data, list):
-                for group in groups_data:
-                    if not conn_mgr.connected:
-                        logger.warning("同步中途连接断开", event_type="personnel.sync_interrupted")
-                        break
+# ─────────────────────── Lifespan ───────────────────────
 
-                    group_id = group.get("group_id") if isinstance(group, dict) else None
-                    if not group_id:
-                        continue
 
-                    try:
-                        member_resp = await bot_api.get_group_member_list(int(group_id))
-                        if member_resp.ok and isinstance(member_resp.data, list):
-                            members_data[int(group_id)] = member_resp.data
-                    except Exception as exc:
-                        personnel_api_errors.labels(action="get_group_member_list").inc()
-                        logger.warning(
-                            "获取群成员列表失败",
-                            group_id=group_id,
-                            error=str(exc),
-                            event_type="personnel.api_error",
-                        )
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
+    """应用生命周期：启动与关闭逻辑。"""
 
-                    await asyncio.sleep(settings.PERSONNEL_SYNC_API_DELAY)
+    # ── 启动 ──
+    setup_logging(log_level=settings.LOG_LEVEL, log_format=settings.LOG_FORMAT)
+    validate_settings(settings)
 
-            # 4. 提交 Celery 写入任务
-            from src.core.tasks.personnel import persist_personnel_data
+    from src.api.logs import install_log_broadcast
 
-            # 将 members_data 的 key 转为字符串以兼容 JSON 序列化
-            members_serializable = {str(k): v for k, v in members_data.items()}
-            persist_personnel_data.delay(
-                friends=friends_data,
-                groups=groups_data,
-                members=members_serializable,
-            )
+    install_log_broadcast()
 
-            logger.info(
-                "人事数据采集完成，已提交 Celery 写入任务",
-                friends_count=len(friends_data) if friends_data else 0,
-                groups_count=len(groups_data) if groups_data else 0,
-                members_groups=len(members_data),
-                event_type="personnel.sync_submitted",
-            )
+    logger.info("Texas 正在启动", version="0.1.0", event_type="app.starting")
 
-        except Exception as exc:
-            logger.error(
-                "人事数据同步失败",
-                error=str(exc),
-                event_type="personnel.sync_error",
-            )
+    # 基础设施
+    from src.core.cache.client import CacheClient
 
-    # 注入同步回调到 WS 服务端和人事管理 API
-    set_personnel_sync_callback(_do_personnel_sync)
-    set_personnel_api_deps(personnel_service, _do_personnel_sync)
+    engine, session_factory = await _startup_database(settings)
+    cache_client = CacheClient(url=settings.CACHE_REDIS_URL, default_ttl=settings.CACHE_DEFAULT_TTL)
 
-    # 以 debug 等级逐行打印所有已加载的路由
+    # 业务模块
+    personnel_service, sync_callback = _startup_personnel(session_factory, cache_client, settings)
+    llm_service = _startup_llm(session_factory, cache_client)
+    chat_engine, chat_service, archive_service = await _startup_chat(settings, session_factory)
+
+    # 框架
+    _startup_framework(settings)
+
+    # 将服务注册到 Dispatcher（供 Controller 通过 ctx.get_service() 获取）
+    _register_services_to_dispatcher(
+        dispatcher,
+        personnel_service=personnel_service,
+        llm_service=llm_service,
+        cache_client=cache_client,
+    )
+
+    # 构建事件分发回调
+    event_dispatch_callback = _build_event_dispatch_callback(chat_service, dispatcher, bot_api)
+
+    # ── 将所有实例存入 app.state（供 Depends / WsDeps 获取） ──
+    app.state.conn_mgr = conn_mgr
+    app.state.bot_api = bot_api
+    app.state.heartbeat = heartbeat
+    app.state.access_token = settings.NAPCAT_ACCESS_TOKEN
+    app.state.cache_client = cache_client
+    app.state.scanner = scanner
+    app.state.llm_service = llm_service
+    app.state.chat_service = chat_service
+    app.state.archive_service = archive_service
+    app.state.personnel_service = personnel_service
+    app.state.sync_callback = sync_callback
+    app.state.event_dispatch_callback = event_dispatch_callback
+    app.state.personnel_sync_callback = sync_callback
+
+    # 路由调试
     all_routes = list(app.routes)
     logger.debug(f"已加载 {len(all_routes)} 个后端路由", event_type="app.routes_loaded")
     for route in all_routes:

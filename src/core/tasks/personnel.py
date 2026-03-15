@@ -2,22 +2,22 @@
 
 from __future__ import annotations
 
-import asyncio
 from typing import Any, cast
 
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from src.core.cache.client import CacheClient
-from src.core.config import Settings
+from src.core.config import get_settings
 from src.core.monitoring.metrics import personnel_sync_total
 from src.core.personnel.service import PersonnelService
 from src.core.tasks.celery_app import celery_app
+from src.core.tasks.utils import run_async
 
 logger = structlog.get_logger()
 
 # 为 Celery Worker 创建独立的数据库引擎和缓存客户端
-_settings = Settings()
+_settings = get_settings()
 _engine = create_async_engine(
     _settings.DATABASE_URL,
     pool_size=5,
@@ -31,22 +31,6 @@ _service = PersonnelService(
     cache=_cache,
     settings=_settings,
 )
-
-
-def _run_async(coro: Any) -> Any:
-    """在 Celery 同步 Worker 中运行异步协程。"""
-    try:
-        loop = asyncio.get_running_loop()
-    except RuntimeError:
-        loop = None
-
-    if loop and loop.is_running():
-        # 不应该发生，但以防万一
-        import concurrent.futures
-
-        with concurrent.futures.ThreadPoolExecutor() as pool:
-            return pool.submit(asyncio.run, coro).result()
-    return asyncio.run(coro)
 
 
 @celery_app.task(bind=True, max_retries=3, default_retry_delay=30)
@@ -75,7 +59,7 @@ def persist_personnel_data(
 
         result: dict[str, int] = cast(
             "dict[str, int]",
-            _run_async(
+            run_async(
                 _service.persist_sync_data(
                     friends=friends,
                     groups=groups,

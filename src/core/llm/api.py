@@ -7,9 +7,10 @@ import uuid
 from typing import TYPE_CHECKING, Any
 
 import structlog
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from starlette.responses import StreamingResponse
 
+from src.core.dependencies import get_llm_service
 from src.core.llm.schemas import (  # noqa: TC001
     ChatRequest,
     ModelCreate,
@@ -17,6 +18,7 @@ from src.core.llm.schemas import (  # noqa: TC001
     ProviderCreate,
     ProviderUpdate,
 )
+from src.core.utils.response import ok
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -26,22 +28,6 @@ if TYPE_CHECKING:
 logger = structlog.get_logger()
 
 router = APIRouter(prefix="/v1/llm", tags=["llm"])
-
-# ── 依赖注入 ──
-
-_llm_service: LLMService | None = None
-
-
-def set_llm_deps(service: LLMService) -> None:
-    """由 lifespan() 在启动时调用，注入 LLMService 实例。"""
-    global _llm_service
-    _llm_service = service
-
-
-def _get_service() -> LLMService:
-    if _llm_service is None:
-        raise HTTPException(status_code=503, detail="LLM service not initialized")
-    return _llm_service
 
 
 def _parse_uuid(value: str, name: str = "ID") -> uuid.UUID:
@@ -58,62 +44,72 @@ def _parse_uuid(value: str, name: str = "ID") -> uuid.UUID:
 
 
 @router.get("/providers")
-async def list_providers() -> dict[str, Any]:
+async def list_providers(service: LLMService = Depends(get_llm_service)) -> dict[str, Any]:
     """列出所有提供商。"""
-    service = _get_service()
     providers = await service.list_providers()
-    return {"code": 0, "data": providers, "message": "ok"}
+    return ok(providers)
 
 
 @router.get("/providers/{provider_id}")
-async def get_provider(provider_id: str) -> dict[str, Any]:
+async def get_provider(
+    provider_id: str,
+    service: LLMService = Depends(get_llm_service),
+) -> dict[str, Any]:
     """获取单个提供商详情（含旗下模型列表）。"""
-    service = _get_service()
     pid = _parse_uuid(provider_id, "provider_id")
     provider = await service.get_provider(pid)
     if provider is None:
         raise HTTPException(status_code=404, detail="Provider not found")
-    return {"code": 0, "data": provider, "message": "ok"}
+    return ok(provider)
 
 
 @router.post("/providers")
-async def create_provider(data: ProviderCreate) -> dict[str, Any]:
+async def create_provider(
+    data: ProviderCreate,
+    service: LLMService = Depends(get_llm_service),
+) -> dict[str, Any]:
     """创建提供商。"""
-    service = _get_service()
     provider = await service.create_provider(data)
-    return {"code": 0, "data": provider, "message": "ok"}
+    return ok(provider)
 
 
 @router.post("/providers/{provider_id}")
-async def update_provider(provider_id: str, data: ProviderUpdate) -> dict[str, Any]:
+async def update_provider(
+    provider_id: str,
+    data: ProviderUpdate,
+    service: LLMService = Depends(get_llm_service),
+) -> dict[str, Any]:
     """更新提供商（字段级部分更新）。"""
-    service = _get_service()
     pid = _parse_uuid(provider_id, "provider_id")
     provider = await service.update_provider(pid, data)
     if provider is None:
         raise HTTPException(status_code=404, detail="Provider not found")
-    return {"code": 0, "data": provider, "message": "ok"}
+    return ok(provider)
 
 
 @router.post("/providers/{provider_id}/delete")
-async def delete_provider(provider_id: str) -> dict[str, Any]:
+async def delete_provider(
+    provider_id: str,
+    service: LLMService = Depends(get_llm_service),
+) -> dict[str, Any]:
     """删除提供商（级联删除旗下模型）。"""
-    service = _get_service()
     pid = _parse_uuid(provider_id, "provider_id")
     success = await service.delete_provider(pid)
     if not success:
         raise HTTPException(status_code=404, detail="Provider not found")
-    return {"code": 0, "data": None, "message": "Provider deleted"}
+    return ok(None, message="Provider deleted")
 
 
 @router.post("/providers/{provider_id}/test")
-async def test_provider(provider_id: str) -> dict[str, Any]:
+async def test_provider(
+    provider_id: str,
+    service: LLMService = Depends(get_llm_service),
+) -> dict[str, Any]:
     """测试提供商连通性。"""
-    service = _get_service()
     pid = _parse_uuid(provider_id, "provider_id")
     try:
         result = await service.test_provider(pid)
-        return {"code": 0, "data": result, "message": "ok"}
+        return ok(result)
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
@@ -124,53 +120,64 @@ async def test_provider(provider_id: str) -> dict[str, Any]:
 
 
 @router.get("/models")
-async def list_models(provider_id: str | None = None) -> dict[str, Any]:
+async def list_models(
+    provider_id: str | None = None,
+    service: LLMService = Depends(get_llm_service),
+) -> dict[str, Any]:
     """列出所有模型（支持按提供商筛选）。"""
-    service = _get_service()
     pid = _parse_uuid(provider_id, "provider_id") if provider_id else None
     models = await service.list_models(pid)
-    return {"code": 0, "data": models, "message": "ok"}
+    return ok(models)
 
 
 @router.get("/models/{model_id}")
-async def get_model(model_id: str) -> dict[str, Any]:
+async def get_model(
+    model_id: str,
+    service: LLMService = Depends(get_llm_service),
+) -> dict[str, Any]:
     """获取单个模型详情。"""
-    service = _get_service()
     mid = _parse_uuid(model_id, "model_id")
     model = await service.get_model(mid)
     if model is None:
         raise HTTPException(status_code=404, detail="Model not found")
-    return {"code": 0, "data": model, "message": "ok"}
+    return ok(model)
 
 
 @router.post("/models")
-async def create_model(data: ModelCreate) -> dict[str, Any]:
+async def create_model(
+    data: ModelCreate,
+    service: LLMService = Depends(get_llm_service),
+) -> dict[str, Any]:
     """创建模型。"""
-    service = _get_service()
     model = await service.create_model(data)
-    return {"code": 0, "data": model, "message": "ok"}
+    return ok(model)
 
 
 @router.post("/models/{model_id}")
-async def update_model(model_id: str, data: ModelUpdate) -> dict[str, Any]:
+async def update_model(
+    model_id: str,
+    data: ModelUpdate,
+    service: LLMService = Depends(get_llm_service),
+) -> dict[str, Any]:
     """更新模型（字段级部分更新）。"""
-    service = _get_service()
     mid = _parse_uuid(model_id, "model_id")
     model = await service.update_model(mid, data)
     if model is None:
         raise HTTPException(status_code=404, detail="Model not found")
-    return {"code": 0, "data": model, "message": "ok"}
+    return ok(model)
 
 
 @router.post("/models/{model_id}/delete")
-async def delete_model(model_id: str) -> dict[str, Any]:
+async def delete_model(
+    model_id: str,
+    service: LLMService = Depends(get_llm_service),
+) -> dict[str, Any]:
     """删除模型。"""
-    service = _get_service()
     mid = _parse_uuid(model_id, "model_id")
     success = await service.delete_model(mid)
     if not success:
         raise HTTPException(status_code=404, detail="Model not found")
-    return {"code": 0, "data": None, "message": "Model deleted"}
+    return ok(None, message="Model deleted")
 
 
 # ══════════════════════════════════════════════
@@ -179,9 +186,11 @@ async def delete_model(model_id: str) -> dict[str, Any]:
 
 
 @router.post("/chat")
-async def chat(req: ChatRequest) -> Any:
+async def chat(
+    req: ChatRequest,
+    service: LLMService = Depends(get_llm_service),
+) -> Any:
     """使用指定模型进行一次对话（支持流式 SSE 响应）。"""
-    service = _get_service()
     mid = _parse_uuid(req.model_id, "model_id")
 
     messages = [{"role": m.role, "content": m.content} for m in req.messages]
@@ -200,19 +209,15 @@ async def chat(req: ChatRequest) -> Any:
     # 非流式：直接返回完整结果
     if not req.stream:
         content = result.choices[0].message.content if result.choices else ""
-        return {
-            "code": 0,
-            "data": {
-                "content": content,
-                "model": result.model,
-                "usage": {
-                    "prompt_tokens": result.usage.prompt_tokens if result.usage else 0,
-                    "completion_tokens": result.usage.completion_tokens if result.usage else 0,
-                    "total_tokens": result.usage.total_tokens if result.usage else 0,
-                },
+        return ok({
+            "content": content,
+            "model": result.model,
+            "usage": {
+                "prompt_tokens": result.usage.prompt_tokens if result.usage else 0,
+                "completion_tokens": result.usage.completion_tokens if result.usage else 0,
+                "total_tokens": result.usage.total_tokens if result.usage else 0,
             },
-            "message": "ok",
-        }
+        })
 
     # 流式：SSE 响应
     async def _stream_generator() -> AsyncIterator[str]:
