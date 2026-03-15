@@ -154,7 +154,7 @@ def _revision_exists(alembic_cfg: Config, rev_id: str) -> bool:
     try:
         script.get_revision(rev_id)
         return True
-    except CommandError, Exception:
+    except (CommandError, Exception):
         return False
 
 
