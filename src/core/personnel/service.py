@@ -798,6 +798,7 @@ class PersonnelService:
         page_size: int = 20,
         role: str | None = None,
         nickname: str | None = None,
+        qq: int | None = None,
     ) -> dict[str, Any]:
         """分页获取群成员列表。"""
         async with self._session_factory() as session:
@@ -818,6 +819,9 @@ class PersonnelService:
             if nickname:
                 query = query.where(User.nickname.contains(nickname))
                 count_query = count_query.where(User.nickname.contains(nickname))
+            if qq:
+                query = query.where(GroupMembership.user_id == qq)
+                count_query = count_query.where(GroupMembership.user_id == qq)
 
             total_result = await session.execute(count_query)
             total = len(total_result.all())

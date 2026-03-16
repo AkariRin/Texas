@@ -149,11 +149,12 @@ async def list_group_members(
     page_size: int = Query(20, ge=1, le=100),
     role: str | None = None,
     nickname: str | None = None,
+    qq: int | None = None,
     service: PersonnelService = Depends(get_personnel_service),
 ) -> dict[str, Any]:
     """分页获取群成员列表。"""
     result = await service.list_group_members(
-        group_id=group_id, page=page, page_size=page_size, role=role, nickname=nickname
+        group_id=group_id, page=page, page_size=page_size, role=role, nickname=nickname, qq=qq
     )
     return ok(result)
 

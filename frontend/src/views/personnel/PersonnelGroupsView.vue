@@ -290,7 +290,7 @@ function formatTimestamp(ts: number) {
 }
 
 function roleColor(r: string) {
-  const map: Record<string, string> = { owner: 'amber', admin: 'blue', member: 'grey' }
+  const map: Record<string, string> = { owner: 'amber', admin: 'green', member: 'grey' }
   return map[r] ?? 'grey'
 }
 

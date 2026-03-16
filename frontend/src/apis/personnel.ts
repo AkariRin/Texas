@@ -134,6 +134,7 @@ export async function fetchGroupMembers(
     page_size?: number
     role?: string | null
     nickname?: string | null
+    qq?: number | null
   },
 ): Promise<PaginatedResult<GroupMemberItem>> {
   const query: Record<string, string | number> = {}
@@ -141,6 +142,7 @@ export async function fetchGroupMembers(
   if (params.page_size) query.page_size = params.page_size
   if (params.role) query.role = params.role
   if (params.nickname) query.nickname = params.nickname
+  if (params.qq) query.qq = params.qq
 
   const { data } = await axios.get<ApiResponse<PaginatedResult<GroupMemberItem>>>(
     `${BASE}/groups/${groupId}/members`,
