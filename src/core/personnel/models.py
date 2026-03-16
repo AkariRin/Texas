@@ -1,4 +1,4 @@
-"""人事管理 ORM 模型 —— User, Group, GroupMembership。"""
+"""用户管理 ORM 模型 —— User, Group, GroupMembership。"""
 
 import uuid
 from datetime import datetime

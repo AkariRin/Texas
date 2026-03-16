@@ -1,4 +1,4 @@
-"""人事数据增量更新 —— 监听群与好友变动事件。"""
+"""用户数据增量更新 —— 监听群与好友变动事件。"""
 
 from __future__ import annotations
 
@@ -16,11 +16,11 @@ from src.core.personnel.service import PersonnelService
 logger = structlog.get_logger()
 
 
-@controller(name="personnel_event", description="人事数据增量更新处理器", version="1.0.0")
+@controller(name="personnel_event", description="用户数据增量更新处理器", version="1.0.0")
 class PersonnelEventHandler:
-    """人事数据增量更新 —— 监听群与好友变动事件。
+    """用户数据增量更新 —— 监听群与好友变动事件。
 
-    通过 ``ctx.get_service(PersonnelService)`` 获取人事服务实例，
+    通过 ``ctx.get_service(PersonnelService)`` 获取用户服务实例，
     服务由 ``EventDispatcher`` 在分发时注入到 ``Context`` 中。
     """
 

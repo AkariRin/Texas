@@ -8,9 +8,11 @@
         <v-btn color="red" prepend-icon="mdi-plus" @click="openCreate"> 添加提供商 </v-btn>
       </v-card-title>
 
-      <v-card-text v-if="store.providersLoading" class="text-center py-8">
-        <v-progress-circular indeterminate color="red" />
-      </v-card-text>
+      <v-row v-if="store.providersLoading" class="pa-4" dense>
+        <v-col v-for="n in 4" :key="n" cols="12" sm="6" md="4" lg="3">
+          <v-skeleton-loader type="card" elevation="2" />
+        </v-col>
+      </v-row>
 
       <v-card-text
         v-else-if="store.providers.length === 0"
@@ -189,7 +191,7 @@
       </v-dialog>
 
       <!-- 测试结果 -->
-      <v-snackbar v-model="snackbar" :color="snackbarColor" :timeout="4000" location="top">
+      <v-snackbar v-model="snackbar" :color="snackbarColor" :timeout="4000" location="bottom">
         {{ snackbarText }}
       </v-snackbar>
     </v-card>

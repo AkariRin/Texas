@@ -6,11 +6,14 @@ import asyncio
 import json
 import logging
 import re
-from datetime import UTC
 from typing import Any
 
 from fastapi import APIRouter, Query
 from starlette.responses import StreamingResponse
+
+from src.core.utils import SHANGHAI_TZ
+
+from src.core.utils import SHANGHAI_TZ
 
 router = APIRouter()
 
@@ -61,8 +64,8 @@ class _BroadcastHandler(logging.Handler):
     def format_time(record: logging.LogRecord) -> str:
         from datetime import datetime
 
-        dt = datetime.fromtimestamp(record.created, tz=UTC)
-        return dt.strftime("%Y-%m-%dT%H:%M:%S.") + f"{int(record.msecs):03d}Z"
+        dt = datetime.fromtimestamp(record.created, tz=SHANGHAI_TZ)
+        return dt.strftime("%Y-%m-%dT%H:%M:%S.") + f"{int(record.msecs):03d}+08:00"
 
 
 # ── 安装 handler（模块加载时注册到根 logger） ──

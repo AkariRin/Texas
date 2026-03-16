@@ -116,16 +116,8 @@
       <v-list density="compact" nav class="nav-list">
         <v-list-subheader v-if="!rail" class="nav-subheader">聊天记录</v-list-subheader>
         <v-list-item
-          prepend-icon="mdi-chart-bar"
-          title="消息概览"
-          value="chat-overview"
-          to="/chat"
-          rounded="lg"
-          class="nav-item"
-        ></v-list-item>
-        <v-list-item
           prepend-icon="mdi-message-text-outline"
-          title="消息浏览"
+          title="消息记录"
           value="chat-messages"
           to="/chat/messages"
           rounded="lg"

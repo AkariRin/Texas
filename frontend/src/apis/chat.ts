@@ -6,35 +6,6 @@ import axios from 'axios'
 
 // ── 类型定义 ──
 
-export interface OverviewStats {
-  total_messages: number
-  today_messages: number
-  active_groups: number
-  active_users: number
-}
-
-export interface TrendItem {
-  period: string
-  count: number
-}
-
-export interface HeatmapItem {
-  day_of_week: number
-  hour: number
-  count: number
-}
-
-export interface GroupRankItem {
-  group_id: number
-  message_count: number
-  active_members: number
-}
-
-export interface UserRankItem {
-  user_id: number
-  nickname: string
-  message_count: number
-}
 
 export interface ChatMessage {
   id: number
@@ -62,10 +33,6 @@ export interface MessageContext {
   after: ChatMessage[]
 }
 
-export interface MessageStats {
-  type_distribution: Record<string, number>
-  daily_counts: { day: string; count: number }[]
-}
 
 export interface ArchiveLog {
   id: string
@@ -101,63 +68,6 @@ interface ApiResponse<T> {
 
 const BASE = '/api/v1/chat'
 
-// ── 概览 & 统计 ──
-
-export async function fetchOverview(groupId?: number): Promise<OverviewStats> {
-  const params: Record<string, number> = {}
-  if (groupId) params.group_id = groupId
-  const { data } = await axios.get<ApiResponse<OverviewStats>>(`${BASE}/overview`, { params })
-  return data.data
-}
-
-export async function fetchTrend(params?: {
-  groupId?: number
-  granularity?: string
-  days?: number
-}): Promise<TrendItem[]> {
-  const query: Record<string, string | number> = {}
-  if (params?.groupId) query.group_id = params.groupId
-  if (params?.granularity) query.granularity = params.granularity
-  if (params?.days) query.days = params.days
-  const { data } = await axios.get<ApiResponse<TrendItem[]>>(`${BASE}/trend`, { params: query })
-  return data.data
-}
-
-export async function fetchHeatmap(groupId?: number): Promise<HeatmapItem[]> {
-  const params: Record<string, number> = {}
-  if (groupId) params.group_id = groupId
-  const { data } = await axios.get<ApiResponse<HeatmapItem[]>>(`${BASE}/heatmap`, { params })
-  return data.data
-}
-
-export async function fetchGroupRanking(limit?: number): Promise<GroupRankItem[]> {
-  const params: Record<string, number> = {}
-  if (limit) params.limit = limit
-  const { data } = await axios.get<ApiResponse<GroupRankItem[]>>(`${BASE}/rankings/groups`, {
-    params,
-  })
-  return data.data
-}
-
-export async function fetchUserRanking(params?: {
-  groupId?: number
-  limit?: number
-}): Promise<UserRankItem[]> {
-  const query: Record<string, number> = {}
-  if (params?.groupId) query.group_id = params.groupId
-  if (params?.limit) query.limit = params.limit
-  const { data } = await axios.get<ApiResponse<UserRankItem[]>>(`${BASE}/rankings/users`, {
-    params: query,
-  })
-  return data.data
-}
-
-export async function fetchStats(groupId?: number): Promise<MessageStats> {
-  const params: Record<string, number> = {}
-  if (groupId) params.group_id = groupId
-  const { data } = await axios.get<ApiResponse<MessageStats>>(`${BASE}/stats`, { params })
-  return data.data
-}
 
 // ── 消息查询 ──
 

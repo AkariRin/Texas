@@ -43,7 +43,6 @@
           variant="elevated"
           color="red"
           prepend-icon="mdi-sync"
-          size="small"
           @click="syncDialog = true"
         >
           数据同步
@@ -89,7 +88,7 @@
 
         <!-- 操作列 -->
         <template #[`item.actions`]="{ item }">
-          <v-btn icon size="small" variant="elevated" @click="openDetail(item.qq)">
+          <v-btn icon size="small" variant="text" @click="openDetail(item.qq)">
             <v-icon>mdi-eye</v-icon>
             <v-tooltip activator="parent" location="top">查看详情</v-tooltip>
           </v-btn>
@@ -185,8 +184,8 @@
 
       <!-- 加载中 -->
       <v-card v-else>
-        <v-card-text class="text-center pa-8">
-          <v-progress-circular indeterminate color="red" />
+        <v-card-text class="pa-4">
+          <v-skeleton-loader type="list-item-avatar-three-line, divider, article, table-row" />
         </v-card-text>
       </v-card>
     </v-dialog>

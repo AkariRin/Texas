@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
 import structlog
-from sqlalchemy import Date, Integer, cast, extract, func, select, text
+from sqlalchemy import func, select, text
 
 from src.core.chat.models import ChatMessage, MessageType
+from src.core.utils import SHANGHAI_TZ
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -57,13 +58,12 @@ class ChatHistoryService:
             message_type=msg_type,
             group_id=getattr(event, "group_id", None) or None,
             user_id=event.user_id,
-            self_id=event.self_id,
             raw_message=event.raw_message,
             segments=segments,
             sender_nickname=event.sender.nickname or "",
             sender_card=getattr(event.sender, "card", None),
             sender_role=getattr(event.sender, "role", None),
-            created_at=datetime.fromtimestamp(event.time, tz=UTC),
+            created_at=datetime.fromtimestamp(event.time, tz=SHANGHAI_TZ),
         )
 
         try:
@@ -250,217 +250,6 @@ class ChatHistoryService:
 
         return {"items": messages, "total": total}
 
-    # ════════════════════════════════════════════
-    #  统计
-    # ════════════════════════════════════════════
-
-    async def get_overview_stats(self, group_id: int | None = None) -> dict[str, Any]:
-        """获取消息统计概览。"""
-        async with self._session_factory() as session:
-            base_filter = []
-            if group_id:
-                base_filter.append(ChatMessage.group_id == group_id)
-
-            # 总消息数
-            total_stmt = select(func.count()).select_from(ChatMessage)
-            for f in base_filter:
-                total_stmt = total_stmt.where(f)
-            total_result = await session.execute(total_stmt)
-            total_messages = total_result.scalar() or 0
-
-            # 今日新增
-            today_start = datetime.now(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
-            today_stmt = (
-                select(func.count())
-                .select_from(ChatMessage)
-                .where(ChatMessage.created_at >= today_start)
-            )
-            for f in base_filter:
-                today_stmt = today_stmt.where(f)
-            today_result = await session.execute(today_stmt)
-            today_messages = today_result.scalar() or 0
-
-            # 活跃群数（近 7 天有消息的群）
-            active_groups_stmt = select(func.count(func.distinct(ChatMessage.group_id))).where(
-                ChatMessage.group_id.is_not(None),
-                ChatMessage.created_at > func.now() - text("INTERVAL '7 days'"),
-            )
-            groups_result = await session.execute(active_groups_stmt)
-            active_groups = groups_result.scalar() or 0
-
-            # 活跃用户数（近 7 天有消息的用户）
-            active_users_stmt = select(func.count(func.distinct(ChatMessage.user_id))).where(
-                ChatMessage.created_at > func.now() - text("INTERVAL '7 days'"),
-            )
-            for f in base_filter:
-                active_users_stmt = active_users_stmt.where(f)
-            users_result = await session.execute(active_users_stmt)
-            active_users = users_result.scalar() or 0
-
-            return {
-                "total_messages": total_messages,
-                "today_messages": today_messages,
-                "active_groups": active_groups,
-                "active_users": active_users,
-            }
-
-    async def get_trend_data(
-        self,
-        group_id: int | None = None,
-        granularity: str = "day",
-        days: int = 30,
-    ) -> list[dict[str, Any]]:
-        """获取消息趋势数据。"""
-        since = datetime.now(UTC) - timedelta(days=days)
-
-        if granularity == "month":
-            date_trunc = func.date_trunc("month", ChatMessage.created_at)
-        else:
-            date_trunc = func.date_trunc("day", ChatMessage.created_at)
-
-        stmt = (
-            select(
-                date_trunc.label("period"),
-                func.count().label("count"),
-            )
-            .where(ChatMessage.created_at >= since)
-            .group_by("period")
-            .order_by("period")
-        )
-
-        if group_id:
-            stmt = stmt.where(ChatMessage.group_id == group_id)
-
-        async with self._session_factory() as session:
-            result = await session.execute(stmt)
-            return [{"period": row.period.isoformat(), "count": row.count} for row in result.all()]
-
-    async def get_heatmap_data(self, group_id: int | None = None) -> list[dict[str, Any]]:
-        """获取时段热力图数据（星期 × 小时）。"""
-        since = datetime.now(UTC) - timedelta(days=90)
-
-        dow = extract("dow", ChatMessage.created_at).label("day_of_week")
-        hour = extract("hour", ChatMessage.created_at).label("hour")
-
-        stmt = (
-            select(
-                cast(dow, Integer),
-                cast(hour, Integer),
-                func.count().label("count"),
-            )
-            .where(ChatMessage.created_at >= since)
-            .group_by("day_of_week", "hour")
-            .order_by("day_of_week", "hour")
-        )
-
-        if group_id:
-            stmt = stmt.where(ChatMessage.group_id == group_id)
-
-        async with self._session_factory() as session:
-            result = await session.execute(stmt)
-            return [
-                {"day_of_week": row[0], "hour": row[1], "count": row[2]} for row in result.all()
-            ]
-
-    async def get_group_ranking(self, limit: int = 10) -> list[dict[str, Any]]:
-        """获取群消息量排行。"""
-        since = datetime.now(UTC) - timedelta(days=30)
-
-        stmt = (
-            select(
-                ChatMessage.group_id,
-                func.count().label("message_count"),
-                func.count(func.distinct(ChatMessage.user_id)).label("active_members"),
-            )
-            .where(
-                ChatMessage.group_id.is_not(None),
-                ChatMessage.created_at >= since,
-            )
-            .group_by(ChatMessage.group_id)
-            .order_by(func.count().desc())
-            .limit(limit)
-        )
-
-        async with self._session_factory() as session:
-            result = await session.execute(stmt)
-            return [
-                {
-                    "group_id": row.group_id,
-                    "message_count": row.message_count,
-                    "active_members": row.active_members,
-                }
-                for row in result.all()
-            ]
-
-    async def get_user_ranking(
-        self, group_id: int | None = None, limit: int = 10
-    ) -> list[dict[str, Any]]:
-        """获取用户消息量排行。"""
-        since = datetime.now(UTC) - timedelta(days=30)
-
-        stmt = (
-            select(
-                ChatMessage.user_id,
-                ChatMessage.sender_nickname,
-                func.count().label("message_count"),
-            )
-            .where(ChatMessage.created_at >= since)
-            .group_by(ChatMessage.user_id, ChatMessage.sender_nickname)
-            .order_by(func.count().desc())
-            .limit(limit)
-        )
-
-        if group_id:
-            stmt = stmt.where(ChatMessage.group_id == group_id)
-
-        async with self._session_factory() as session:
-            result = await session.execute(stmt)
-            return [
-                {
-                    "user_id": row.user_id,
-                    "nickname": row.sender_nickname,
-                    "message_count": row.message_count,
-                }
-                for row in result.all()
-            ]
-
-    async def get_message_stats(self, group_id: int | None = None) -> dict[str, Any]:
-        """获取消息统计详情。"""
-        async with self._session_factory() as session:
-            base_where = []
-            if group_id:
-                base_where.append(ChatMessage.group_id == group_id)
-
-            # 消息类型分布
-            type_stmt = select(
-                ChatMessage.message_type,
-                func.count().label("count"),
-            ).group_by(ChatMessage.message_type)
-            for f in base_where:
-                type_stmt = type_stmt.where(f)
-            type_result = await session.execute(type_stmt)
-            type_dist = {str(row.message_type): row.count for row in type_result.all()}
-
-            # 近 7 天每天消息数
-            since = datetime.now(UTC) - timedelta(days=7)
-            daily_stmt = (
-                select(
-                    cast(func.date_trunc("day", ChatMessage.created_at), Date).label("day"),
-                    func.count().label("count"),
-                )
-                .where(ChatMessage.created_at >= since)
-                .group_by("day")
-                .order_by("day")
-            )
-            for f in base_where:
-                daily_stmt = daily_stmt.where(f)
-            daily_result = await session.execute(daily_stmt)
-            daily = [{"day": str(row.day), "count": row.count} for row in daily_result.all()]
-
-            return {
-                "type_distribution": type_dist,
-                "daily_counts": daily,
-            }
 
     # ════════════════════════════════════════════
     #  内部工具

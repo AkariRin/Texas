@@ -6,66 +6,12 @@ import { ref } from 'vue'
 import { defineStore } from 'pinia'
 import * as api from '@/apis/chat'
 import type {
-  OverviewStats,
-  TrendItem,
-  HeatmapItem,
-  GroupRankItem,
-  UserRankItem,
   ChatMessage,
   ArchiveLog,
   PaginatedResult,
 } from '@/apis/chat'
 
 export const useChatStore = defineStore('chat', () => {
-  // ── 概览 ──
-  const overview = ref<OverviewStats>({
-    total_messages: 0,
-    today_messages: 0,
-    active_groups: 0,
-    active_users: 0,
-  })
-  const overviewLoading = ref(false)
-
-  async function loadOverview(groupId?: number) {
-    overviewLoading.value = true
-    try {
-      overview.value = await api.fetchOverview(groupId)
-    } finally {
-      overviewLoading.value = false
-    }
-  }
-
-  // ── 趋势 ──
-  const trend = ref<TrendItem[]>([])
-  const trendLoading = ref(false)
-
-  async function loadTrend(params?: { groupId?: number; granularity?: string; days?: number }) {
-    trendLoading.value = true
-    try {
-      trend.value = await api.fetchTrend(params)
-    } finally {
-      trendLoading.value = false
-    }
-  }
-
-  // ── 热力图 ──
-  const heatmap = ref<HeatmapItem[]>([])
-
-  async function loadHeatmap(groupId?: number) {
-    heatmap.value = await api.fetchHeatmap(groupId)
-  }
-
-  // ── 排行榜 ──
-  const groupRanking = ref<GroupRankItem[]>([])
-  const userRanking = ref<UserRankItem[]>([])
-
-  async function loadGroupRanking(limit?: number) {
-    groupRanking.value = await api.fetchGroupRanking(limit)
-  }
-
-  async function loadUserRanking(params?: { groupId?: number; limit?: number }) {
-    userRanking.value = await api.fetchUserRanking(params)
-  }
 
   // ── 消息列表 ──
   const messages = ref<ChatMessage[]>([])
@@ -142,22 +88,6 @@ export const useChatStore = defineStore('chat', () => {
   }
 
   return {
-    // 概览
-    overview,
-    overviewLoading,
-    loadOverview,
-    // 趋势
-    trend,
-    trendLoading,
-    loadTrend,
-    // 热力图
-    heatmap,
-    loadHeatmap,
-    // 排行榜
-    groupRanking,
-    userRanking,
-    loadGroupRanking,
-    loadUserRanking,
     // 消息
     messages,
     messagesLoading,

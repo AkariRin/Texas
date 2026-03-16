@@ -11,15 +11,15 @@ settings = get_settings()
 celery_app = Celery(
     "texas",
     broker=settings.CELERY_BROKER_URL,
-    include=["src.core.tasks.personnel", "src.core.tasks.chat_archive"],
+    include=["src.core.tasks.chat_archive"],
 )
 
 celery_app.conf.update(
     task_serializer="json",
     accept_content=["json"],
     result_serializer="json",
-    timezone="UTC",
-    enable_utc=True,
+    timezone="Asia/Shanghai",
+    enable_utc=False,
     task_track_started=True,
     task_acks_late=True,
     worker_prefetch_multiplier=1,

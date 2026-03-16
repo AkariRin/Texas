@@ -24,8 +24,12 @@ class ConnectionManager:
         return self._ws is not None
 
     async def accept(self, ws: WebSocket) -> None:
-        await ws.accept()
-        self._ws = ws
+        self._ws = ws  # 先占位，防止并发连接通过 connected 检查
+        try:
+            await ws.accept()
+        except Exception:
+            self._ws = None
+            raise
         logger.info("NapCat WebSocket 已连接", event_type="ws.connected")
 
     def disconnect(self) -> None:

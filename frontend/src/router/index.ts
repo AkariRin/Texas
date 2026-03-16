@@ -49,15 +49,13 @@ const router = createRouter({
     },
     {
       path: '/chat',
-      name: 'chat-overview',
-      component: () => import('@/views/chat/ChatOverviewView.vue'),
-      meta: { title: '消息概览' },
+      redirect: '/chat/messages',
     },
     {
       path: '/chat/messages',
       name: 'chat-messages',
       component: () => import('@/views/chat/ChatMessagesView.vue'),
-      meta: { title: '消息浏览' },
+      meta: { title: '消息记录' },
     },
     {
       path: '/chat/archive',

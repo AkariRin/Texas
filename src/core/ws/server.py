@@ -70,9 +70,9 @@ async def onebot_ws_endpoint(
                 event_type="ws.handler_error",
             )
 
-    # ── 触发首次人事数据同步 ──
-    if deps.personnel_sync_callback is not None:
-        _sync_task: asyncio.Task[None] = asyncio.create_task(deps.personnel_sync_callback())
+    # ── 触发首次用户数据同步（由协调器管理去重） ──
+    _sync_task = deps.sync_coordinator.request_sync(source="ws_connect")
+    if _sync_task is not None:
         background_tasks.add(_sync_task)
         _sync_task.add_done_callback(_on_task_done)
 

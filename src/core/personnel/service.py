@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import time
-from datetime import UTC, datetime
+from datetime import datetime
 from typing import TYPE_CHECKING, Any, cast
 
 import structlog
@@ -26,6 +26,7 @@ from src.core.monitoring.metrics import (
     personnel_users_total,
 )
 from src.core.personnel.models import Group, GroupMembership, User
+from src.core.utils import SHANGHAI_TZ
 
 if TYPE_CHECKING:
     from sqlalchemy.engine import CursorResult
@@ -102,7 +103,7 @@ class PersonnelService:
                         "qq": int(u.get("user_id", u.get("qq", 0))),
                         "nickname": str(u.get("nickname", u.get("nick", ""))),
                         "relation": relation,
-                        "last_synced": datetime.now(UTC),
+                        "last_synced": datetime.now(SHANGHAI_TZ),
                     }
                 )
 
@@ -147,7 +148,7 @@ class PersonnelService:
                         "member_count": int(g.get("member_count", 0)),
                         "max_member_count": int(g.get("max_member_count", 0)),
                         "is_active": True,
-                        "last_synced": datetime.now(UTC),
+                        "last_synced": datetime.now(SHANGHAI_TZ),
                     }
                 )
 
@@ -191,7 +192,7 @@ class PersonnelService:
                         "qq": int(m.get("user_id", 0)),
                         "nickname": str(m.get("nickname", "")),
                         "relation": "group_member",
-                        "last_synced": datetime.now(UTC),
+                        "last_synced": datetime.now(SHANGHAI_TZ),
                     }
                 )
 
@@ -375,7 +376,7 @@ class PersonnelService:
 
         # 写入 Redis 同步状态
         status_data = {
-            "last_sync_time": datetime.now(UTC).isoformat(),
+            "last_sync_time": datetime.now(SHANGHAI_TZ).isoformat(),
             "duration_seconds": round(duration, 3),
             "status": "success",
             "users_synced": users_synced,
@@ -388,7 +389,7 @@ class PersonnelService:
         await self._invalidate_all_relation_cache()
 
         logger.info(
-            "人事数据同步完成",
+            "用户数据同步完成",
             users_synced=users_synced,
             groups_synced=groups_synced,
             memberships_synced=memberships_synced,
@@ -411,7 +412,7 @@ class PersonnelService:
                 qq=user_id,
                 nickname="",
                 relation="friend",
-                last_synced=datetime.now(UTC),
+                last_synced=datetime.now(SHANGHAI_TZ),
             )
             stmt = stmt.on_conflict_do_update(
                 index_elements=["qq"],
@@ -436,7 +437,7 @@ class PersonnelService:
                 qq=user_id,
                 nickname="",
                 relation="group_member",
-                last_synced=datetime.now(UTC),
+                last_synced=datetime.now(SHANGHAI_TZ),
             )
             user_stmt = user_stmt.on_conflict_do_update(
                 index_elements=["qq"],

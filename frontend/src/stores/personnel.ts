@@ -1,5 +1,5 @@
 /**
- * Personnel Pinia Store —— 管理人事数据状态。
+ * Personnel Pinia Store —— 管理用户数据状态。
  */
 
 import { ref } from 'vue'

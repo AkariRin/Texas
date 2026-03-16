@@ -31,7 +31,6 @@
           variant="elevated"
           color="red"
           prepend-icon="mdi-sync"
-          size="small"
           @click="syncDialog = true"
         >
           数据同步
@@ -84,7 +83,7 @@
 
         <!-- 操作列 -->
         <template #[`item.actions`]="{ item }">
-          <v-btn icon size="small" variant="elevated" @click="openMembers(item)">
+          <v-btn icon size="small" variant="text" @click="openMembers(item)">
             <v-icon>mdi-account-multiple</v-icon>
             <v-tooltip activator="parent" location="top">查看成员</v-tooltip>
           </v-btn>

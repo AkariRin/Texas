@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from celery.schedules import crontab, schedule
+from celery.schedules import crontab
 from redbeat import RedBeatSchedulerEntry
 
 from src.core.config import get_settings
@@ -13,17 +13,6 @@ settings = get_settings()
 
 def setup_periodic_tasks() -> None:
     """将周期性任务注册到 RedBeat（Redis），实现多实例安全的调度存储。"""
-    # ── 人事管理定时同步 ──
-    interval = settings.PERSONNEL_SYNC_INTERVAL
-
-    entry = RedBeatSchedulerEntry(
-        name="schedule-personnel-sync",
-        task="src.core.tasks.personnel.schedule_personnel_sync",
-        schedule=schedule(run_every=interval),
-        app=celery_app,
-        options={"expires": interval - 60},
-    )
-    entry.save()
 
     # ── 聊天记录归档（每月 1 号凌晨 3:00） ──
     archive_entry = RedBeatSchedulerEntry(

@@ -113,7 +113,7 @@ class ChatMessage(ChatBase):
         default="",
         comment="纯文本消息摘要",
     )
-    segments: Mapped[dict[str, Any]] = mapped_column(
+    segments: Mapped[list[dict[str, Any]]] = mapped_column(
         JSONB,
         nullable=False,
         comment="完整消息段数组（OneBot array 格式）",

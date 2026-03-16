@@ -1,26 +1,23 @@
-"""人事管理 REST API 路由 —— /api/v1/personnel。"""
+"""用户管理 REST API 路由 —— /api/v1/personnel。"""
 
 from __future__ import annotations
 
-import asyncio
 from typing import TYPE_CHECKING, Any
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
-from src.core.dependencies import get_personnel_service, get_sync_callback
+from src.core.dependencies import get_personnel_service, get_sync_coordinator
 from src.core.utils.response import ok
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Coroutine
-
     from src.core.personnel.service import PersonnelService
+    from src.core.personnel.sync import SyncCoordinator
 
 logger = structlog.get_logger()
 
 router = APIRouter(prefix="/v1/personnel", tags=["personnel"])
-internal_router = APIRouter(prefix="/internal/personnel", tags=["personnel-internal"])
 
 # ── 响应模型 ──
 
@@ -166,14 +163,13 @@ async def list_group_members(
 
 @router.post("/sync")
 async def trigger_sync(
-    sync_trigger: Callable[[], Coroutine[Any, Any, None]] | None = Depends(get_sync_callback),
+    coordinator: SyncCoordinator = Depends(get_sync_coordinator),
 ) -> dict[str, Any]:
     """手动触发一次全量同步。"""
-    if sync_trigger is None:
-        raise HTTPException(status_code=503, detail="Sync trigger not configured")
-
     try:
-        asyncio.create_task(sync_trigger())
+        task = coordinator.request_sync(source="manual")
+        if task is None:
+            return ok(None, message="Sync already in progress, skipped")
         return ok(None, message="Sync triggered")
     except Exception as exc:
         logger.error("手动触发同步失败", error=str(exc), event_type="personnel.manual_sync_error")
@@ -225,20 +221,3 @@ async def remove_admin(
     return ok(None, message="Admin removed successfully")
 
 
-# ── 内部 API (7.5) ──
-
-
-@internal_router.post("/trigger-sync")
-async def internal_trigger_sync(
-    sync_trigger: Callable[[], Coroutine[Any, Any, None]] | None = Depends(get_sync_callback),
-) -> dict[str, Any]:
-    """内部端点：触发主进程数据采集（供 Celery Beat 调用）。"""
-    if sync_trigger is None:
-        raise HTTPException(status_code=503, detail="Sync trigger not configured")
-
-    try:
-        asyncio.create_task(sync_trigger())
-        return ok(None, message="Sync triggered")
-    except Exception as exc:
-        logger.error("内部触发同步失败", error=str(exc), event_type="personnel.internal_sync_error")
-        raise HTTPException(status_code=500, detail=str(exc)) from exc

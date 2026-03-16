@@ -24,8 +24,6 @@ router = APIRouter(prefix="/queue", tags=["queue"])
 
 # ── 任务函数路径 → 中文显示名称 ──
 TASK_DISPLAY_NAMES: dict[str, str] = {
-    "src.core.tasks.personnel.persist_personnel_data": "同步用户数据",
-    "src.core.tasks.personnel.schedule_personnel_sync": "定时同步用户数据",
     "src.core.tasks.chat_archive.archive_chat_history": "聊天记录归档",
     "src.core.tasks.chat_archive.ensure_chat_partitions": "分区预创建",
 }

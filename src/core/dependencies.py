@@ -8,10 +8,10 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from fastapi import Request, WebSocket
+
 if TYPE_CHECKING:
     from collections.abc import Callable, Coroutine
-
-    from fastapi import Request, WebSocket
 
     from src.core.cache.client import CacheClient
     from src.core.chat.archive_service import ArchiveService
@@ -19,6 +19,7 @@ if TYPE_CHECKING:
     from src.core.framework.scanner import ComponentScanner
     from src.core.llm.service import LLMService
     from src.core.personnel.service import PersonnelService
+    from src.core.personnel.sync import SyncCoordinator
     from src.core.protocol.api import BotAPI
     from src.core.ws.connection import ConnectionManager
     from src.core.ws.heartbeat import HeartbeatMonitor
@@ -53,7 +54,7 @@ def get_archive_service(request: Request) -> ArchiveService:
 
 
 def get_personnel_service(request: Request) -> PersonnelService:
-    """获取人事管理服务。"""
+    """获取用户管理服务。"""
     return request.app.state.personnel_service  # type: ignore[no-any-return]
 
 
@@ -73,9 +74,9 @@ def get_scanner_controllers(request: Request) -> list[dict[str, Any]]:
     return scanner.controllers
 
 
-def get_sync_callback(request: Request) -> Callable[[], Coroutine[Any, Any, None]] | None:
-    """获取人事数据同步触发回调。"""
-    return request.app.state.sync_callback  # type: ignore[no-any-return]
+def get_sync_coordinator(request: Request) -> SyncCoordinator:
+    """获取用户数据同步协调器。"""
+    return request.app.state.sync_coordinator  # type: ignore[no-any-return]
 
 
 # ── WebSocket 端点辅助函数 ──
@@ -90,7 +91,7 @@ class WsDeps:
         "heartbeat",
         "access_token",
         "event_dispatch_callback",
-        "personnel_sync_callback",
+        "sync_coordinator",
     )
 
     def __init__(self, websocket: WebSocket) -> None:
@@ -102,6 +103,4 @@ class WsDeps:
         self.event_dispatch_callback: Callable[[object], Coroutine[Any, Any, None]] | None = (
             state.event_dispatch_callback
         )
-        self.personnel_sync_callback: Callable[[], Coroutine[Any, Any, None]] | None = (
-            state.personnel_sync_callback
-        )
+        self.sync_coordinator: SyncCoordinator = state.sync_coordinator

@@ -180,7 +180,7 @@
           <!-- 消息列表 -->
           <div ref="messageContainer" class="flex-grow-1 overflow-y-auto pa-4" @scroll="onScroll">
             <!-- 加载更多按钮 -->
-            <div v-if="store.hasMore" class="text-center mb-4">
+            <div v-if="store.hasMore && store.messages.length > 0" class="text-center mb-4">
               <v-btn
                 variant="elevated"
                 size="small"
@@ -192,15 +192,14 @@
               </v-btn>
             </div>
 
-            <!-- 消息气泡 -->
+            <!-- 消息卡片 -->
             <div
               v-for="msg in reversedMessages"
               :key="`${msg.id}-${msg.created_at}`"
               class="message-bubble d-flex mb-3"
-              :class="{ 'flex-row-reverse': isSelf(msg) }"
             >
               <!-- 头像 -->
-              <v-avatar size="36" class="flex-shrink-0" :class="isSelf(msg) ? 'ml-2' : 'mr-2'">
+              <v-avatar size="36" class="flex-shrink-0 mr-2">
                 <v-img
                   :src="`https://q1.qlogo.cn/g?b=qq&nk=${msg.user_id}&s=100`"
                   :alt="msg.sender_nickname"
@@ -214,14 +213,10 @@
               <!-- 内容 -->
               <div
                 class="message-content"
-                :class="{ 'text-right': isSelf(msg) }"
                 style="max-width: 70%"
               >
                 <!-- 昵称与时间 -->
-                <div
-                  class="d-flex align-center ga-2 mb-1"
-                  :class="{ 'flex-row-reverse': isSelf(msg) }"
-                >
+                <div class="d-flex align-center ga-2 mb-1">
                   <span class="text-caption font-weight-medium">
                     {{ msg.sender_card || msg.sender_nickname || String(msg.user_id) }}
                   </span>
@@ -238,13 +233,31 @@
                   </span>
                 </div>
 
-                <!-- 消息气泡 -->
-                <div
-                  class="message-body rounded-lg pa-2 px-3"
-                  :class="isSelf(msg) ? 'bg-blue-lighten-4' : 'bg-grey-lighten-3'"
+                <!-- 无法解析的消息 -->
+                <v-card
+                  v-if="!msg.segments || msg.segments.length === 0"
+                  elevation="2"
+                  rounded="lg"
+                  class="message-body"
+                  color="red-lighten-5"
+                  variant="elevated"
+                >
+                  <div class="d-flex align-center py-2 px-3" style="gap: 8px">
+                    <v-icon size="small" color="red-darken-1">mdi-alert-circle-outline</v-icon>
+                    <span class="text-body-2 text-red-darken-1">消息无法解析</span>
+                  </div>
+                </v-card>
+
+                <!-- 正常消息卡片 -->
+                <v-card
+                  v-else
+                  elevation="2"
+                  rounded="lg"
+                  class="message-body"
+                  :color="isSelf(msg) ? 'blue-lighten-4' : undefined"
                 >
                   <!-- 消息段渲染 -->
-                  <div class="d-flex align-center pa-2" style="gap: 8px">
+                  <div class="d-flex align-center flex-wrap py-2 px-3" style="gap: 8px">
                     <template v-for="seg in msg.segments" :key="seg">
                       <span
                         v-if="seg.type === 'text'"
@@ -301,12 +314,20 @@
                       >
                         [表情{{ seg.data?.id }}]
                       </span>
-                      <v-chip v-else size="x-small" color="grey-lighten-2" variant="elevated">
-                        [{{ seg.type }}]
+                      <!-- 未知消息段类型 -->
+                      <v-chip
+                        v-else
+                        size="x-small"
+                        color="red-lighten-4"
+                        text-color="red-darken-1"
+                        variant="elevated"
+                        prepend-icon="mdi-alert-circle-outline"
+                      >
+                        无法解析: {{ seg.type }}
                       </v-chip>
                     </template>
                   </div>
-                </div>
+                </v-card>
               </div>
             </div>
 
@@ -321,12 +342,13 @@
             </div>
 
             <!-- 加载中 -->
-            <div
-              v-if="store.messagesLoading && store.messages.length === 0"
-              class="text-center pa-8"
-            >
-              <v-progress-circular indeterminate color="primary"></v-progress-circular>
-              <p class="mt-2 text-medium-emphasis">加载中...</p>
+            <div v-if="store.messagesLoading && store.messages.length === 0" class="pa-4">
+              <div v-for="n in 6" :key="n" class="d-flex mb-3">
+                <v-skeleton-loader
+                  type="list-item-avatar-two-line"
+                  :width="n % 2 === 0 ? '60%' : '45%'"
+                />
+              </div>
             </div>
           </div>
         </template>
@@ -578,7 +600,6 @@ onMounted(() => {
 }
 
 .message-body {
-  display: inline-block;
   text-align: left;
   max-width: 100%;
 }

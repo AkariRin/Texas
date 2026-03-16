@@ -36,7 +36,7 @@ handlers_registered = Gauge("texas_handlers_registered", "Number of registered h
 # ── 系统指标 ──
 uptime_seconds = Gauge("texas_uptime_seconds", "Process uptime in seconds")
 
-# ── 人事管理指标 ──
+# ── 用户管理指标 ──
 personnel_sync_total = Counter(
     "texas_personnel_sync_total",
     "Personnel sync task executions",

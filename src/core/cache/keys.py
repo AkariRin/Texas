@@ -28,7 +28,7 @@ def conversation_key(user_id: int, group_id: int | None = None) -> str:
     return f"texas:conversation:{user_id}"
 
 
-# ── 人事管理 (Personnel) ──
+# ── 用户管理 (Personnel) ──
 
 
 def personnel_sync_status_key() -> str:

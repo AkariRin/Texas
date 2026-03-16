@@ -6,9 +6,7 @@
 from __future__ import annotations
 
 import asyncio
-import functools
 from contextlib import asynccontextmanager
-from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -57,6 +55,7 @@ if TYPE_CHECKING:
     from src.core.config import Settings
     from src.core.llm.service import LLMService
     from src.core.personnel.service import PersonnelService
+    from src.core.personnel.sync import SyncCoordinator
 
 logger = structlog.get_logger()
 
@@ -129,6 +128,14 @@ async def _startup_chat(
         main_session_factory=session_factory,
         settings=settings,
     )
+
+    # 启动时确保当月和下月分区存在，防止因分区缺失导致写入失败
+    try:
+        await archive_service.ensure_partitions()
+        logger.info("聊天分区已就绪", event_type="chat.partitions_ensured")
+    except Exception:
+        logger.exception("启动时分区预创建失败", event_type="chat.partition_ensure_error")
+
     return chat_engine, chat_service, archive_service
 
 
@@ -136,10 +143,10 @@ def _startup_personnel(
     session_factory: async_sessionmaker[AsyncSession],
     cache_client: CacheClient,
     settings: Settings,
-) -> tuple[PersonnelService, functools.partial[Coroutine[Any, Any, None]]]:
-    """人事管理模块初始化，返回 (personnel_service, sync_callback)。"""
+) -> tuple[PersonnelService, SyncCoordinator]:
+    """用户管理模块初始化，返回 (personnel_service, sync_coordinator)。"""
     from src.core.personnel.service import PersonnelService
-    from src.core.personnel.sync import do_personnel_sync
+    from src.core.personnel.sync import SyncCoordinator
 
     personnel_service = PersonnelService(
         session_factory=session_factory,
@@ -147,14 +154,14 @@ def _startup_personnel(
         settings=settings,
     )
 
-    # 构建同步回调（绑定运行时依赖）
-    sync_callback = partial(
-        do_personnel_sync,
+    # 同步协调器（集中管理同步任务生命周期，杜绝重复触发）
+    sync_coordinator = SyncCoordinator(
         bot_api=bot_api,
         conn_mgr=conn_mgr,
+        personnel_service=personnel_service,
         settings=settings,
     )
-    return personnel_service, sync_callback
+    return personnel_service, sync_coordinator
 
 
 def _startup_llm(
@@ -198,7 +205,7 @@ def _build_event_dispatch_callback(
         try:
             await chat_service.save_message(event)
         except Exception:
-            logger.warning(
+            logger.exception(
                 "聊天记录持久化失败（非致命）",
                 message_id=getattr(event, "message_id", None),
                 event_type="chat.save_error",
@@ -258,7 +265,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     cache_client = CacheClient(url=settings.CACHE_REDIS_URL, default_ttl=settings.CACHE_DEFAULT_TTL)
 
     # 业务模块
-    personnel_service, sync_callback = _startup_personnel(session_factory, cache_client, settings)
+    personnel_service, sync_coordinator = _startup_personnel(session_factory, cache_client, settings)
     llm_service = _startup_llm(session_factory, cache_client)
     chat_engine, chat_service, archive_service = await _startup_chat(settings, session_factory)
 
@@ -287,9 +294,11 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     app.state.chat_service = chat_service
     app.state.archive_service = archive_service
     app.state.personnel_service = personnel_service
-    app.state.sync_callback = sync_callback
+    app.state.sync_coordinator = sync_coordinator
     app.state.event_dispatch_callback = event_dispatch_callback
-    app.state.personnel_sync_callback = sync_callback
+
+    # 启动用户同步定时调度
+    sync_coordinator.start_scheduler()
 
     # 路由调试
     all_routes = list(app.routes)
@@ -311,6 +320,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     yield
 
     # ── 关闭 ──
+    sync_coordinator.stop_scheduler()
     await llm_service.close()
     await cache_client.close()
     await chat_engine.dispose()
@@ -359,9 +369,24 @@ async def metrics() -> Response:
 
 
 # 4. 挂载前端静态文件（必须放最后，以避免覆盖 API 路由）
+
+
+class _SPAStaticFiles(StaticFiles):
+    """静态文件服务子类：忽略非 HTTP 请求（如 WebSocket），避免 AssertionError。"""
+
+    async def __call__(self, scope: Any, receive: Any, send: Any) -> None:
+        if scope["type"] != "http":
+            # 正确拒绝 WebSocket 连接，防止 StaticFiles 的 assert 崩溃
+            if scope["type"] == "websocket":
+                await receive()  # websocket.connect
+                await send({"type": "websocket.close", "code": 1000})
+            return
+        await super().__call__(scope, receive, send)
+
+
 frontend_dist = Path(settings.FRONTEND_DIST_DIR)
 if frontend_dist.exists():
-    app.mount("/", StaticFiles(directory=frontend_dist, html=True), name="frontend")
+    app.mount("/", _SPAStaticFiles(directory=frontend_dist, html=True), name="frontend")
 
 
 if __name__ == "__main__":

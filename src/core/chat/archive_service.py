@@ -6,7 +6,7 @@ import hashlib
 import json
 import os
 import tempfile
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
 import pyarrow as pa
@@ -15,6 +15,7 @@ import structlog
 from sqlalchemy import select, text, update
 
 from src.core.chat.archive_models import ChatArchiveLog
+from src.core.utils import SHANGHAI_TZ
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -38,8 +39,8 @@ CHAT_HISTORY_SCHEMA = pa.schema(
         pa.field("sender_nickname", pa.utf8(), nullable=False),
         pa.field("sender_card", pa.utf8(), nullable=True),
         pa.field("sender_role", pa.utf8(), nullable=True),
-        pa.field("created_at", pa.timestamp("us", tz="UTC"), nullable=False),
-        pa.field("stored_at", pa.timestamp("us", tz="UTC"), nullable=False),
+        pa.field("created_at", pa.timestamp("us", tz="Asia/Shanghai"), nullable=False),
+        pa.field("stored_at", pa.timestamp("us", tz="Asia/Shanghai"), nullable=False),
     ]
 )
 
@@ -123,7 +124,7 @@ class ArchiveService:
             all_partitions = [row[0] for row in result.all()]
 
         # 过滤出超过保留期的分区
-        cutoff = datetime.now(UTC) - timedelta(days=retention * 30)
+        cutoff = datetime.now(SHANGHAI_TZ) - timedelta(days=retention * 30)
         cutoff_str = cutoff.strftime("%Y_%m")
 
         archivable = []
@@ -264,7 +265,7 @@ class ArchiveService:
                 await session.execute(
                     update(ChatArchiveLog)
                     .where(ChatArchiveLog.id == archive_id)
-                    .values(status="completed", completed_at=datetime.now(UTC))
+                    .values(status="completed", completed_at=datetime.now(SHANGHAI_TZ))
                 )
                 await session.commit()
 
@@ -427,7 +428,7 @@ class ArchiveService:
                 "compression_ratio": ratio,
                 "sha256": sha256_hex,
             },
-            "archived_at": datetime.now(UTC).isoformat(),
+            "archived_at": datetime.now(SHANGHAI_TZ).isoformat(),
             "archived_by": "texas-celery-worker",
         }
 
@@ -446,7 +447,7 @@ class ArchiveService:
         if error_message:
             values["error_message"] = error_message
         if status == "completed":
-            values["completed_at"] = datetime.now(UTC)
+            values["completed_at"] = datetime.now(SHANGHAI_TZ)
 
         async with self._main_sf() as session:
             await session.execute(

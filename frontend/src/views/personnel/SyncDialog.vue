@@ -1,24 +1,9 @@
 <template>
-  <v-dialog v-model="dialog" max-width="600" @update:model-value="onDialogChange">
+  <v-dialog v-model="dialog" max-width="600">
     <v-card>
       <v-card-title class="d-flex align-center ga-2 pa-4">
         <v-icon color="red">mdi-sync</v-icon>
         <span>数据同步</span>
-        <v-spacer />
-        <v-btn
-          color="red"
-          variant="elevated"
-          prepend-icon="mdi-sync"
-          size="small"
-          :loading="store.syncLoading"
-          @click="triggerSync"
-        >
-          手动同步
-        </v-btn>
-        <v-btn icon size="small" variant="elevated" class="ml-1" @click="store.loadSyncStatus()">
-          <v-icon>mdi-refresh</v-icon>
-          <v-tooltip activator="parent" location="top">刷新状态</v-tooltip>
-        </v-btn>
       </v-card-title>
 
       <v-divider />
@@ -29,7 +14,7 @@
           <v-col cols="12" sm="4">
             <v-card variant="elevated" :color="statusColor" class="pa-3">
               <div class="d-flex align-center ga-2 mb-1">
-                <v-icon :color="statusColor" size="18">{{ statusIcon }}</v-icon>
+                <v-icon size="18">{{ statusIcon }}</v-icon>
                 <span class="text-caption">同步状态</span>
               </div>
               <div class="text-h6 font-weight-bold">{{ statusLabel }}</div>
@@ -40,7 +25,7 @@
           <v-col cols="12" sm="8">
             <v-card variant="elevated" color="blue-grey" class="pa-3">
               <div class="d-flex align-center ga-2 mb-1">
-                <v-icon color="blue-grey" size="18">mdi-clock-outline</v-icon>
+                <v-icon size="18">mdi-clock-outline</v-icon>
                 <span class="text-caption">最后同步时间</span>
               </div>
               <div class="text-body-1 font-weight-medium">
@@ -87,13 +72,32 @@
         </v-row>
 
         <!-- 加载中 -->
-        <div v-else class="text-center pa-8">
-          <v-progress-circular indeterminate color="red" />
-          <div class="text-caption mt-2 text-medium-emphasis">加载同步状态...</div>
-        </div>
+        <v-row v-else class="mt-1">
+          <v-col cols="12" sm="4">
+            <v-skeleton-loader type="text, heading" elevation="1" rounded="lg" />
+          </v-col>
+          <v-col cols="12" sm="8">
+            <v-skeleton-loader type="text, heading" elevation="1" rounded="lg" />
+          </v-col>
+          <v-col cols="12">
+            <v-skeleton-loader type="text, list-item-three-line" elevation="1" rounded="lg" />
+          </v-col>
+        </v-row>
       </v-card-text>
 
       <v-card-actions>
+        <v-btn
+          color="red"
+          variant="elevated"
+          prepend-icon="mdi-sync"
+          :loading="store.syncLoading"
+          @click="triggerSync"
+        >
+          手动同步
+        </v-btn>
+        <v-btn color="blue-grey" variant="elevated" prepend-icon="mdi-refresh" @click="store.loadSyncStatus()">
+          刷新
+        </v-btn>
         <v-spacer />
         <v-btn variant="elevated" @click="dialog = false">关闭</v-btn>
       </v-card-actions>
@@ -101,13 +105,13 @@
   </v-dialog>
 
   <!-- 提示 snackbar -->
-  <v-snackbar v-model="snackbar" :color="snackColor" :timeout="3000" location="top">
+  <v-snackbar v-model="snackbar" :color="snackColor" :timeout="3000" location="bottom">
     {{ snackText }}
   </v-snackbar>
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { usePersonnelStore } from '@/stores/personnel'
 
 const dialog = defineModel<boolean>({ default: false })
@@ -171,9 +175,9 @@ async function triggerSync() {
   }
 }
 
-function onDialogChange(open: boolean) {
+watch(dialog, (open) => {
   if (open) {
     store.loadSyncStatus()
   }
-}
+})
 </script>
