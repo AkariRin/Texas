@@ -211,10 +211,7 @@
               </v-avatar>
 
               <!-- 内容 -->
-              <div
-                class="message-content"
-                style="max-width: 70%"
-              >
+              <div class="message-content" style="max-width: 70%">
                 <!-- 昵称与时间 -->
                 <div class="d-flex align-center ga-2 mb-1">
                   <span class="text-caption font-weight-medium">
@@ -353,7 +350,10 @@
                           <v-icon color="blue">mdi-video-outline</v-icon>
                           <div>
                             <div class="text-body-2">{{ seg.data?.name || '视频' }}</div>
-                            <div v-if="seg.data?.file_size" class="text-caption text-medium-emphasis">
+                            <div
+                              v-if="seg.data?.file_size"
+                              class="text-caption text-medium-emphasis"
+                            >
                               {{ formatFileSize(Number(seg.data.file_size)) }}
                             </div>
                           </div>
@@ -396,7 +396,10 @@
                         prepend-icon="mdi-file-outline"
                       >
                         <span class="text-body-2">{{ seg.data?.name || '文件' }}</span>
-                        <span v-if="seg.data?.file_size" class="text-caption text-medium-emphasis ml-1">
+                        <span
+                          v-if="seg.data?.file_size"
+                          class="text-caption text-medium-emphasis ml-1"
+                        >
                           ({{ formatFileSize(Number(seg.data.file_size)) }})
                         </span>
                       </v-chip>
@@ -553,7 +556,9 @@
               </tr>
               <tr>
                 <td class="text-caption font-weight-bold">原始消息</td>
-                <td class="text-caption" style="white-space: pre-wrap; word-break: break-all">{{ detailMessage?.raw_message }}</td>
+                <td class="text-caption" style="white-space: pre-wrap; word-break: break-all">
+                  {{ detailMessage?.raw_message }}
+                </td>
               </tr>
               <tr>
                 <td class="text-caption font-weight-bold">创建时间</td>
@@ -568,7 +573,9 @@
           <v-divider></v-divider>
           <div class="pa-3">
             <div class="text-caption font-weight-bold mb-1">Segments (JSON)</div>
-            <pre class="text-caption detail-json pa-2 rounded bg-grey-lighten-4">{{ JSON.stringify(detailMessage?.segments, null, 2) }}</pre>
+            <pre class="text-caption detail-json pa-2 rounded bg-grey-lighten-4">{{
+              JSON.stringify(detailMessage?.segments, null, 2)
+            }}</pre>
           </div>
         </v-card-text>
       </v-card>
@@ -581,7 +588,12 @@
           <v-icon class="mr-2" size="small">mdi-account-details</v-icon>
           群成员详情
           <v-spacer></v-spacer>
-          <v-btn icon="mdi-close" size="small" variant="text" @click="memberDetailDialog = false"></v-btn>
+          <v-btn
+            icon="mdi-close"
+            size="small"
+            variant="text"
+            @click="memberDetailDialog = false"
+          ></v-btn>
         </v-card-title>
         <v-divider></v-divider>
         <v-card-text class="pa-0">
@@ -589,7 +601,11 @@
           <div v-if="memberDetailLoading">
             <!-- 头部骨架：头像 + 文字 -->
             <div class="d-flex align-center pa-4" style="gap: 16px">
-              <v-skeleton-loader type="avatar" style="width: 64px; height: 64px" boilerplate></v-skeleton-loader>
+              <v-skeleton-loader
+                type="avatar"
+                style="width: 64px; height: 64px"
+                boilerplate
+              ></v-skeleton-loader>
               <div class="flex-grow-1">
                 <v-skeleton-loader type="heading" class="mb-1"></v-skeleton-loader>
                 <v-skeleton-loader type="text" style="max-width: 160px"></v-skeleton-loader>
@@ -606,7 +622,10 @@
             </div>
           </div>
           <!-- 未找到 -->
-          <div v-else-if="!memberDetail" class="d-flex flex-column align-center justify-center pa-8 text-medium-emphasis">
+          <div
+            v-else-if="!memberDetail"
+            class="d-flex flex-column align-center justify-center pa-8 text-medium-emphasis"
+          >
             <v-icon size="48" color="grey-lighten-1">mdi-account-off-outline</v-icon>
             <p class="mt-2 text-body-2">未找到该成员信息</p>
           </div>
@@ -627,11 +646,7 @@
                   昵称: {{ memberDetail.nickname }}
                 </div>
                 <div class="d-flex align-center ga-2 mt-1">
-                  <v-chip
-                    size="small"
-                    variant="elevated"
-                    :color="getRoleColor(memberDetail.role)"
-                  >
+                  <v-chip size="small" variant="elevated" :color="getRoleColor(memberDetail.role)">
                     {{ formatMemberRole(memberDetail.role) }}
                   </v-chip>
                   <v-chip size="small" variant="outlined" color="grey">
@@ -685,7 +700,12 @@
 
     <!-- 图片预览对话框 -->
     <v-dialog v-model="imagePreviewDialog" max-width="90vw" content-class="image-preview-dialog">
-      <v-card flat color="transparent" class="d-flex align-center justify-center" @click="imagePreviewDialog = false">
+      <v-card
+        flat
+        color="transparent"
+        class="d-flex align-center justify-center"
+        @click="imagePreviewDialog = false"
+      >
         <v-img
           :src="imagePreviewSrc"
           max-width="90vw"

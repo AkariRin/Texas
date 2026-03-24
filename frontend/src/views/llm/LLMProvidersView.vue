@@ -1,12 +1,9 @@
 <template>
   <v-container fluid>
+    <PageHeader icon="mdi-server-network" title="提供商" subtitle="管理 LLM 服务提供商配置">
+      <v-btn color="red" prepend-icon="mdi-plus" @click="openCreate"> 添加提供商 </v-btn>
+    </PageHeader>
     <v-card flat>
-      <v-card-title class="d-flex align-center">
-        <v-icon start>mdi-server-network</v-icon>
-        <span>LLM 提供商</span>
-        <v-spacer />
-        <v-btn color="red" prepend-icon="mdi-plus" @click="openCreate"> 添加提供商 </v-btn>
-      </v-card-title>
 
       <v-row v-if="store.providersLoading" class="pa-4" dense>
         <v-col v-for="n in 4" :key="n" cols="12" sm="6" md="4" lg="3">
@@ -202,6 +199,7 @@
 import { ref, computed, watch, onMounted } from 'vue'
 import { useLLMStore } from '@/stores/llm'
 import type { ProviderItem } from '@/apis/llm'
+import PageHeader from '@/components/PageHeader.vue'
 
 const store = useLLMStore()
 

@@ -1,12 +1,9 @@
 <template>
   <v-container fluid>
-    <v-row>
-      <v-col cols="12">
-        <h1 class="text-h4 font-weight-bold mb-1">设置</h1>
-        <p class="text-body-2 text-medium-emphasis">Texas 机器人管理面板设置</p>
-      </v-col>
-    </v-row>
+    <PageHeader icon="mdi-cog" title="设置" subtitle="Texas 机器人管理面板设置" />
   </v-container>
 </template>
 
-<script setup lang="ts"></script>
+<script setup lang="ts">
+import PageHeader from '@/components/PageHeader.vue'
+</script>

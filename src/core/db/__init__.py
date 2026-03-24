@@ -7,7 +7,7 @@ from src.core.db.migration_registry import MigrationTarget, register_migration_t
 register_migration_target(
     MigrationTarget(
         name="main",
-        ini_name="alembic.ini",
+        script_location="src/core/db/migrations",
         metadata=Base.metadata,
         get_db_url=lambda s: s.DATABASE_URL,
         exclude_schemas=frozenset({"chat"}),

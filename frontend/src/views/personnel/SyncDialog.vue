@@ -95,7 +95,12 @@
         >
           手动同步
         </v-btn>
-        <v-btn color="blue-grey" variant="elevated" prepend-icon="mdi-refresh" @click="store.loadSyncStatus()">
+        <v-btn
+          color="blue-grey"
+          variant="elevated"
+          prepend-icon="mdi-refresh"
+          @click="store.loadSyncStatus()"
+        >
           刷新
         </v-btn>
         <v-spacer />

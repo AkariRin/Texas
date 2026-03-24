@@ -12,17 +12,17 @@ from __future__ import annotations
 
 import importlib
 import sys
-from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import structlog
 from alembic import command
 from alembic.autogenerate import compare_metadata
-from alembic.config import Config
 from alembic.migration import MigrationContext
 from alembic.script import ScriptDirectory
 from alembic.util.exc import CommandError
 from sqlalchemy import text
+
+from src.core.db.alembic_config_factory import build_alembic_config
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncEngine
@@ -32,20 +32,8 @@ if TYPE_CHECKING:
 
 logger = structlog.get_logger()
 
-# 项目根目录（alembic.ini 所在位置）
-_PROJECT_ROOT = Path(__file__).resolve().parents[3]
-
 
 # ─────────────────────── 基础工具 ───────────────────────
-
-
-def _build_alembic_config(db_url: str, ini_name: str = "alembic.ini") -> Config:
-    """构建 Alembic Config 并注入数据库连接字符串。"""
-    ini_path = _PROJECT_ROOT / ini_name
-    cfg = Config(str(ini_path))
-    sync_url = db_url.replace("+asyncpg", "+psycopg")
-    cfg.set_main_option("sqlalchemy.url", sync_url)
-    return cfg
 
 
 async def _check_connection(engine: AsyncEngine, target_name: str) -> None:
@@ -81,7 +69,7 @@ async def _get_current_revision(engine: AsyncEngine, target: MigrationTarget) ->
         return await conn.run_sync(_inspect)
 
 
-def _get_head_revision(alembic_cfg: Config) -> str | None:
+def _get_head_revision(alembic_cfg) -> str | None:  # type: ignore[no-untyped-def]
     """获取迁移脚本目录中的 head revision。"""
     script = ScriptDirectory.from_config(alembic_cfg)
     heads = script.get_heads()
@@ -124,13 +112,13 @@ async def _detect_schema_diff(engine: AsyncEngine, target: MigrationTarget) -> l
         return await conn.run_sync(_compare)
 
 
-def _revision_exists(alembic_cfg: Config, rev_id: str) -> bool:
+def _revision_exists(alembic_cfg, rev_id: str) -> bool:  # type: ignore[no-untyped-def]
     """检查给定的 revision ID 在迁移脚本目录中是否存在。"""
     script = ScriptDirectory.from_config(alembic_cfg)
     try:
         script.get_revision(rev_id)
         return True
-    except CommandError, Exception:
+    except (CommandError, Exception):
         return False
 
 
@@ -145,12 +133,12 @@ async def _force_clear_alembic_version(engine: AsyncEngine, target: MigrationTar
 # ─────────────────────── 迁移执行 ───────────────────────
 
 
-def _autogenerate_revision(alembic_cfg: Config, message: str = "auto") -> None:
+def _autogenerate_revision(alembic_cfg, message: str = "auto") -> None:  # type: ignore[no-untyped-def]
     """调用 Alembic autogenerate 生成新迁移脚本。"""
     command.revision(alembic_cfg, message=message, autogenerate=True)
 
 
-def _upgrade_head(alembic_cfg: Config) -> None:
+def _upgrade_head(alembic_cfg) -> None:  # type: ignore[no-untyped-def]
     """执行 alembic upgrade head。"""
     command.upgrade(alembic_cfg, "head")
 
@@ -160,7 +148,7 @@ def _upgrade_head(alembic_cfg: Config) -> None:
 
 async def _handle_production(
     engine: AsyncEngine,
-    alembic_cfg: Config,
+    alembic_cfg,
     current_rev: str | None,
     head_rev: str | None,
     target: MigrationTarget,
@@ -203,7 +191,7 @@ async def _handle_production(
 
 async def _handle_development(
     engine: AsyncEngine,
-    alembic_cfg: Config,
+    alembic_cfg,
     current_rev: str | None,
     head_rev: str | None,
     target: MigrationTarget,
@@ -275,7 +263,7 @@ async def run_startup_migration(
         async with engine.begin() as conn:
             await conn.execute(text(f"CREATE SCHEMA IF NOT EXISTS {target.schema}"))
 
-    alembic_cfg = _build_alembic_config(target.get_db_url(settings), ini_name=target.ini_name)
+    alembic_cfg = build_alembic_config(target, settings)
     head_rev = _get_head_revision(alembic_cfg)
     current_rev = await _get_current_revision(engine, target)
 
@@ -285,26 +273,25 @@ async def run_startup_migration(
         await _handle_development(engine, alembic_cfg, current_rev, head_rev, target)
 
 
-# ─────────────────────── 兼容旧 API ───────────────────────
+async def run_all_startup_migrations(
+    engines: dict[str, AsyncEngine], settings: Settings
+) -> None:
+    """遍历所有已注册的迁移目标，依次执行启动迁移。
 
+    Args:
+        engines: 引擎字典，键为 MigrationTarget.name，值为对应的 AsyncEngine。
+                 未在字典中找到引擎的目标将跳过并输出警告。
+        settings: 应用配置。
+    """
+    from src.core.db.migration_registry import get_all_targets
 
-async def run_startup_db_check(engine: AsyncEngine, settings: Settings) -> None:
-    """主库启动迁移检查（兼容旧调用方式）。"""
-    from src.core.db.migration_registry import get_target
-
-    target = get_target("main")
-    if target is None:
-        logger.warning("未找到 'main' 迁移目标，跳过主库迁移检查")
-        return
-    await run_startup_migration(engine, settings, target)
-
-
-async def run_startup_chat_db_check(engine: AsyncEngine, settings: Settings) -> None:
-    """聊天库启动迁移检查（兼容旧调用方式）。"""
-    from src.core.db.migration_registry import get_target
-
-    target = get_target("chat")
-    if target is None:
-        logger.warning("未找到 'chat' 迁移目标，跳过聊天库迁移检查")
-        return
-    await run_startup_migration(engine, settings, target)
+    for target in get_all_targets():
+        engine = engines.get(target.name)
+        if engine is None:
+            logger.warning(
+                "未找到迁移目标引擎，跳过",
+                target=target.name,
+                event_type="db.missing_engine",
+            )
+            continue
+        await run_startup_migration(engine, settings, target)

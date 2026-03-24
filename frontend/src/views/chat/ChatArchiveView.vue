@@ -1,11 +1,6 @@
 <template>
   <v-container fluid class="pa-6">
-    <div class="d-flex align-center mb-6">
-      <div>
-        <h1 class="text-h4 font-weight-bold">归档管理</h1>
-        <p class="text-body-2 text-medium-emphasis mt-1">查看和管理聊天记录归档</p>
-      </div>
-      <v-spacer></v-spacer>
+    <PageHeader icon="mdi-archive-outline" title="归档管理" subtitle="查看和管理聊天记录归档">
       <v-btn
         variant="elevated"
         color="primary"
@@ -25,7 +20,7 @@
       >
         手动归档
       </v-btn>
-    </div>
+    </PageHeader>
 
     <!-- 归档任务触发结果 -->
     <v-alert
@@ -219,6 +214,7 @@
 import { ref, onMounted } from 'vue'
 import { useChatStore } from '@/stores/chat'
 import type { ArchiveLog } from '@/apis/chat'
+import PageHeader from '@/components/PageHeader.vue'
 
 const store = useChatStore()
 

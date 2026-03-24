@@ -5,14 +5,9 @@
 import { ref } from 'vue'
 import { defineStore } from 'pinia'
 import * as api from '@/apis/chat'
-import type {
-  ChatMessage,
-  ArchiveLog,
-  PaginatedResult,
-} from '@/apis/chat'
+import type { ChatMessage, ArchiveLog, PaginatedResult } from '@/apis/chat'
 
 export const useChatStore = defineStore('chat', () => {
-
   // ── 消息列表 ──
   const messages = ref<ChatMessage[]>([])
   const messagesLoading = ref(false)

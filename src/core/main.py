@@ -19,7 +19,7 @@ from starlette.responses import Response
 from src.api.router import api_router
 from src.core.config import get_settings, validate_settings
 from src.core.db.engine import create_engine, create_session_factory
-from src.core.db.migration import run_startup_chat_db_check, run_startup_db_check
+from src.core.db.migration import run_all_startup_migrations
 from src.core.framework.dispatcher import EventDispatcher
 from src.core.framework.interceptors.logging import LoggingInterceptor
 from src.core.framework.interceptors.metrics import MetricsInterceptor
@@ -92,35 +92,30 @@ scanner = ComponentScanner(mapping=composite_mapping)
 async def _startup_database(
     settings: Settings,
 ) -> tuple[AsyncEngine, async_sessionmaker[AsyncSession]]:
-    """主库引擎创建 & 迁移检查，返回 (engine, session_factory)。"""
-    # 确保迁移目标已注册
-    import src.core.db  # noqa: F401
+    """主库引擎创建，返回 (engine, session_factory)。迁移由 run_all_startup_migrations 统一执行。"""
+    import src.core.db  # noqa: F401 — 触发迁移目标注册
 
     engine = create_engine(
         settings.DATABASE_URL,
         pool_size=settings.DB_POOL_SIZE,
         max_overflow=settings.DB_MAX_OVERFLOW,
     )
-    await run_startup_db_check(engine, settings)
     session_factory = create_session_factory(engine)
     return engine, session_factory
 
 
 async def _startup_chat(
-    settings: Settings,
+    chat_engine: AsyncEngine,
     session_factory: async_sessionmaker[AsyncSession],
-) -> tuple[AsyncEngine, ChatHistoryService, ArchiveService]:
-    """聊天库引擎创建 & 迁移检查，返回 (chat_engine, chat_service, archive_service)。"""
-    import src.core.chat  # noqa: F401
+    settings: Settings,
+) -> tuple[ChatHistoryService, ArchiveService]:
+    """聊天库服务初始化（引擎由外部创建，迁移已由 run_all_startup_migrations 完成）。
+
+    返回 (chat_service, archive_service)。
+    """
     from src.core.chat.archive_service import ArchiveService
     from src.core.chat.service import ChatHistoryService
 
-    chat_engine = create_engine(
-        settings.CHAT_DATABASE_URL,
-        pool_size=settings.CHAT_DB_POOL_SIZE,
-        max_overflow=settings.CHAT_DB_MAX_OVERFLOW,
-    )
-    await run_startup_chat_db_check(chat_engine, settings)
     chat_session_factory = create_session_factory(chat_engine)
     chat_service = ChatHistoryService(session_factory=chat_session_factory)
     archive_service = ArchiveService(
@@ -136,7 +131,7 @@ async def _startup_chat(
     except Exception:
         logger.exception("启动时分区预创建失败", event_type="chat.partition_ensure_error")
 
-    return chat_engine, chat_service, archive_service
+    return chat_service, archive_service
 
 
 def _startup_personnel(
@@ -258,16 +253,29 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
 
     logger.info("Texas 正在启动", version="0.1.0", event_type="app.starting")
 
-    # 基础设施
+    # 基础设施 —— 引擎创建（触发迁移目标注册）
     from src.core.cache.client import CacheClient
 
     engine, session_factory = await _startup_database(settings)
     cache_client = CacheClient(url=settings.CACHE_REDIS_URL, default_ttl=settings.CACHE_DEFAULT_TTL)
 
-    # 业务模块
-    personnel_service, sync_coordinator = _startup_personnel(session_factory, cache_client, settings)
+    import src.core.chat  # noqa: F401 — 触发聊天库迁移目标注册
+
+    chat_engine = create_engine(
+        settings.CHAT_DATABASE_URL,
+        pool_size=settings.CHAT_DB_POOL_SIZE,
+        max_overflow=settings.CHAT_DB_MAX_OVERFLOW,
+    )
+
+    # 统一执行所有数据库迁移（连接检查 + schema 创建 + upgrade head）
+    await run_all_startup_migrations({"main": engine, "chat": chat_engine}, settings)
+
+    # 业务模块（依赖 schema 已就绪）
+    personnel_service, sync_coordinator = _startup_personnel(
+        session_factory, cache_client, settings
+    )
     llm_service = _startup_llm(session_factory, cache_client)
-    chat_engine, chat_service, archive_service = await _startup_chat(settings, session_factory)
+    chat_service, archive_service = await _startup_chat(chat_engine, session_factory, settings)
 
     # 框架
     _startup_framework(settings)

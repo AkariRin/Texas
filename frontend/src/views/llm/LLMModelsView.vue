@@ -1,23 +1,20 @@
 <template>
   <v-container fluid>
+    <PageHeader icon="mdi-brain" title="模型管理" subtitle="管理和配置 LLM 模型">
+      <v-select
+        v-model="filterProvider"
+        :items="providerOptions"
+        label="提供商筛选"
+        density="compact"
+        variant="solo-filled"
+        hide-details
+        clearable
+        style="max-width: 200px"
+        @update:model-value="loadPage"
+      />
+      <v-btn color="red" prepend-icon="mdi-plus" class="ml-2" @click="openCreate"> 添加模型 </v-btn>
+    </PageHeader>
     <v-card flat>
-      <v-card-title class="d-flex align-center flex-wrap ga-2">
-        <v-icon start>mdi-brain</v-icon>
-        <span>LLM 模型</span>
-        <v-spacer />
-        <v-select
-          v-model="filterProvider"
-          :items="providerOptions"
-          label="提供商筛选"
-          density="compact"
-          variant="solo-filled"
-          hide-details
-          clearable
-          style="max-width: 200px"
-          @update:model-value="loadPage"
-        />
-        <v-btn color="red" prepend-icon="mdi-plus" @click="openCreate"> 添加模型 </v-btn>
-      </v-card-title>
 
       <v-data-table :headers="headers" :items="store.models" :loading="store.modelsLoading" hover>
         <!-- 模型名称列 -->
@@ -207,6 +204,7 @@
 import { ref, computed, watch, onMounted } from 'vue'
 import { useLLMStore } from '@/stores/llm'
 import type { ModelItem } from '@/apis/llm'
+import PageHeader from '@/components/PageHeader.vue'
 
 const store = useLLMStore()
 

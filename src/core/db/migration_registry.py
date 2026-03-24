@@ -23,7 +23,7 @@ class MigrationTarget:
 
     Attributes:
         name: 标识名，如 "main", "chat"，用于日志前缀。
-        ini_name: alembic 配置文件名（相对项目根目录），如 "alembic.ini"。
+        script_location: Alembic 脚本目录路径（相对项目根目录），如 "src/core/db/migrations"。
         metadata: SQLAlchemy MetaData 实例（来自 Base.metadata）。
         get_db_url: 从 Settings 对象提取数据库 URL 的 callable。
         schema: 专属 schema（None 表示 public）。
@@ -35,7 +35,7 @@ class MigrationTarget:
     """
 
     name: str
-    ini_name: str
+    script_location: str
     metadata: MetaData
     get_db_url: Callable[[Settings], str]
     schema: str | None = None

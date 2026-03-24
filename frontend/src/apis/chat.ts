@@ -6,7 +6,6 @@ import axios from 'axios'
 
 // ── 类型定义 ──
 
-
 export interface ChatMessage {
   id: number
   message_id: number
@@ -32,7 +31,6 @@ export interface MessageContext {
   current: ChatMessage[]
   after: ChatMessage[]
 }
-
 
 export interface ArchiveLog {
   id: string
@@ -67,7 +65,6 @@ interface ApiResponse<T> {
 // ── API 调用 ──
 
 const BASE = '/api/v1/chat'
-
 
 // ── 消息查询 ──
 

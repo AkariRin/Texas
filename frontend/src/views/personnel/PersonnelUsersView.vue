@@ -1,10 +1,8 @@
 <template>
   <v-container fluid>
+    <PageHeader icon="mdi-account-group" title="用户管理" subtitle="管理和查看机器人用户信息" />
     <v-card flat>
       <v-card-title class="d-flex align-center flex-wrap ga-2">
-        <v-icon start>mdi-account-group</v-icon>
-        <span>用户列表</span>
-        <v-spacer />
         <!-- 筛选栏 -->
         <v-text-field
           v-model="filterNickname"
@@ -39,12 +37,7 @@
           style="max-width: 160px"
           @update:model-value="loadPage(1)"
         />
-        <v-btn
-          variant="elevated"
-          color="red"
-          prepend-icon="mdi-sync"
-          @click="syncDialog = true"
-        >
+        <v-btn variant="elevated" color="red" prepend-icon="mdi-sync" @click="syncDialog = true">
           数据同步
         </v-btn>
       </v-card-title>
@@ -197,6 +190,7 @@ import { ref, watch, onMounted } from 'vue'
 import { usePersonnelStore } from '@/stores/personnel'
 import type { UserDetail, GroupItem } from '@/apis/personnel'
 import SyncDialog from './SyncDialog.vue'
+import PageHeader from '@/components/PageHeader.vue'
 
 const store = usePersonnelStore()
 

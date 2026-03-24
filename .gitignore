@@ -215,5 +215,5 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 
-# Vibe Coding
-.vibe
+# Misc files
+misc/

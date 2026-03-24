@@ -1,10 +1,6 @@
 <template>
   <v-container fluid class="logs-container">
-    <div class="logs-header d-flex align-center justify-space-between">
-      <div>
-        <h1 class="text-h4 font-weight-bold mb-1">应用日志</h1>
-        <p class="text-body-2 text-medium-emphasis">实时日志流</p>
-      </div>
+    <PageHeader icon="mdi-text-box-outline" title="应用日志" subtitle="实时日志流">
       <div class="d-flex align-center ga-2">
         <v-chip :color="connected ? 'success' : 'error'" variant="elevated" size="small">
           <v-icon
@@ -47,7 +43,7 @@
           </template>
         </v-tooltip>
       </div>
-    </div>
+    </PageHeader>
 
     <v-card class="log-card" variant="elevated">
       <div class="log-search-bar px-3 pt-2 pb-1">
@@ -87,6 +83,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
+import PageHeader from '@/components/PageHeader.vue'
 
 interface LogEntry {
   timestamp: string
@@ -219,11 +216,6 @@ onUnmounted(() => {
   flex-direction: column;
   padding: 16px !important;
   overflow: hidden;
-}
-
-.logs-header {
-  flex-shrink: 0;
-  margin-bottom: 12px;
 }
 
 .log-card {

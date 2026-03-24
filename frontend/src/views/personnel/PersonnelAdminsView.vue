@@ -1,14 +1,11 @@
 <template>
   <v-container fluid>
+    <PageHeader icon="mdi-shield-account" title="管理员" subtitle="管理机器人管理员权限">
+      <v-btn color="red" variant="elevated" prepend-icon="mdi-plus" @click="addDialog = true">
+        添加管理员
+      </v-btn>
+    </PageHeader>
     <v-card flat>
-      <v-card-title class="d-flex align-center ga-2">
-        <v-icon start>mdi-shield-account</v-icon>
-        <span>管理员列表</span>
-        <v-spacer />
-        <v-btn color="red" variant="elevated" prepend-icon="mdi-plus" @click="addDialog = true">
-          添加管理员
-        </v-btn>
-      </v-card-title>
 
       <div v-if="store.adminsLoading" class="d-flex flex-wrap ga-4 pa-4">
         <v-skeleton-loader
@@ -22,9 +19,11 @@
       </div>
 
       <template v-else>
-        <v-alert v-if="store.admins.length === 0" type="info" variant="elevated" class="ma-4">
-          暂无管理员，点击右上角「添加管理员」来设置
-        </v-alert>
+        <div v-if="store.admins.length === 0" class="d-flex flex-column align-center justify-center py-16 text-medium-emphasis">
+          <v-icon icon="mdi-shield-off-outline" size="48" class="mb-4" />
+          <div class="text-body-1">暂无管理员</div>
+          <div class="text-body-2 mt-1">点击右上角「添加管理员」来设置</div>
+        </div>
 
         <div v-else class="d-flex flex-wrap ga-4 pa-4">
           <v-card
@@ -68,22 +67,17 @@
             <v-text-field
               v-model="addQQ"
               label="QQ 号"
-              type="number"
               variant="solo-filled"
               hide-details="auto"
               prepend-inner-icon="mdi-identifier"
               :error-messages="addError"
+              @input="sanitizeDigits"
             />
           </v-card-text>
           <v-card-actions>
             <v-spacer />
             <v-btn variant="elevated" @click="addDialog = false">取消</v-btn>
-            <v-btn
-              color="red"
-              variant="elevated"
-              :disabled="!addQQ"
-              @click="confirmAdd"
-            >
+            <v-btn color="red" variant="elevated" :disabled="!addQQ" @click="confirmAdd">
               确认添加
             </v-btn>
           </v-card-actions>
@@ -100,12 +94,7 @@
           <v-card-actions>
             <v-spacer />
             <v-btn variant="elevated" @click="addConfirmDialog = false">取消</v-btn>
-            <v-btn
-              color="red"
-              variant="elevated"
-              :loading="addLoading"
-              @click="doAdd"
-            >
+            <v-btn color="red" variant="elevated" :loading="addLoading" @click="doAdd">
               确认
             </v-btn>
           </v-card-actions>
@@ -143,6 +132,7 @@
 import { ref, onMounted } from 'vue'
 import { usePersonnelStore } from '@/stores/personnel'
 import type { UserItem } from '@/apis/personnel'
+import PageHeader from '@/components/PageHeader.vue'
 
 const store = usePersonnelStore()
 
@@ -169,10 +159,23 @@ function showSnack(text: string, color = 'success') {
   snackbar.value = true
 }
 
+function sanitizeDigits() {
+  addQQ.value = addQQ.value.replace(/\D/g, '')
+}
+
 function confirmAdd() {
   addError.value = ''
-  const qq = Number(addQQ.value)
-  if (!qq || isNaN(qq)) {
+  const raw = addQQ.value.trim()
+  if (!raw) {
+    addError.value = '请输入 QQ 号'
+    return
+  }
+  if (!/^\d+$/.test(raw)) {
+    addError.value = '请输入纯数字的 QQ 号'
+    return
+  }
+  const qq = Number(raw)
+  if (!qq || !Number.isSafeInteger(qq)) {
     addError.value = '请输入有效的 QQ 号'
     return
   }
@@ -181,7 +184,7 @@ function confirmAdd() {
 
 async function doAdd() {
   addError.value = ''
-  const qq = Number(addQQ.value)
+  const qq = Number(addQQ.value.trim())
   addLoading.value = true
   try {
     await store.setAdmin(qq)

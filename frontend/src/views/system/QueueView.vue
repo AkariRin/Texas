@@ -1,29 +1,21 @@
 <template>
   <v-container fluid>
-    <v-row>
-      <v-col cols="12">
-        <div class="d-flex align-center justify-space-between mb-1">
-          <div>
-            <h1 class="text-h4 font-weight-bold">任务队列</h1>
-            <p class="text-body-2 text-medium-emphasis">查看定时任务调度与消息队列状态</p>
-          </div>
-          <v-chip
-            :color="store.connected ? 'success' : 'grey'"
-            variant="elevated"
-            :prepend-icon="store.connected ? 'mdi-access-point' : 'mdi-access-point-off'"
-          >
-            {{ store.connected ? '实时推送中' : '未连接' }}
-          </v-chip>
-        </div>
-      </v-col>
-    </v-row>
+    <PageHeader icon="mdi-tray-full" title="任务队列" subtitle="查看定时任务调度与消息队列状态">
+      <v-chip
+        :color="store.connected ? 'success' : 'grey'"
+        variant="elevated"
+        :prepend-icon="store.connected ? 'mdi-access-point' : 'mdi-access-point-off'"
+      >
+        {{ store.connected ? '实时推送中' : '未连接' }}
+      </v-chip>
+    </PageHeader>
 
     <!-- 概览卡片 -->
     <v-row>
       <v-col cols="12" sm="6" md="3">
         <v-card variant="elevated" color="purple" class="pa-4">
           <div class="d-flex align-center ga-2 mb-2">
-            <v-icon color="purple">mdi-clock-outline</v-icon>
+            <v-icon color="white">mdi-clock-outline</v-icon>
             <span class="text-subtitle-2">定时任务</span>
           </div>
           <div class="text-h5 font-weight-bold">{{ store.scheduledTasks.length }}</div>
@@ -38,7 +30,7 @@
           class="pa-4"
         >
           <div class="d-flex align-center ga-2 mb-2">
-            <v-icon :color="store.workers.length > 0 ? 'success' : 'grey'">mdi-server</v-icon>
+            <v-icon color="white">mdi-server</v-icon>
             <span class="text-subtitle-2">Worker 节点</span>
           </div>
           <div class="text-h5 font-weight-bold">{{ store.workers.length }}</div>
@@ -51,7 +43,7 @@
       <v-col cols="12" sm="6" md="3">
         <v-card variant="elevated" color="blue" class="pa-4">
           <div class="d-flex align-center ga-2 mb-2">
-            <v-icon color="blue">mdi-run</v-icon>
+            <v-icon color="white">mdi-run</v-icon>
             <span class="text-subtitle-2">执行中</span>
           </div>
           <div class="text-h5 font-weight-bold">{{ store.activeTasks.length }}</div>
@@ -62,7 +54,7 @@
       <v-col cols="12" sm="6" md="3">
         <v-card variant="elevated" color="orange" class="pa-4">
           <div class="d-flex align-center ga-2 mb-2">
-            <v-icon color="orange">mdi-inbox-arrow-down</v-icon>
+            <v-icon color="white">mdi-inbox-arrow-down</v-icon>
             <span class="text-subtitle-2">队列消息</span>
           </div>
           <div class="text-h5 font-weight-bold">
@@ -155,6 +147,7 @@
 import { onMounted, onUnmounted, ref, computed } from 'vue'
 import { useQueueStore } from '@/stores/queue'
 import type { TaskCategory } from '@/apis/queue'
+import PageHeader from '@/components/PageHeader.vue'
 
 const store = useQueueStore()
 

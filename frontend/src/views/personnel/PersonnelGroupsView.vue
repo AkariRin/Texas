@@ -1,10 +1,8 @@
 <template>
   <v-container fluid>
+    <PageHeader icon="mdi-forum" title="群聊管理" subtitle="管理和查看机器人加入的群聊" />
     <v-card flat>
       <v-card-title class="d-flex align-center flex-wrap ga-2">
-        <v-icon start>mdi-forum</v-icon>
-        <span>群聊列表</span>
-        <v-spacer />
         <v-text-field
           v-model="filterName"
           label="群名搜索"
@@ -27,12 +25,7 @@
           style="max-width: 140px"
           @update:model-value="loadPage(1)"
         />
-        <v-btn
-          variant="elevated"
-          color="red"
-          prepend-icon="mdi-sync"
-          @click="syncDialog = true"
-        >
+        <v-btn variant="elevated" color="red" prepend-icon="mdi-sync" @click="syncDialog = true">
           数据同步
         </v-btn>
       </v-card-title>
@@ -212,6 +205,7 @@ import { ref, watch, onMounted } from 'vue'
 import { usePersonnelStore } from '@/stores/personnel'
 import type { GroupItem } from '@/apis/personnel'
 import SyncDialog from './SyncDialog.vue'
+import PageHeader from '@/components/PageHeader.vue'
 
 const store = usePersonnelStore()
 
