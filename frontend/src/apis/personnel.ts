@@ -1,5 +1,5 @@
 /**
- * Personnel API 接口层 —— 封装 /api/v1/personnel 所有后端接口调用。
+ * 用户管理 API 接口层 —— 封装 /api/v1/personnel 所有后端接口调用。
  */
 
 import axios from 'axios'

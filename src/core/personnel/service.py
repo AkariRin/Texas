@@ -1,4 +1,4 @@
-"""人事管理业务逻辑 —— relation 计算、批量 upsert、数据采集编排。"""
+"""用户管理业务逻辑 —— relation 计算、批量 upsert、数据采集编排。"""
 
 from __future__ import annotations
 
@@ -64,7 +64,7 @@ def compute_relation(
 
 
 class PersonnelService:
-    """人事管理核心服务 —— 封装 upsert、同步编排、缓存管理。"""
+    """用户管理核心服务 —— 封装 upsert、同步编排、缓存管理。"""
 
     def __init__(
         self,
@@ -317,7 +317,7 @@ class PersonnelService:
         groups: list[dict[str, Any]] | None,
         members: dict[int, list[dict[str, Any]]] | None,
     ) -> dict[str, int]:
-        """将采集到的人事数据批量持久化到数据库。
+        """将采集到的用户数据批量持久化到数据库。
 
         Returns:
             {"users_synced": int, "groups_synced": int, "memberships_synced": int}

@@ -8,6 +8,9 @@ from typing import TYPE_CHECKING, Any
 
 import structlog
 
+from .api_file import FileAPIMixin
+from .api_gocq import GoCQHTTPAPIMixin
+from .api_napcat import NapCatAPIMixin
 from .models.api import APIRequest, APIResponse
 
 if TYPE_CHECKING:
@@ -20,7 +23,7 @@ logger = structlog.get_logger()
 DEFAULT_TIMEOUT = 30.0
 
 
-class BotAPI:
+class BotAPI(GoCQHTTPAPIMixin, NapCatAPIMixin, FileAPIMixin):
     """OneBot 11 标准 API (P0) —— 发送指令并等待响应。"""
 
     def __init__(self, connection_manager: ConnectionManager) -> None:

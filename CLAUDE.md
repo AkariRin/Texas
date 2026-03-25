@@ -22,10 +22,11 @@ ruff format src
 mypy src
 
 # 数据库迁移
-alembic -c alembic.ini upgrade head          # 主库
-alembic -c alembic_chat.ini upgrade head     # 聊天库
+python -m src.core.db.cli migrate            # 升级所有库到 head
+python -m src.core.db.cli migrate --target main   # 仅升级主库
+python -m src.core.db.cli migrate --target chat   # 仅升级聊天库
 
-# Celery (异步任务)
+# Celery (聊天归档异步任务)
 celery -A src.core.tasks.celery_app worker --loglevel=info
 celery -A src.core.tasks.celery_app beat -S redbeat.RedBeatScheduler --loglevel=info
 ```
@@ -53,6 +54,7 @@ docker-compose -f compose.yaml up -d   # 启动 PostgreSQL + Redis + NapCat
 ```bash
 docker build -t texas:latest .
 # 通过环境变量 ROLE 控制启动角色: bot(默认) | worker | beat
+# worker/beat 仅用于聊天归档 Celery 任务；人员同步由主进程内 SyncCoordinator 管理
 ```
 
 ## 架构概览
@@ -61,8 +63,9 @@ docker build -t texas:latest .
 
 - **主库** (`DATABASE_URL`): 用户、群聊、LLM 配置、管理员等核心业务数据
 - **聊天库** (`CHAT_DATABASE_URL`): 独立 PostgreSQL 存储聊天记录，按月自动分区
-- 两套独立的 Alembic 迁移配置：`alembic.ini` 和 `alembic_chat.ini`
+- 注册表驱动的迁移系统：`src/core/db/migration_registry.py` 统一管理所有库迁移目标
 - 迁移文件分别位于 `src/core/db/migrations/` 和 `src/core/chat/migrations/`
+- 统一 CLI 入口：`python -m src.core.db.cli`（详见 `misc/db-migration.md`）
 
 ### 事件驱动框架 (`src/core/framework/`)
 
@@ -83,7 +86,7 @@ docker build -t texas:latest .
 | 模块 | 服务 | 职责 |
 |------|------|------|
 | `chat/` | `ChatHistoryService`、`ArchiveService` | 聊天记录存储、按月分区、S3 归档 |
-| `personnel/` | `PersonnelService`、`SyncCoordinator` | 用户/群聊 CRUD、定时从 NapCat 同步 |
+| `personnel/` (用户管理) | `PersonnelService`、`SyncCoordinator` | 用户/群聊 CRUD、定时从 NapCat 同步 |
 | `llm/` | `LLMService` | LLM 提供商和模型配置管理 |
 
 ### WebSocket 连接管理 (`src/core/ws/`)
@@ -92,7 +95,8 @@ NapCat 主动反向连接 Texas，`ConnectionManager` 管理连接池，`Heartbe
 
 ### 异步任务 (`src/core/tasks/`)
 
-Celery + RedBeat（Redis 存储调度状态），当前主要任务为定时同步用户/群聊数据。
+Celery + RedBeat（Redis 存储调度状态），当前主要任务为聊天记录归档（`chat_archive.py`）。
+用户同步已改为 `SyncCoordinator`（`src/core/personnel/sync.py`）内置 asyncio 调度，不再依赖 Celery。
 
 ### 前端架构
 
