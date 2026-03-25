@@ -1,6 +1,6 @@
 <template>
   <v-container fluid class="pa-6">
-    <PageHeader icon="mdi-archive-outline" title="归档管理" subtitle="查看和管理聊天记录归档">
+    <PageHeader>
       <v-btn
         variant="elevated"
         color="primary"

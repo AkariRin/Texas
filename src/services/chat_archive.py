@@ -14,8 +14,8 @@ import pyarrow.parquet as pq
 import structlog
 from sqlalchemy import select, text, update
 
-from src.core.chat.archive_models import ChatArchiveLog
 from src.core.utils import SHANGHAI_TZ
+from src.models.chat_archive import ChatArchiveLog
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -66,9 +66,10 @@ class ArchiveService:
         """确保当月和下月的分区存在。"""
         async with self._chat_sf() as session:
             await session.execute(text("SELECT chat.create_monthly_partition(CURRENT_DATE)"))
-            await session.execute(
-                text("SELECT chat.create_monthly_partition(CURRENT_DATE + INTERVAL '1 month')")
+            next_month_sql = (
+                "SELECT chat.create_monthly_partition((CURRENT_DATE + INTERVAL '1 month')::DATE)"
             )
+            await session.execute(text(next_month_sql))
             await session.commit()
         return {"status": "ok", "message": "分区已就绪"}
 

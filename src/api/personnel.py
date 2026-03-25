@@ -12,8 +12,8 @@ from src.core.dependencies import get_personnel_service, get_sync_coordinator
 from src.core.utils.response import ok
 
 if TYPE_CHECKING:
-    from src.core.personnel.service import PersonnelService
-    from src.core.personnel.sync import SyncCoordinator
+    from src.services.personnel import PersonnelService
+    from src.services.personnel_sync import SyncCoordinator
 
 logger = structlog.get_logger()
 
@@ -186,14 +186,14 @@ async def get_sync_status(
     return ok(status)
 
 
-# ── 管理员管理 API (7.4) ──
+# ── 超级管理员管理 API (7.4) ──
 
 
 @router.get("/admins")
 async def list_admins(
     service: PersonnelService = Depends(get_personnel_service),
 ) -> dict[str, Any]:
-    """获取所有管理员列表。"""
+    """获取所有超级管理员列表。"""
     admins = await service.get_admins()
     return ok(admins)
 
@@ -203,7 +203,7 @@ async def add_admin(
     qq: int,
     service: PersonnelService = Depends(get_personnel_service),
 ) -> dict[str, Any]:
-    """添加管理员。"""
+    """添加超级管理员。"""
     success = await service.set_admin(qq)
     if not success:
         raise HTTPException(status_code=404, detail="User not found")
@@ -215,10 +215,8 @@ async def remove_admin(
     qq: int,
     service: PersonnelService = Depends(get_personnel_service),
 ) -> dict[str, Any]:
-    """移除管理员。"""
+    """移除超级管理员。"""
     success = await service.remove_admin(qq)
     if not success:
         raise HTTPException(status_code=404, detail="User not found or not an admin")
     return ok(None, message="Admin removed successfully")
-
-

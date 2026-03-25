@@ -126,6 +126,8 @@ class ComponentScanner:
                         "method": method_name,
                         "mapping_type": meta.get("mapping_type"),
                         "priority": priority,
+                        # None 表示跟随 controller 的 default_enabled
+                        "default_enabled": meta.get("default_enabled"),
                     }
                 )
 

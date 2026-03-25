@@ -7,12 +7,15 @@ from typing import TYPE_CHECKING, Any
 import structlog
 
 from src.core.framework.context import Context, FinishError
+from src.core.framework.decorators import Permission
 
 if TYPE_CHECKING:
     from src.core.framework.interceptor import HandlerInterceptor
     from src.core.framework.mapping import CompositeHandlerMapping, HandlerMethod
+    from src.core.framework.permission_checker import FeaturePermissionChecker
     from src.core.protocol.api import BotAPI
     from src.core.protocol.models.base import OneBotEvent
+    from src.services.personnel import PersonnelService
 
 logger = structlog.get_logger()
 
@@ -29,6 +32,46 @@ class EventDispatcher:
         self.mapping = mapping
         self.interceptors = interceptors or []
         self.services: dict[type, Any] = services or {}
+        # 功能级权限检查器（启动时注入）
+        self.feature_checker: FeaturePermissionChecker | None = None
+        # 用户服务（启动时注入，用于动态查询 admin 集合）
+        self.personnel_service: PersonnelService | None = None
+
+    async def _check_role_permission(self, ctx: Context) -> bool:
+        """角色级权限检查（原 PermissionInterceptor 逻辑，移至 per-handler 级别）。"""
+        handler = ctx.handler_method
+        if handler is None:
+            return True
+
+        required: Permission = handler.permission
+        if required == Permission.ANYONE:
+            return True
+
+        user_id = ctx.user_id
+
+        # ADMIN 超级管理员绕过角色检查
+        if self.personnel_service is not None:
+            admin_set = await self.personnel_service.get_admin_qq_set()
+            if user_id in admin_set:
+                return True
+
+        if required == Permission.ADMIN:
+            logger.debug(
+                "角色权限拒绝：需要 ADMIN",
+                user_id=user_id,
+                event_type="dispatcher.role_denied",
+            )
+            return False
+
+        if ctx.is_group and required in (Permission.GROUP_ADMIN, Permission.GROUP_OWNER):
+            sender = getattr(ctx.event, "sender", None)
+            role = getattr(sender, "role", "member") if sender else "member"
+            if required == Permission.GROUP_OWNER and role != "owner":
+                return False
+            if required == Permission.GROUP_ADMIN and role not in ("admin", "owner"):
+                return False
+
+        return True
 
     async def dispatch(self, event: OneBotEvent, bot: BotAPI) -> None:
         ctx = Context(event=event, bot=bot, services=self.services)
@@ -65,6 +108,14 @@ class EventDispatcher:
                 regex_match = handler.metadata.get("_last_match")
                 if regex_match:
                     ctx.set_regex_match(regex_match)
+
+                # 功能级权限检查（per-handler）
+                if self.feature_checker is not None and not await self.feature_checker.check(ctx):
+                    continue
+
+                # 角色级权限检查（per-handler）
+                if not await self._check_role_permission(ctx):
+                    continue
 
                 try:
                     result = await handler.method(ctx)

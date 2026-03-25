@@ -21,9 +21,6 @@ class PermissionInterceptor(HandlerInterceptor):
     当前使用简单的内存检查。第 2 阶段将与数据库 User 模型集成。
     """
 
-    def __init__(self, superusers: list[int] | None = None) -> None:
-        self._superusers = set(superusers or [])
-
     async def pre_handle(self, ctx: Context) -> bool:
         if ctx.handler_method is None:
             return True
@@ -34,18 +31,14 @@ class PermissionInterceptor(HandlerInterceptor):
 
         user_id = ctx.user_id
 
-        # 超级用户检查
-        if user_id in self._superusers:
-            return True
-
         # 群角色检查
-        if required == Permission.SUPERUSER:
+        if required == Permission.ADMIN:
             logger.debug(
-                "Permission denied: superuser required",
+                "Permission denied: admin required",
                 user_id=user_id,
                 event_type="interceptor.permission.denied",
             )
-            await ctx.reply("Permission denied: superuser required.")
+            await ctx.reply("Permission denied: admin required.")
             return False
 
         if ctx.is_group and required in (Permission.GROUP_ADMIN, Permission.GROUP_OWNER):

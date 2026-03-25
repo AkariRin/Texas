@@ -64,7 +64,7 @@ docker build -t texas:latest .
 - **主库** (`DATABASE_URL`): 用户、群聊、LLM 配置、管理员等核心业务数据
 - **聊天库** (`CHAT_DATABASE_URL`): 独立 PostgreSQL 存储聊天记录，按月自动分区
 - 注册表驱动的迁移系统：`src/core/db/migration_registry.py` 统一管理所有库迁移目标
-- 迁移文件分别位于 `src/core/db/migrations/` 和 `src/core/chat/migrations/`
+- 迁移文件分别位于 `src/core/db/migrations/`（主库）和 `src/core/db/chat_migrations/`（聊天库）
 - 统一 CLI 入口：`python -m src.core.db.cli`（详见 `misc/db-migration.md`）
 
 ### 事件驱动框架 (`src/core/framework/`)
@@ -81,22 +81,39 @@ docker build -t texas:latest .
 - 全局实例（`DatabaseEngine`、`RedisClient`、各 Service）挂载到 `app.state`
 - 路由层通过 `Depends()` 获取依赖，避免全局变量
 
-### 服务层 (`src/core/*/service.py`)
+### 分层架构（Spring-like）
 
-| 模块 | 服务 | 职责 |
+```
+src/
+├── core/        # 纯框架基础设施（db、cache、framework、protocol、ws、logging、monitoring、utils、config）
+├── api/         # HTTP API 控制器层（FastAPI 路由）
+├── services/    # 业务逻辑层（PersonnelService、LLMService、ChatHistoryService 等）
+├── models/      # ORM 模型层（SQLAlchemy 实体定义，Alembic 注册入口）
+├── handlers/    # Bot 事件处理器（ComponentScanner 自动扫描）
+└── tasks/       # Celery 业务任务（聊天归档等）
+```
+
+### 服务层 (`src/services/`)
+
+| 文件 | 服务 | 职责 |
 |------|------|------|
-| `chat/` | `ChatHistoryService`、`ArchiveService` | 聊天记录存储、按月分区、S3 归档 |
-| `personnel/` (用户管理) | `PersonnelService`、`SyncCoordinator` | 用户/群聊 CRUD、定时从 NapCat 同步 |
-| `llm/` | `LLMService` | LLM 提供商和模型配置管理 |
+| `chat.py` | `ChatHistoryService` | 聊天记录存储、查询 |
+| `chat_archive.py` | `ArchiveService` | 按月分区、S3 归档 |
+| `personnel.py` | `PersonnelService` | 用户/群聊 CRUD |
+| `personnel_sync.py` | `SyncCoordinator` | 定时从 NapCat 同步用户数据 |
+| `llm.py` | `LLMService` | LLM 提供商和模型配置管理 |
+| `llm_client.py` | `LLMClient` | OpenAI 兼容客户端封装 |
+| `llm_completion.py` | `llm_complete/llm_stream` | 高层 LLM 调用接口 |
+| `permission.py` | `FeaturePermissionService` | 功能级权限管理 |
 
 ### WebSocket 连接管理 (`src/core/ws/`)
 
 NapCat 主动反向连接 Texas，`ConnectionManager` 管理连接池，`HeartbeatMonitor` 负责心跳检测和自动重连。
 
-### 异步任务 (`src/core/tasks/`)
+### 异步任务 (`src/tasks/`)
 
 Celery + RedBeat（Redis 存储调度状态），当前主要任务为聊天记录归档（`chat_archive.py`）。
-用户同步已改为 `SyncCoordinator`（`src/core/personnel/sync.py`）内置 asyncio 调度，不再依赖 Celery。
+用户同步已改为 `SyncCoordinator`（`src/services/personnel_sync.py`）内置 asyncio 调度，不再依赖 Celery。
 
 ### 前端架构
 

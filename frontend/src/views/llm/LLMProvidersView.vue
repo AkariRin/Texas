@@ -1,6 +1,6 @@
 <template>
   <v-container fluid>
-    <PageHeader icon="mdi-server-network" title="提供商" subtitle="管理 LLM 服务提供商配置">
+    <PageHeader>
       <v-btn color="red" prepend-icon="mdi-plus" @click="openCreate"> 添加提供商 </v-btn>
     </PageHeader>
     <v-card flat>

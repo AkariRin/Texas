@@ -864,7 +864,7 @@ async function onAtChipClick(qq: unknown) {
       qq: qqNum,
     })
     if (result.items.length > 0) {
-      memberDetail.value = result.items[0]
+      memberDetail.value = result.items[0] ?? null
     }
   } catch {
     // 静默失败

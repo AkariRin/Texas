@@ -118,7 +118,7 @@ def _revision_exists(alembic_cfg, rev_id: str) -> bool:  # type: ignore[no-untyp
     try:
         script.get_revision(rev_id)
         return True
-    except (CommandError, Exception):
+    except CommandError, Exception:
         return False
 
 
@@ -273,9 +273,7 @@ async def run_startup_migration(
         await _handle_development(engine, alembic_cfg, current_rev, head_rev, target)
 
 
-async def run_all_startup_migrations(
-    engines: dict[str, AsyncEngine], settings: Settings
-) -> None:
+async def run_all_startup_migrations(engines: dict[str, AsyncEngine], settings: Settings) -> None:
     """遍历所有已注册的迁移目标，依次执行启动迁移。
 
     Args:

@@ -50,12 +50,13 @@ if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
     from src.core.cache.client import CacheClient
-    from src.core.chat.archive_service import ArchiveService
-    from src.core.chat.service import ChatHistoryService
     from src.core.config import Settings
-    from src.core.llm.service import LLMService
-    from src.core.personnel.service import PersonnelService
-    from src.core.personnel.sync import SyncCoordinator
+    from src.services.chat import ChatHistoryService
+    from src.services.chat_archive import ArchiveService
+    from src.services.llm import LLMService
+    from src.services.permission import FeaturePermissionService
+    from src.services.personnel import PersonnelService
+    from src.services.personnel_sync import SyncCoordinator
 
 logger = structlog.get_logger()
 
@@ -113,8 +114,8 @@ async def _startup_chat(
 
     返回 (chat_service, archive_service)。
     """
-    from src.core.chat.archive_service import ArchiveService
-    from src.core.chat.service import ChatHistoryService
+    from src.services.chat import ChatHistoryService
+    from src.services.chat_archive import ArchiveService
 
     chat_session_factory = create_session_factory(chat_engine)
     chat_service = ChatHistoryService(session_factory=chat_session_factory)
@@ -140,8 +141,8 @@ def _startup_personnel(
     settings: Settings,
 ) -> tuple[PersonnelService, SyncCoordinator]:
     """用户管理模块初始化，返回 (personnel_service, sync_coordinator)。"""
-    from src.core.personnel.service import PersonnelService
-    from src.core.personnel.sync import SyncCoordinator
+    from src.services.personnel import PersonnelService
+    from src.services.personnel_sync import SyncCoordinator
 
     personnel_service = PersonnelService(
         session_factory=session_factory,
@@ -164,19 +165,46 @@ def _startup_llm(
     cache_client: CacheClient,
 ) -> LLMService:
     """LLM 模块初始化，返回 LLMService。"""
-    from src.core.llm.completion import init_completion
-    from src.core.llm.service import LLMService
+    from src.services.llm import LLMService
+    from src.services.llm_completion import init_completion
 
     llm_service = LLMService(session_factory=session_factory, cache=cache_client)
     init_completion(llm_service)
     return llm_service
 
 
+async def _startup_permission(
+    session_factory: async_sessionmaker[AsyncSession],
+    cache_client: CacheClient,
+    personnel_svc: PersonnelService,
+) -> FeaturePermissionService:
+    """初始化权限系统：同步功能注册表并注入 dispatcher。"""
+    from src.core.framework.permission_checker import FeaturePermissionChecker
+    from src.services.permission import FeaturePermissionService
+
+    permission_service = FeaturePermissionService(
+        session_factory=session_factory,
+        cache=cache_client,
+    )
+    await permission_service.sync_features(scanner.controllers)
+
+    checker = FeaturePermissionChecker(
+        permission_service=permission_service,
+        personnel_service=personnel_svc,
+    )
+    dispatcher.feature_checker = checker
+    dispatcher.personnel_service = personnel_svc
+
+    logger.info(
+        "权限系统已就绪",
+        event_type="permission.ready",
+    )
+    return permission_service
+
+
 def _startup_framework(settings: Settings) -> None:
     """扫描处理器。"""
     scan_packages = list(settings.HANDLER_SCAN_PACKAGES)
-    if "src.core.personnel" not in scan_packages:
-        scan_packages.append("src.core.personnel")
     scanner.scan(scan_packages)
     handlers_registered.set(composite_mapping.registered_count)
 
@@ -225,7 +253,7 @@ def _register_services_to_dispatcher(
 
     供 Controller 通过 ctx.get_service() 获取。
     """
-    from src.core.personnel.service import PersonnelService
+    from src.services.personnel import PersonnelService
 
     if personnel_service is not None:
         dispatcher_instance.services[PersonnelService] = personnel_service
@@ -259,7 +287,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     engine, session_factory = await _startup_database(settings)
     cache_client = CacheClient(url=settings.CACHE_REDIS_URL, default_ttl=settings.CACHE_DEFAULT_TTL)
 
-    import src.core.chat  # noqa: F401 — 触发聊天库迁移目标注册
+    import src.core.db.chat_migrations  # noqa: F401 — 触发聊天库迁移目标注册
 
     chat_engine = create_engine(
         settings.CHAT_DATABASE_URL,
@@ -280,6 +308,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     # 框架
     _startup_framework(settings)
 
+    # 权限系统（功能同步 + checker 注入）
+    permission_service = await _startup_permission(session_factory, cache_client, personnel_service)
+
     # 将服务注册到 Dispatcher（供 Controller 通过 ctx.get_service() 获取）
     _register_services_to_dispatcher(
         dispatcher,
@@ -292,6 +323,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     event_dispatch_callback = _build_event_dispatch_callback(chat_service, dispatcher, bot_api)
 
     # ── 将所有实例存入 app.state（供 Depends / WsDeps 获取） ──
+    app.state.permission_service = permission_service
     app.state.conn_mgr = conn_mgr
     app.state.bot_api = bot_api
     app.state.heartbeat = heartbeat

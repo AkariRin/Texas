@@ -7,12 +7,12 @@
 """
 
 # ── 主库模型（Base.metadata） ──
-from src.core.chat.archive_models import ChatArchiveLog
-
 # ── 聊天库模型（ChatBase.metadata） ──
-from src.core.chat.models import ChatMessage
-from src.core.llm.models import LLM, LLMProvider
-from src.core.personnel.models import Group, GroupMembership, User
+from src.models.chat import ChatMessage
+from src.models.chat_archive import ChatArchiveLog
+from src.models.llm import LLM, LLMProvider
+from src.models.permission import Feature, GroupFeaturePermission, PrivateFeaturePermission
+from src.models.personnel import Group, GroupMembership, User
 
 __all__: list[str] = [
     # 主库
@@ -22,6 +22,9 @@ __all__: list[str] = [
     "LLMProvider",
     "LLM",
     "ChatArchiveLog",
+    "Feature",
+    "GroupFeaturePermission",
+    "PrivateFeaturePermission",
     # 聊天库
     "ChatMessage",
 ]

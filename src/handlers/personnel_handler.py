@@ -11,7 +11,7 @@ from src.core.framework.decorators import controller, on_notice
 if TYPE_CHECKING:
     from src.core.framework.context import Context
 
-from src.core.personnel.service import PersonnelService
+from src.services.personnel import PersonnelService
 
 logger = structlog.get_logger()
 

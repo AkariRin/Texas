@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any
 
 from src.core.framework.decorators import Permission
 from src.core.protocol.models.events import (
+    GroupMessageEvent,
     MessageEvent,
 )
 
@@ -261,6 +262,18 @@ class CompositeHandlerMapping(HandlerMapping):
         handlers: list[HandlerMethod] = []
         for mapping in self._mappings:
             handlers.extend(mapping.resolve(event))
+
+        # message_scope 过滤：仅对消息事件生效
+        if isinstance(event, MessageEvent):
+            is_group = isinstance(event, GroupMessageEvent)
+            handlers = [
+                h
+                for h in handlers
+                if (scope := h.metadata.get("message_scope", "all")) == "all"
+                or (scope == "group" and is_group)
+                or (scope == "private" and not is_group)
+            ]
+
         handlers.sort(key=lambda h: h.priority)
         return handlers
 

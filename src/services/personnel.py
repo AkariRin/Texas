@@ -25,8 +25,8 @@ from src.core.monitoring.metrics import (
     personnel_sync_total,
     personnel_users_total,
 )
-from src.core.personnel.models import Group, GroupMembership, User
 from src.core.utils import SHANGHAI_TZ
+from src.models.personnel import Group, GroupMembership, User
 
 if TYPE_CHECKING:
     from sqlalchemy.engine import CursorResult
@@ -556,10 +556,10 @@ class PersonnelService:
             event_type="personnel.group_card_change",
         )
 
-    # ── 管理员管理 ──
+    # ── 超级管理员管理 ──
 
     async def set_admin(self, qq: int) -> bool:
-        """设置管理员。返回是否成功。"""
+        """设置超级管理员。返回是否成功。"""
         async with self._session_factory() as session, session.begin():
             user = await session.get(User, qq)
             if not user:
@@ -568,11 +568,11 @@ class PersonnelService:
 
         await self._cache.delete(user_relation_key(qq))
         await self._cache.delete(admin_set_key())
-        logger.info("管理员已设置", qq=qq, event_type="personnel.admin_set")
+        logger.info("超级管理员已设置", qq=qq, event_type="personnel.admin_set")
         return True
 
     async def remove_admin(self, qq: int) -> bool:
-        """移除管理员，根据当前状态自动降级。返回是否成功。"""
+        """移除超级管理员，根据当前状态自动降级。返回是否成功。"""
         async with self._session_factory() as session, session.begin():
             user = await session.get(User, qq)
             if not user or user.relation != "admin":
@@ -589,14 +589,13 @@ class PersonnelService:
             )
             has_membership = mem_result.scalar_one_or_none() is not None
 
-            # 检查是否为好友（无法精确判断，降级为 group_member 或 stranger）
             # 好友状态在下次同步时会自动修正
             user.relation = "group_member" if has_membership else "stranger"
 
         await self._cache.delete(user_relation_key(qq))
         await self._cache.delete(admin_set_key())
         logger.info(
-            "管理员已移除",
+            "超级管理员已移除",
             qq=qq,
             new_relation=user.relation,
             event_type="personnel.admin_removed",
@@ -604,19 +603,33 @@ class PersonnelService:
         return True
 
     async def get_admins(self) -> list[dict[str, Any]]:
-        """获取所有管理员列表。"""
+        """获取所有超级管理员列表。"""
         async with self._session_factory() as session:
             result = await session.execute(select(User).where(User.relation == "admin"))
             admins = result.scalars().all()
             return [
                 {
-                    "qq": a.qq,
-                    "nickname": a.nickname,
-                    "relation": a.relation,
-                    "last_synced": a.last_synced.isoformat() if a.last_synced else None,
+                    "qq": r.qq,
+                    "nickname": r.nickname,
+                    "relation": r.relation,
+                    "last_synced": r.last_synced.isoformat() if r.last_synced else None,
                 }
-                for a in admins
+                for r in admins
             ]
+
+    async def get_admin_qq_set(self) -> set[int]:
+        """获取所有超级管理员的 QQ 号集合（带 Redis 缓存）。"""
+        cache_key = admin_set_key()
+        cached = await self._cache.get(cache_key)
+        if cached and isinstance(cached, list):
+            return set(cached)
+
+        async with self._session_factory() as session:
+            result = await session.execute(select(User.qq).where(User.relation == "admin"))
+            qq_list = [row[0] for row in result.all()]
+
+        await self._cache.set(cache_key, qq_list, ttl=300)
+        return set(qq_list)
 
     # ── 查询操作 ──
 
@@ -898,7 +911,7 @@ class PersonnelService:
                 result = await session.execute(select(User.qq).where(User.relation == "friend"))
                 personnel_friends_total.set(len(result.all()))
 
-                # 管理员总数
+                # 超级管理员总数
                 result = await session.execute(select(User.qq).where(User.relation == "admin"))
                 personnel_admins_total.set(len(result.all()))
 
@@ -935,5 +948,5 @@ class PersonnelService:
                 "清除关系缓存失败", error=str(exc), event_type="personnel.cache_invalidate_error"
             )
 
-        # 同时清除管理员集合缓存
+        # 同时清除超级管理员集合缓存
         await self._cache.delete(admin_set_key())

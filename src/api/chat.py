@@ -13,8 +13,8 @@ from src.core.dependencies import get_archive_service, get_chat_service
 from src.core.utils.response import ok
 
 if TYPE_CHECKING:
-    from src.core.chat.archive_service import ArchiveService
-    from src.core.chat.service import ChatHistoryService
+    from src.services.chat import ChatHistoryService
+    from src.services.chat_archive import ArchiveService
 
 logger = structlog.get_logger()
 
@@ -25,7 +25,6 @@ router = APIRouter(prefix="/v1/chat", tags=["chat"])
 
 class TriggerArchiveRequest(BaseModel):
     partition_name: str | None = None
-
 
 
 # ════════════════════════════════════════════
@@ -116,7 +115,7 @@ async def trigger_archive(
     body: TriggerArchiveRequest | None = None,
 ) -> dict[str, Any]:
     """手动触发归档任务。"""
-    from src.core.tasks.chat_archive import archive_chat_history
+    from src.tasks.chat_archive import archive_chat_history
 
     partition_name = body.partition_name if body else None
     task = archive_chat_history.delay(partition_name)

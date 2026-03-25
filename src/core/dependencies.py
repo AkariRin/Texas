@@ -8,21 +8,22 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from fastapi import Request, WebSocket
+from fastapi import Request, WebSocket  # noqa: TC002
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Coroutine
 
     from src.core.cache.client import CacheClient
-    from src.core.chat.archive_service import ArchiveService
-    from src.core.chat.service import ChatHistoryService
     from src.core.framework.scanner import ComponentScanner
-    from src.core.llm.service import LLMService
-    from src.core.personnel.service import PersonnelService
-    from src.core.personnel.sync import SyncCoordinator
     from src.core.protocol.api import BotAPI
     from src.core.ws.connection import ConnectionManager
     from src.core.ws.heartbeat import HeartbeatMonitor
+    from src.services.chat import ChatHistoryService
+    from src.services.chat_archive import ArchiveService
+    from src.services.llm import LLMService
+    from src.services.permission import FeaturePermissionService
+    from src.services.personnel import PersonnelService
+    from src.services.personnel_sync import SyncCoordinator
 
 
 # ── FastAPI 路由层 Depends 函数 ──
@@ -61,6 +62,11 @@ def get_personnel_service(request: Request) -> PersonnelService:
 def get_cache_client(request: Request) -> CacheClient:
     """获取 Redis 缓存客户端。"""
     return request.app.state.cache_client  # type: ignore[no-any-return]
+
+
+def get_permission_service(request: Request) -> FeaturePermissionService:
+    """获取功能级权限服务。"""
+    return request.app.state.permission_service  # type: ignore[no-any-return]
 
 
 def get_scanner(request: Request) -> ComponentScanner:

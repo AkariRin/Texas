@@ -15,9 +15,9 @@ import structlog
 
 if TYPE_CHECKING:
     from src.core.config import Settings
-    from src.core.personnel.service import PersonnelService
     from src.core.protocol.api import BotAPI
     from src.core.ws.connection import ConnectionManager
+    from src.services.personnel import PersonnelService
 
 logger = structlog.get_logger()
 
@@ -109,9 +109,7 @@ class SyncCoordinator:
                 return None
 
         self._last_sync_start = time.monotonic()
-        self._current_task = asyncio.create_task(
-            self._run_sync(), name="personnel-sync"
-        )
+        self._current_task = asyncio.create_task(self._run_sync(), name="personnel-sync")
         logger.info(
             "同步任务已创建",
             source=source,
@@ -185,9 +183,7 @@ class SyncCoordinator:
             if groups_data and isinstance(groups_data, list):
                 for group in groups_data:
                     if not self._conn_mgr.connected:
-                        logger.warning(
-                            "同步中途连接断开", event_type="personnel.sync_interrupted"
-                        )
+                        logger.warning("同步中途连接断开", event_type="personnel.sync_interrupted")
                         break
 
                     group_id = group.get("group_id") if isinstance(group, dict) else None
@@ -195,9 +191,7 @@ class SyncCoordinator:
                         continue
 
                     try:
-                        member_resp = await self._bot_api.get_group_member_list(
-                            int(group_id)
-                        )
+                        member_resp = await self._bot_api.get_group_member_list(int(group_id))
                         if member_resp.ok and isinstance(member_resp.data, list):
                             members_data[int(group_id)] = member_resp.data
                     except Exception as exc:
@@ -212,12 +206,11 @@ class SyncCoordinator:
                     await asyncio.sleep(self._settings.PERSONNEL_SYNC_API_DELAY)
 
             # 4. 直接持久化到数据库
-            result = await self._personnel_service.persist_sync_data(
+            await self._personnel_service.persist_sync_data(
                 friends=friends_data,
                 groups=groups_data,
                 members=members_data,
             )
-
 
         except Exception as exc:
             logger.error(

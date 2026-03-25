@@ -1,6 +1,6 @@
 <template>
   <v-container fluid class="logs-container">
-    <PageHeader icon="mdi-text-box-outline" title="应用日志" subtitle="实时日志流">
+    <PageHeader>
       <div class="d-flex align-center ga-2">
         <v-chip :color="connected ? 'success' : 'error'" variant="elevated" size="small">
           <v-icon

@@ -1,6 +1,6 @@
 <template>
   <v-container fluid>
-    <PageHeader icon="mdi-view-dashboard" title="仪表盘" subtitle="Texas 机器人管理面板概览" />
+    <PageHeader />
   </v-container>
 </template>
 

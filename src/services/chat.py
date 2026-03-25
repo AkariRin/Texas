@@ -8,8 +8,8 @@ from typing import TYPE_CHECKING, Any
 import structlog
 from sqlalchemy import func, select, text
 
-from src.core.chat.models import ChatMessage, MessageType
 from src.core.utils import SHANGHAI_TZ
+from src.models.chat import ChatMessage, MessageType
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -249,7 +249,6 @@ class ChatHistoryService:
             messages = [self._row_to_dict(row) for row in result.scalars().all()]
 
         return {"items": messages, "total": total}
-
 
     # ════════════════════════════════════════════
     #  内部工具

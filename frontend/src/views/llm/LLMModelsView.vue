@@ -1,6 +1,6 @@
 <template>
   <v-container fluid>
-    <PageHeader icon="mdi-brain" title="模型管理" subtitle="管理和配置 LLM 模型">
+    <PageHeader>
       <v-select
         v-model="filterProvider"
         :items="providerOptions"

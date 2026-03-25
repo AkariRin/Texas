@@ -122,7 +122,7 @@ export const usePersonnelStore = defineStore('personnel', () => {
     }
   }
 
-  // ── 管理员 ──
+  // ── 超级管理员 ──
   const admins = ref<UserItem[]>([])
   const adminsLoading = ref(false)
 
@@ -166,7 +166,7 @@ export const usePersonnelStore = defineStore('personnel', () => {
     syncLoading,
     loadSyncStatus,
     doSync,
-    // 管理员
+    // 超级管理员
     admins,
     adminsLoading,
     loadAdmins,

@@ -1,6 +1,6 @@
 <template>
   <v-container fluid>
-    <PageHeader icon="mdi-forum" title="群聊管理" subtitle="管理和查看机器人加入的群聊" />
+    <PageHeader />
     <v-card flat>
       <v-card-title class="d-flex align-center flex-wrap ga-2">
         <v-text-field

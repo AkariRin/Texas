@@ -1,7 +1,7 @@
 """LLM 高层调用接口 —— 供项目其他模块直接使用。
 
 使用方式：
-    from src.core.llm.completion import llm_complete, llm_stream
+    from src.services.llm_completion import llm_complete, llm_stream
 
     # 一次性获取完整回复
     reply = await llm_complete("deepseek-chat", [
@@ -21,7 +21,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
 
-    from src.core.llm.service import LLMService
+    from src.services.llm import LLMService
 
 _service: LLMService | None = None
 

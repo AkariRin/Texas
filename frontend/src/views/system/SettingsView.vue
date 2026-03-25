@@ -1,6 +1,6 @@
 <template>
   <v-container fluid>
-    <PageHeader icon="mdi-cog" title="设置" subtitle="Texas 机器人管理面板设置" />
+    <PageHeader />
   </v-container>
 </template>
 

@@ -15,7 +15,15 @@ class Permission(IntEnum):
     GROUP_MEMBER = 10
     GROUP_ADMIN = 20
     GROUP_OWNER = 30
-    SUPERUSER = 100
+    ADMIN = 100  # 超级管理员
+
+
+class MessageScope(str):
+    """消息作用域 —— 限制 handler 仅在特定消息类型中触发。"""
+
+    ALL = "all"
+    GROUP = "group"
+    PRIVATE = "private"
 
 
 # ── 存储在被装饰对象上的元数据键 ──
@@ -32,8 +40,17 @@ def controller(
     description: str = "",
     version: str = "0.0.0",
     default_priority: int = 50,
+    default_enabled: bool = True,
 ) -> Callable[[type], type]:
-    """将类标记为控制器（类似 Spring @Controller）。"""
+    """将类标记为控制器（类似 Spring @Controller）。
+
+    Args:
+        name: 控制器名称，同时作为功能注册表的主键。
+        description: 功能描述，显示在权限管理页面。
+        version: 版本号。
+        default_priority: 处理器默认优先级。
+        default_enabled: 该功能默认是否启用（可被管理员覆盖）。
+    """
 
     def decorator(cls: type) -> type:
         setattr(
@@ -44,6 +61,7 @@ def controller(
                 "description": description,
                 "version": version,
                 "default_priority": default_priority,
+                "default_enabled": default_enabled,
             },
         )
         return cls
@@ -58,15 +76,24 @@ def _handler_decorator(
     mapping_type: str,
     priority: int | None = None,
     permission: Permission = Permission.ANYONE,
+    message_scope: str = MessageScope.ALL,
+    default_enabled: bool | None = None,
     **kwargs: Any,
 ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
-    """内部辅助函数，用于将处理器元数据附加到方法上。"""
+    """内部辅助函数，用于将处理器元数据附加到方法上。
+
+    Args:
+        message_scope: 消息作用域（all/group/private），限制触发的消息类型。
+        default_enabled: 该 method 默认是否启用；None 表示跟随 controller 配置。
+    """
 
     def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         meta = {
             "mapping_type": mapping_type,
             "priority": priority,
             "permission": permission,
+            "message_scope": message_scope,
+            "default_enabled": default_enabled,
             **kwargs,
         }
         # 允许叠加多个装饰器
@@ -83,12 +110,16 @@ def on_command(
     aliases: set[str] | None = None,
     priority: int | None = None,
     permission: Permission = Permission.ANYONE,
+    message_scope: str = MessageScope.ALL,
+    default_enabled: bool | None = None,
 ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     """通过命令前缀匹配消息（例如 /echo）。"""
     return _handler_decorator(
         "command",
         priority=priority,
         permission=permission,
+        message_scope=message_scope,
+        default_enabled=default_enabled,
         cmd=cmd,
         aliases=aliases or set(),
     )
@@ -99,6 +130,8 @@ def on_regex(
     flags: int = 0,
     priority: int | None = None,
     permission: Permission = Permission.ANYONE,
+    message_scope: str = MessageScope.ALL,
+    default_enabled: bool | None = None,
 ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     """通过正则表达式匹配消息。"""
     compiled = re.compile(pattern, flags)
@@ -106,6 +139,8 @@ def on_regex(
         "regex",
         priority=priority,
         permission=permission,
+        message_scope=message_scope,
+        default_enabled=default_enabled,
         pattern=pattern,
         compiled_pattern=compiled,
     )
@@ -115,12 +150,16 @@ def on_keyword(
     keywords: set[str],
     priority: int | None = None,
     permission: Permission = Permission.ANYONE,
+    message_scope: str = MessageScope.ALL,
+    default_enabled: bool | None = None,
 ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     """匹配包含任意关键词的消息。"""
     return _handler_decorator(
         "keyword",
         priority=priority,
         permission=permission,
+        message_scope=message_scope,
+        default_enabled=default_enabled,
         keywords=keywords,
     )
 
@@ -129,12 +168,16 @@ def on_startswith(
     prefix: str,
     priority: int | None = None,
     permission: Permission = Permission.ANYONE,
+    message_scope: str = MessageScope.ALL,
+    default_enabled: bool | None = None,
 ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     """匹配以指定前缀开头的消息。"""
     return _handler_decorator(
         "startswith",
         priority=priority,
         permission=permission,
+        message_scope=message_scope,
+        default_enabled=default_enabled,
         prefix=prefix,
     )
 
@@ -143,12 +186,16 @@ def on_endswith(
     suffix: str,
     priority: int | None = None,
     permission: Permission = Permission.ANYONE,
+    message_scope: str = MessageScope.ALL,
+    default_enabled: bool | None = None,
 ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     """匹配以指定后缀结尾的消息。"""
     return _handler_decorator(
         "endswith",
         priority=priority,
         permission=permission,
+        message_scope=message_scope,
+        default_enabled=default_enabled,
         suffix=suffix,
     )
 
@@ -157,12 +204,16 @@ def on_fullmatch(
     text: str,
     priority: int | None = None,
     permission: Permission = Permission.ANYONE,
+    message_scope: str = MessageScope.ALL,
+    default_enabled: bool | None = None,
 ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     """完全匹配消息文本。"""
     return _handler_decorator(
         "fullmatch",
         priority=priority,
         permission=permission,
+        message_scope=message_scope,
+        default_enabled=default_enabled,
         text=text,
     )
 

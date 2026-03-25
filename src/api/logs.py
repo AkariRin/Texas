@@ -13,8 +13,6 @@ from starlette.responses import StreamingResponse
 
 from src.core.utils import SHANGHAI_TZ
 
-from src.core.utils import SHANGHAI_TZ
-
 router = APIRouter()
 
 # ANSI 转义序列正则（覆盖 CSI 序列与 OSC 序列）

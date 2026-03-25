@@ -1,6 +1,6 @@
 <template>
   <v-container fluid>
-    <PageHeader icon="mdi-account-group" title="用户管理" subtitle="管理和查看机器人用户信息" />
+    <PageHeader />
     <v-card flat>
       <v-card-title class="d-flex align-center flex-wrap ga-2">
         <!-- 筛选栏 -->

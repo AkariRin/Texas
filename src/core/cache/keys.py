@@ -47,5 +47,5 @@ def user_relation_key(qq: int) -> str:
 
 
 def admin_set_key() -> str:
-    """管理员 QQ 号集合（Redis Set）。"""
+    """超级管理员 QQ 号集合（Redis Set）。"""
     return "texas:personnel:admins"

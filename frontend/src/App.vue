@@ -103,8 +103,8 @@
           class="nav-item"
         ></v-list-item>
         <v-list-item
-          prepend-icon="mdi-shield-account"
-          title="管理员"
+          prepend-icon="mdi-shield-crown"
+          title="超级管理员"
           value="personnel-admins"
           to="/personnel/admins"
           rounded="lg"
@@ -149,6 +149,27 @@
           title="模型管理"
           value="llm-models"
           to="/llm/models"
+          rounded="lg"
+          class="nav-item"
+        ></v-list-item>
+      </v-list>
+
+      <!-- 权限管理 -->
+      <v-list density="compact" nav class="nav-list">
+        <v-list-subheader v-if="!rail" class="nav-subheader">权限管理</v-list-subheader>
+        <v-list-item
+          prepend-icon="mdi-shield-check"
+          title="群聊权限"
+          value="permissions-groups"
+          to="/permissions/groups"
+          rounded="lg"
+          class="nav-item"
+        ></v-list-item>
+        <v-list-item
+          prepend-icon="mdi-account-lock"
+          title="私聊权限"
+          value="permissions-private"
+          to="/permissions/private"
           rounded="lg"
           class="nav-item"
         ></v-list-item>

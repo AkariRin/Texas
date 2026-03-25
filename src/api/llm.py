@@ -11,19 +11,19 @@ from fastapi import APIRouter, Depends, HTTPException
 from starlette.responses import StreamingResponse
 
 from src.core.dependencies import get_llm_service
-from src.core.llm.schemas import (  # noqa: TC001
+from src.core.utils.response import ok
+from src.services.llm_schemas import (  # noqa: TC001
     ChatRequest,
     ModelCreate,
     ModelUpdate,
     ProviderCreate,
     ProviderUpdate,
 )
-from src.core.utils.response import ok
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
 
-    from src.core.llm.service import LLMService
+    from src.services.llm import LLMService
 
 logger = structlog.get_logger()
 

@@ -1,6 +1,6 @@
 <template>
   <v-container fluid>
-    <PageHeader icon="mdi-tray-full" title="任务队列" subtitle="查看定时任务调度与消息队列状态">
+    <PageHeader>
       <v-chip
         :color="store.connected ? 'success' : 'grey'"
         variant="elevated"

@@ -1,8 +1,8 @@
 <template>
   <v-container fluid>
-    <PageHeader icon="mdi-shield-account" title="管理员" subtitle="管理机器人管理员权限">
+    <PageHeader>
       <v-btn color="red" variant="elevated" prepend-icon="mdi-plus" @click="addDialog = true">
-        添加管理员
+        添加超级管理员
       </v-btn>
     </PageHeader>
     <v-card flat>
@@ -21,8 +21,8 @@
       <template v-else>
         <div v-if="store.admins.length === 0" class="d-flex flex-column align-center justify-center py-16 text-medium-emphasis">
           <v-icon icon="mdi-shield-off-outline" size="48" class="mb-4" />
-          <div class="text-body-1">暂无管理员</div>
-          <div class="text-body-2 mt-1">点击右上角「添加管理员」来设置</div>
+          <div class="text-body-1">暂无超级管理员</div>
+          <div class="text-body-2 mt-1">点击右上角「添加超级管理员」来设置</div>
         </div>
 
         <div v-else class="d-flex flex-wrap ga-4 pa-4">
@@ -52,17 +52,17 @@
                 @click="confirmRemove(admin)"
               >
                 <v-icon>mdi-shield-off</v-icon>
-                <v-tooltip activator="parent" location="top">移除管理员</v-tooltip>
+                <v-tooltip activator="parent" location="top">移除超级管理员</v-tooltip>
               </v-btn>
             </div>
           </v-card>
         </div>
       </template>
 
-      <!-- 添加管理员对话框 -->
+      <!-- 添加超级管理员对话框 -->
       <v-dialog v-model="addDialog" max-width="400">
         <v-card>
-          <v-card-title>添加管理员</v-card-title>
+          <v-card-title>添加超级管理员</v-card-title>
           <v-card-text>
             <v-text-field
               v-model="addQQ"
@@ -84,12 +84,12 @@
         </v-card>
       </v-dialog>
 
-      <!-- 添加管理员二次确认对话框 -->
+      <!-- 添加超级管理员二次确认对话框 -->
       <v-dialog v-model="addConfirmDialog" max-width="400">
         <v-card>
           <v-card-title>二次确认</v-card-title>
           <v-card-text>
-            确定要将 <strong>{{ addQQ }}</strong> 设为管理员吗？该用户将获得管理员权限。
+            确定要将 <strong>{{ addQQ }}</strong> 设为超级管理员吗？该用户将绕过所有功能级权限检查。
           </v-card-text>
           <v-card-actions>
             <v-spacer />
@@ -104,10 +104,10 @@
       <!-- 移除确认对话框 -->
       <v-dialog v-model="removeDialog" max-width="400">
         <v-card>
-          <v-card-title>确认移除管理员</v-card-title>
+          <v-card-title>确认移除超级管理员</v-card-title>
           <v-card-text>
             确定要移除
-            <strong>{{ removeTarget?.nickname || removeTarget?.qq }}</strong> 的管理员权限吗？
+            <strong>{{ removeTarget?.nickname || removeTarget?.qq }}</strong> 的超级管理员权限吗？
             移除后，系统将根据其当前状态自动降级为好友、群友或陌生人。
           </v-card-text>
           <v-card-actions>
@@ -136,14 +136,14 @@ import PageHeader from '@/components/PageHeader.vue'
 
 const store = usePersonnelStore()
 
-// 添加管理员
+// 添加超级管理员
 const addDialog = ref(false)
 const addConfirmDialog = ref(false)
 const addQQ = ref<string>('')
 const addLoading = ref(false)
 const addError = ref('')
 
-// 移除管理员
+// 移除超级管理员
 const removeDialog = ref(false)
 const removeTarget = ref<UserItem | null>(null)
 const removeLoading = ref(false)
@@ -191,7 +191,7 @@ async function doAdd() {
     addConfirmDialog.value = false
     addDialog.value = false
     addQQ.value = ''
-    showSnack(`已将 ${qq} 设为管理员`)
+    showSnack(`已将 ${qq} 设为超级管理员`)
   } catch (e: unknown) {
     const err = e as { response?: { data?: { detail?: string } } }
     const msg = err?.response?.data?.detail || '操作失败'
@@ -214,7 +214,7 @@ async function doRemove() {
   try {
     await store.unsetAdmin(removeTarget.value.qq)
     removeDialog.value = false
-    showSnack(`已移除 ${removeTarget.value.nickname || removeTarget.value.qq} 的管理员权限`)
+    showSnack(`已移除 ${removeTarget.value.nickname || removeTarget.value.qq} 的超级管理员权限`)
   } catch (e: unknown) {
     const err = e as { response?: { data?: { detail?: string } } }
     const msg = err?.response?.data?.detail || '操作失败'

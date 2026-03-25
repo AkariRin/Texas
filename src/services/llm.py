@@ -10,9 +10,9 @@ import structlog
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
-from src.core.llm.client import LLMClient
-from src.core.llm.models import LLM, LLMProvider
-from src.core.llm.schemas import (  # noqa: TC001
+from src.models.llm import LLM, LLMProvider
+from src.services.llm_client import LLMClient
+from src.services.llm_schemas import (  # noqa: TC001
     ModelCreate,
     ModelUpdate,
     ProviderCreate,
@@ -362,7 +362,7 @@ class LLMService:
     @staticmethod
     def _provider_to_dict(provider: LLMProvider) -> dict[str, Any]:
         """将 LLMProvider ORM 对象转换为响应字典。"""
-        from src.core.llm.schemas import ProviderResponse
+        from src.services.llm_schemas import ProviderResponse
 
         return {
             "id": str(provider.id),
