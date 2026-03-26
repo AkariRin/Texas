@@ -23,6 +23,7 @@ logger = structlog.get_logger()
     tags=["system", "personnel"],
     version="1.0.0",
     default_enabled=True,
+    system=True,
 )
 class PersonnelEventHandler:
     """用户数据增量更新 —— 监听群与好友变动事件。

@@ -13,6 +13,8 @@ from typing import TYPE_CHECKING, Any, Literal, cast
 
 import structlog
 
+from src.core.framework.decorators import feature
+
 if TYPE_CHECKING:
     from src.core.config import Settings
     from src.core.protocol.api import BotAPI
@@ -24,6 +26,14 @@ logger = structlog.get_logger()
 SyncSource = Literal["ws_connect", "manual", "scheduled"]
 
 
+@feature(
+    name="personnel_sync",
+    display_name="人员数据同步",
+    description="定时从 NapCat 同步用户和群聊数据",
+    tags=["system"],
+    default_enabled=True,
+    system=True,
+)
 class SyncCoordinator:
     """用户数据同步协调器 —— 确保同一时刻最多只有一个同步任务运行。
 

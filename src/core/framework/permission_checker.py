@@ -19,8 +19,9 @@ class FeaturePermissionChecker:
 
     检查顺序：
     1. ADMIN 超级管理员直接通过（绕过所有功能权限）
-    2. 群聊 → 两级群聊权限（controller 级 + method 级）
-    3. 私聊 → 以 controller 级为粒度的黑/白名单
+    2. 系统级功能（system=True）直接通过（始终启用）
+    3. 群聊 → 先检查群 bot 总开关，再检查两级功能权限
+    4. 私聊 → 以 controller 级为粒度的黑/白名单
     """
 
     def __init__(
@@ -42,6 +43,11 @@ class FeaturePermissionChecker:
         if ctx.user_id in admin_set:
             return True
 
+        # 系统级功能始终允许
+        handler_meta = getattr(handler, "metadata", {}) or {}
+        if handler_meta.get("system"):
+            return True
+
         ctrl_feature: str = handler.controller_name
         method_feature: str = f"{handler.controller_name}.{handler.method_name}"
 
@@ -49,6 +55,15 @@ class FeaturePermissionChecker:
             group_id = ctx.group_id
             if group_id is None:
                 return True
+            # 先检查群 bot 总开关
+            if not await self._service.is_group_enabled(group_id):
+                logger.debug(
+                    "群 bot 总开关关闭",
+                    group_id=group_id,
+                    user_id=ctx.user_id,
+                    event_type="permission.group_disabled",
+                )
+                return False
             allowed = await self._service.is_group_feature_enabled(
                 group_id, ctrl_feature, method_feature
             )

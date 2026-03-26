@@ -6,10 +6,23 @@ from typing import Any
 
 import structlog
 
+from src.core.framework.decorators import feature
 from src.core.tasks.celery_app import celery_app
 from src.core.tasks.utils import run_async
 
 logger = structlog.get_logger()
+
+
+@feature(
+    name="chat_archive",
+    display_name="聊天记录归档",
+    description="按月自动归档聊天记录为 Parquet 并上传至 S3",
+    tags=["system", "chat"],
+    default_enabled=True,
+    system=True,
+)
+class ChatArchiveFeature:
+    """Celery 聊天归档功能注册标记（不直接实例化，仅用于功能注册）。"""
 
 
 def _build_services() -> tuple[Any, Any]:

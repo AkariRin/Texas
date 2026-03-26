@@ -47,6 +47,14 @@ class PrivateUserBody(BaseModel):
     user_qq: int
 
 
+class PrivateUserRemoveBody(BaseModel):
+    user_qq: int
+
+
+class GroupSwitchBody(BaseModel):
+    enabled: bool
+
+
 # ─────────────────────── 功能树 ───────────────────────
 
 
@@ -54,12 +62,12 @@ class PrivateUserBody(BaseModel):
 async def list_features(
     service: FeaturePermissionService = Depends(get_permission_service),
 ) -> dict[str, Any]:
-    """获取功能树（controller + 子 methods）。"""
+    """获取功能树（controller + 子 methods，过滤系统功能）。"""
     features = await service.list_features()
     return ok(features)
 
 
-@router.patch("/features/{name:path}")
+@router.post("/features/{name:path}/update")
 async def update_feature(
     name: str,
     body: FeatureUpdateBody,
@@ -89,7 +97,7 @@ async def get_group_features(
     return ok(perms)
 
 
-@router.put("/groups/{group_id}/features")
+@router.post("/groups/{group_id}/features")
 async def set_group_features(
     group_id: int,
     body: GroupFeatureSetBody,
@@ -98,6 +106,17 @@ async def set_group_features(
     """批量设置群功能状态。"""
     await service.batch_set_group_features(group_id, [f.model_dump() for f in body.features])
     return ok(None, message="ok")
+
+
+@router.post("/groups/{group_id}/switch")
+async def set_group_switch(
+    group_id: int,
+    body: GroupSwitchBody,
+    service: FeaturePermissionService = Depends(get_permission_service),
+) -> dict[str, Any]:
+    """设置群聊 Bot 总开关。"""
+    await service.set_group_enabled(group_id, body.enabled)
+    return ok({"group_id": group_id, "bot_enabled": body.enabled})
 
 
 # ─────────────────────── 私聊权限 ───────────────────────
@@ -124,14 +143,14 @@ async def add_private_user(
     return ok(None, message="ok")
 
 
-@router.delete("/features/{name}/private-users/{qq}")
+@router.post("/features/{name}/private-users/remove")
 async def remove_private_user(
     name: str,
-    qq: int,
+    body: PrivateUserRemoveBody,
     service: FeaturePermissionService = Depends(get_permission_service),
 ) -> dict[str, Any]:
     """从黑/白名单移除用户。"""
-    await service.remove_private_user(name, qq)
+    await service.remove_private_user(name, body.user_qq)
     return ok(None, message="ok")
 
 
@@ -142,6 +161,6 @@ async def remove_private_user(
 async def get_permission_matrix(
     service: FeaturePermissionService = Depends(get_permission_service),
 ) -> dict[str, Any]:
-    """获取完整权限矩阵（所有活跃群 × 所有活跃 controller 功能）。"""
+    """获取完整权限矩阵（所有活跃群 × 所有活跃功能，过滤系统功能）。"""
     matrix = await service.get_permission_matrix()
     return ok(matrix)

@@ -30,6 +30,7 @@ class MessageScope(str):
 
 CONTROLLER_META = "__controller_meta__"
 HANDLER_META = "__handler_meta__"
+FEATURE_META = "__feature_meta__"
 
 
 # ── 类装饰器 ──
@@ -44,6 +45,7 @@ def controller(
     version: str = "0.0.0",
     default_priority: int = 50,
     default_enabled: bool = False,
+    system: bool = False,
 ) -> Callable[[type], type]:
     """将类标记为控制器（类似 Spring @Controller）。
 
@@ -56,6 +58,7 @@ def controller(
         version: 版本号。
         default_priority: 处理器默认优先级。
         default_enabled: 该功能默认是否启用（可被管理员覆盖），默认 False。
+        system: 为 True 时标记为系统级功能，强制启用且不暴露给前端。
     """
 
     def decorator(cls: type) -> type:
@@ -71,6 +74,7 @@ def controller(
                 "version": version,
                 "default_priority": default_priority,
                 "default_enabled": default_enabled,
+                "system": system,
             },
         )
         return cls
@@ -419,3 +423,42 @@ def on_bot_offline(
         event_type="notice",
         notice_type="bot_offline",
     )
+
+
+def feature(
+    name: str,
+    display_name: str = "",
+    description: str = "",
+    tags: list[str] | None = None,
+    default_enabled: bool = False,
+    system: bool = False,
+) -> Callable[[type], type]:
+    """将类标记为可管理功能（非 handler），仅注册到功能表，不参与事件分发。
+
+    适用于定时任务、后台服务等无需 handler 的组件，将其纳入权限管理。
+
+    Args:
+        name: 功能唯一标识。
+        display_name: 展示名称，为空则取 name。
+        description: 功能描述。
+        tags: 分类标签列表。
+        default_enabled: 默认是否启用。
+        system: 为 True 时标记为系统级功能，强制启用且不暴露给前端。
+    """
+
+    def decorator(cls: type) -> type:
+        setattr(
+            cls,
+            FEATURE_META,
+            {
+                "name": name,
+                "display_name": display_name or name,
+                "description": description,
+                "tags": tags or [],
+                "default_enabled": default_enabled,
+                "system": system,
+            },
+        )
+        return cls
+
+    return decorator

@@ -10,6 +10,7 @@ import {
   fetchPrivateUsers,
   updateFeature,
   setGroupFeatures,
+  setGroupSwitch,
   addPrivateUser,
   removePrivateUser,
 } from '@/apis/permission'
@@ -109,6 +110,17 @@ export const usePermissionStore = defineStore('permission', () => {
     }
   }
 
+  async function toggleGroupSwitch(groupId: number, enabled: boolean) {
+    await setGroupSwitch(groupId, enabled)
+    // 更新矩阵本地状态
+    if (matrix.value) {
+      const group = matrix.value.groups.find((g) => g.group_id === groupId)
+      if (group) {
+        group.bot_enabled = enabled
+      }
+    }
+  }
+
   async function loadPrivateUsers(featureName: string) {
     const users = await fetchPrivateUsers(featureName)
     privateUsers.value[featureName] = users
@@ -147,6 +159,7 @@ export const usePermissionStore = defineStore('permission', () => {
     loadMatrix,
     patchFeature,
     saveGroupFeatures,
+    toggleGroupSwitch,
     loadPrivateUsers,
     addUser,
     removeUser,

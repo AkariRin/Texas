@@ -53,13 +53,16 @@ export interface MatrixControllerFeature {
   children: MatrixMethodFeature[]
 }
 
+export interface PermissionMatrixGroup {
+  group_id: number
+  group_name: string
+  bot_enabled: boolean
+  permissions: Record<string, boolean>
+}
+
 export interface PermissionMatrix {
   features: MatrixControllerFeature[]
-  groups: {
-    group_id: number
-    group_name: string
-    permissions: Record<string, boolean>
-  }[]
+  groups: PermissionMatrixGroup[]
 }
 
 export interface FeatureUpdateData {
@@ -89,7 +92,10 @@ export async function fetchFeatures(): Promise<FeatureItem[]> {
 }
 
 export async function updateFeature(name: string, payload: FeatureUpdateData): Promise<void> {
-  await axios.patch<ApiResponse<unknown>>(`${BASE}/features/${encodeURIComponent(name)}`, payload)
+  await axios.post<ApiResponse<unknown>>(
+    `${BASE}/features/${encodeURIComponent(name)}/update`,
+    payload,
+  )
 }
 
 // ── 群聊权限 ──
@@ -105,7 +111,11 @@ export async function setGroupFeatures(
   groupId: number,
   payload: GroupFeatureSetData,
 ): Promise<void> {
-  await axios.put<ApiResponse<null>>(`${BASE}/groups/${groupId}/features`, payload)
+  await axios.post<ApiResponse<null>>(`${BASE}/groups/${groupId}/features`, payload)
+}
+
+export async function setGroupSwitch(groupId: number, enabled: boolean): Promise<void> {
+  await axios.post<ApiResponse<null>>(`${BASE}/groups/${groupId}/switch`, { enabled })
 }
 
 // ── 私聊权限 ──
@@ -125,8 +135,9 @@ export async function addPrivateUser(featureName: string, userQq: number): Promi
 }
 
 export async function removePrivateUser(featureName: string, userQq: number): Promise<void> {
-  await axios.delete<ApiResponse<null>>(
-    `${BASE}/features/${encodeURIComponent(featureName)}/private-users/${userQq}`,
+  await axios.post<ApiResponse<null>>(
+    `${BASE}/features/${encodeURIComponent(featureName)}/private-users/remove`,
+    { user_qq: userQq },
   )
 }
 

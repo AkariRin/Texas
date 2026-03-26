@@ -51,6 +51,10 @@ class Group(Base):
         Boolean, default=True, index=True, comment="群聊是否活跃（机器人是否仍在群中）"
     )
 
+    bot_enabled: Mapped[bool] = mapped_column(
+        Boolean, default=True, server_default="true", comment="Bot 总开关（可关闭该群所有功能）"
+    )
+
     last_synced: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), comment="最后同步时间"
     )

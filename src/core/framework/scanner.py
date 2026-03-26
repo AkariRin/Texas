@@ -9,7 +9,7 @@ from typing import Any
 
 import structlog
 
-from src.core.framework.decorators import CONTROLLER_META, HANDLER_META
+from src.core.framework.decorators import CONTROLLER_META, FEATURE_META, HANDLER_META
 from src.core.framework.mapping import CompositeHandlerMapping, HandlerMethod
 
 logger = structlog.get_logger()
@@ -21,12 +21,18 @@ class ComponentScanner:
     def __init__(self, mapping: CompositeHandlerMapping) -> None:
         self._mapping = mapping
         self._controllers: list[dict[str, Any]] = []
+        self._standalone_features: list[dict[str, Any]] = []
         self._feature_metadata: dict[str, dict[str, Any]] = {}
 
     @property
     def controllers(self) -> list[dict[str, Any]]:
         """返回所有已发现控制器的元数据。"""
         return list(self._controllers)
+
+    @property
+    def standalone_features(self) -> list[dict[str, Any]]:
+        """返回所有 @feature 装饰的独立功能列表（非 handler）。"""
+        return list(self._standalone_features)
 
     @property
     def feature_metadata(self) -> dict[str, dict[str, Any]]:
@@ -65,6 +71,7 @@ class ComponentScanner:
                     "message_scope": method.get("message_scope", "all"),
                     "mapping_type": method.get("mapping_type", ""),
                     "tags": [],
+                    "system": ctrl.get("system", False),
                 }
                 metadata[method_name] = child_meta
                 children.append(child_meta)
@@ -78,8 +85,24 @@ class ComponentScanner:
                 "mapping_type": "",
                 "tags": ctrl.get("tags", []),
                 "children": children,
+                "system": ctrl.get("system", False),
             }
             metadata[ctrl_name] = ctrl_meta
+
+        # 处理独立 @feature 功能
+        for feat in self._standalone_features:
+            feat_name: str = feat["name"]
+            metadata[feat_name] = {
+                "name": feat_name,
+                "display_name": feat.get("display_name", feat_name),
+                "description": feat.get("description", ""),
+                "admin": False,
+                "message_scope": "all",
+                "mapping_type": "",
+                "tags": feat.get("tags", []),
+                "children": [],
+                "system": feat.get("system", False),
+            }
 
         self._feature_metadata = metadata
 
@@ -124,14 +147,22 @@ class ComponentScanner:
                     pass
 
     def _discover_in_module(self, module: Any) -> None:
-        """查找模块中所有被 @controller 装饰的类。"""
+        """查找模块中所有被 @controller 或 @feature 装饰的类。"""
         for _name, obj in inspect.getmembers(module, inspect.isclass):
             if obj.__module__ != module.__name__:
                 continue
             ctrl_meta = getattr(obj, CONTROLLER_META, None)
-            if ctrl_meta is None:
+            if ctrl_meta is not None:
+                self._register_controller(obj, ctrl_meta)
                 continue
-            self._register_controller(obj, ctrl_meta)
+            feat_meta = getattr(obj, FEATURE_META, None)
+            if feat_meta is not None:
+                self._standalone_features.append(feat_meta)
+                logger.info(
+                    "独立功能注册成功",
+                    feature=feat_meta["name"],
+                    event_type="scanner.feature_registered",
+                )
 
     def _register_controller(self, cls: type, ctrl_meta: dict[str, Any]) -> None:
         """实例化控制器并注册其处理器方法。"""
@@ -166,7 +197,7 @@ class ComponentScanner:
                     method=method,
                     priority=priority,
                     permission=meta.get("permission", 0),
-                    metadata=meta,
+                    metadata={**meta, "system": ctrl_meta.get("system", False)},
                     controller_name=controller_name,
                     method_name=method_name,
                 )

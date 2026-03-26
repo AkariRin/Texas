@@ -187,7 +187,10 @@ async def _startup_permission(
         cache=cache_client,
         metadata_provider=scanner.feature_metadata,
     )
-    await permission_service.sync_features(scanner.controllers)
+    await permission_service.sync_features(
+        scanner.controllers,
+        standalone_features=scanner.standalone_features,
+    )
 
     checker = FeaturePermissionChecker(
         permission_service=permission_service,
@@ -204,8 +207,9 @@ async def _startup_permission(
 
 
 def _startup_framework(settings: Settings) -> None:
-    """扫描处理器。"""
-    scan_packages = list(settings.HANDLER_SCAN_PACKAGES)
+    """扫描处理器与独立功能组件。"""
+    # 扫描 handler 包 + 服务层 + 任务层（收集 @feature 装饰的独立功能）
+    scan_packages = list(settings.HANDLER_SCAN_PACKAGES) + ["src.services", "src.tasks"]
     scanner.scan(scan_packages)
     handlers_registered.set(composite_mapping.registered_count)
 
@@ -213,6 +217,7 @@ def _startup_framework(settings: Settings) -> None:
         "处理器扫描完成",
         total_handlers=composite_mapping.registered_count,
         controllers=len(scanner.controllers),
+        standalone_features=len(scanner.standalone_features),
         event_type="app.scan_complete",
     )
 

@@ -48,6 +48,11 @@ class Feature(Base):
     # 标记功能是否仍然活跃（对应代码中仍存在的 controller/method）
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, comment="功能是否仍在代码中存在")
 
+    # 系统级功能标记：强制启用且不暴露给前端
+    system: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="false", comment="系统级功能，强制启用且前端不可见"
+    )
+
     # 自关联：children 仅在 controller 级有意义
     children: Mapped[list[Feature]] = relationship(
         "Feature",

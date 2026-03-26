@@ -31,7 +31,7 @@ if TYPE_CHECKING:
 def _load_registries() -> None:
     """触发所有模块的迁移目标注册（通过各模块 __init__.py 的 register_migration_target 调用）。"""
     importlib.import_module("src.core.db")
-    importlib.import_module("src.core.chat")
+    importlib.import_module("src.core.db.chat_migrations")
 
 
 def _get_settings() -> Settings:
