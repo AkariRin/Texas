@@ -8,9 +8,12 @@ Create Date: 2026-03-10 00:00:00.000000
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from typing import TYPE_CHECKING
 
 from alembic import op
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
 # revision identifiers, used by Alembic.
 revision: str = "a1b2c3d4e5f6"

@@ -18,8 +18,10 @@ import sys
 from typing import TYPE_CHECKING
 
 from alembic import command
+from alembic.config import Config
 
 if TYPE_CHECKING:
+    from src.core.config import Settings
     from src.core.db.migration_registry import MigrationTarget
 
 
@@ -32,7 +34,7 @@ def _load_registries() -> None:
     importlib.import_module("src.core.chat")
 
 
-def _get_settings():  # type: ignore[no-untyped-def]
+def _get_settings() -> Settings:
     from src.core.config import get_settings
 
     return get_settings()
@@ -57,7 +59,7 @@ def _get_all_targets() -> list[MigrationTarget]:
     return get_all_targets()
 
 
-def _build_cfg(target: MigrationTarget, settings=None):  # type: ignore[no-untyped-def]
+def _build_cfg(target: MigrationTarget, settings: Settings | None = None) -> Config:
     from src.core.db.alembic_config_factory import build_alembic_config
 
     if settings is None:

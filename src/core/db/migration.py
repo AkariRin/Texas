@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING, Any
 import structlog
 from alembic import command
 from alembic.autogenerate import compare_metadata
+from alembic.config import Config
 from alembic.migration import MigrationContext
 from alembic.script import ScriptDirectory
 from alembic.util.exc import CommandError
@@ -148,7 +149,7 @@ def _upgrade_head(alembic_cfg) -> None:  # type: ignore[no-untyped-def]
 
 async def _handle_production(
     engine: AsyncEngine,
-    alembic_cfg,
+    alembic_cfg: Config,
     current_rev: str | None,
     head_rev: str | None,
     target: MigrationTarget,
@@ -191,7 +192,7 @@ async def _handle_production(
 
 async def _handle_development(
     engine: AsyncEngine,
-    alembic_cfg,
+    alembic_cfg: Config,
     current_rev: str | None,
     head_rev: str | None,
     target: MigrationTarget,

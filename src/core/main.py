@@ -185,6 +185,7 @@ async def _startup_permission(
     permission_service = FeaturePermissionService(
         session_factory=session_factory,
         cache=cache_client,
+        metadata_provider=scanner.feature_metadata,
     )
     await permission_service.sync_features(scanner.controllers)
 

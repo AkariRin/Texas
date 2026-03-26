@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+import uuid
 from typing import TYPE_CHECKING, Any
 
 import structlog
@@ -9,6 +11,7 @@ from sqlalchemy import delete, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from src.models.permission import Feature, GroupFeaturePermission, PrivateFeaturePermission
+from src.models.personnel import Group
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -30,9 +33,12 @@ class FeaturePermissionService:
         self,
         session_factory: async_sessionmaker[AsyncSession],
         cache: CacheClient,
+        metadata_provider: dict[str, Any] | None = None,
     ) -> None:
         self._factory = session_factory
         self._cache = cache
+        # 内存元数据：由 ComponentScanner.feature_metadata 注入，不经 DB 存储
+        self._metadata: dict[str, Any] = metadata_provider or {}
 
     # ─────────────────────── 功能同步 ───────────────────────
 
@@ -51,14 +57,14 @@ class FeaturePermissionService:
 
             for ctrl in controllers:
                 ctrl_name: str = ctrl["name"]
-                ctrl_enabled: bool = ctrl.get("default_enabled", True)
+                ctrl_enabled: bool = ctrl.get("default_enabled", False)
                 active_names.add(ctrl_name)
 
                 upserts.append(
                     {
                         "name": ctrl_name,
                         "parent": None,
-                        "display_name": ctrl_name,
+                        "display_name": ctrl.get("display_name") or ctrl_name,
                         "description": ctrl.get("description", ""),
                         "default_enabled": ctrl_enabled,
                         "is_active": True,
@@ -78,24 +84,17 @@ class FeaturePermissionService:
                         {
                             "name": method_name,
                             "parent": ctrl_name,
-                            "display_name": method["method"],
-                            "description": "",
+                            "display_name": method.get("display_name") or method["method"],
+                            "description": method.get("description", ""),
                             "default_enabled": method_enabled,
                             "is_active": True,
                         }
                     )
 
             # 批量 upsert（仅更新展示信息，不覆盖管理员配置）
-            for item in upserts:
-                stmt = pg_insert(Feature).values(
-                    name=item["name"],
-                    parent=item["parent"],
-                    display_name=item["display_name"],
-                    description=item["description"],
-                    default_enabled=item["default_enabled"],
-                    enabled=item["default_enabled"],  # 新记录时使用默认值
-                    is_active=True,
-                )
+            if upserts:
+                batch_values = [{**item, "enabled": item["default_enabled"]} for item in upserts]
+                stmt = pg_insert(Feature).values(batch_values)
                 stmt = stmt.on_conflict_do_update(
                     index_elements=["name"],
                     set_={
@@ -131,16 +130,12 @@ class FeaturePermissionService:
         ctrl_feature: str,
         method_feature: str,
     ) -> bool:
-        """两级群聊权限查询。
-
-        先检查 controller 级（短路），再检查 method 级。
-        """
-        # controller 级检查
-        ctrl_enabled = await self._get_group_feature(group_id, ctrl_feature)
-        if not ctrl_enabled:
-            return False
-        # method 级检查
-        return await self._get_group_feature(group_id, method_feature)
+        """两级群聊权限查询（并发查缓存/DB，减少热路径延迟）。"""
+        ctrl_enabled, method_enabled = await asyncio.gather(
+            self._get_group_feature(group_id, ctrl_feature),
+            self._get_group_feature(group_id, method_feature),
+        )
+        return ctrl_enabled and method_enabled
 
     async def _get_group_feature(self, group_id: int, feature_name: str) -> bool:
         """获取群聊某功能的启用状态（含缓存）。"""
@@ -232,6 +227,7 @@ class FeaturePermissionService:
         children_map: dict[str, list[dict[str, Any]]] = {}
 
         for f in features:
+            meta = self._metadata.get(f.name, {})
             item = {
                 "name": f.name,
                 "parent": f.parent,
@@ -241,6 +237,11 @@ class FeaturePermissionService:
                 "enabled": f.enabled,
                 "private_mode": f.private_mode,
                 "is_active": f.is_active,
+                # 内存元数据注解字段
+                "admin": meta.get("admin", False),
+                "message_scope": meta.get("message_scope", "all"),
+                "mapping_type": meta.get("mapping_type", ""),
+                "tags": meta.get("tags", []),
                 "children": [],
             }
             if f.parent is None:
@@ -271,25 +272,25 @@ class FeaturePermissionService:
             return None
 
         async with self._factory() as session:
-            await session.execute(update(Feature).where(Feature.name == name).values(**updates))
+            stmt = (
+                update(Feature)
+                .where(Feature.name == name)
+                .values(**updates)
+                .returning(Feature.name, Feature.enabled, Feature.private_mode)
+            )
+            result = await session.execute(stmt)
+            row = result.first()
             await session.commit()
-
-            row = await session.execute(select(Feature).where(Feature.name == name))
-            feat = row.scalar_one_or_none()
-            if feat is None:
+            if row is None:
                 return None
-            return {
-                "name": feat.name,
-                "enabled": feat.enabled,
-                "private_mode": feat.private_mode,
-            }
+            return {"name": row.name, "enabled": row.enabled, "private_mode": row.private_mode}
 
     async def get_group_permissions(self, group_id: int) -> list[dict[str, Any]]:
-        """获取某群所有功能的权限状态（含未显式设置的功能）。"""
+        """获取某群所有功能的权限状态（含未显式设置的功能，controller + method 两级）。"""
         async with self._factory() as session:
-            # 所有活跃 controller 级功能
+            # 所有活跃功能（含 controller + method 两级）
             feat_rows = await session.execute(
-                select(Feature).where(Feature.is_active.is_(True), Feature.parent.is_(None))
+                select(Feature).where(Feature.is_active.is_(True)).order_by(Feature.name)
             )
             features = feat_rows.scalars().all()
 
@@ -307,6 +308,7 @@ class FeaturePermissionService:
                     "display_name": f.display_name,
                     "enabled": perms.get(f.name, f.enabled),
                     "is_explicit": f.name in perms,
+                    "parent": f.parent,
                 }
             )
         return result
@@ -315,7 +317,7 @@ class FeaturePermissionService:
         """设置（或更新）群对某功能的启用状态。"""
         async with self._factory() as session:
             stmt = pg_insert(GroupFeaturePermission).values(
-                id=__import__("uuid").uuid4(),
+                id=uuid.uuid4(),
                 group_id=group_id,
                 feature_name=feature_name,
                 enabled=enabled,
@@ -331,9 +333,37 @@ class FeaturePermissionService:
         await self._cache.delete(_KEY_GROUP.format(group_id=group_id, feature=feature_name))
 
     async def batch_set_group_features(self, group_id: int, features: list[dict[str, Any]]) -> None:
-        """批量设置群功能状态。features: [{feature_name, enabled}]"""
-        for item in features:
-            await self.set_group_feature(group_id, item["feature_name"], item["enabled"])
+        """批量设置群功能状态（单事务原子操作）。features: [{feature_name, enabled}]"""
+        if not features:
+            return
+
+        async with self._factory() as session:
+            values = [
+                {
+                    "id": uuid.uuid4(),
+                    "group_id": group_id,
+                    "feature_name": item["feature_name"],
+                    "enabled": item["enabled"],
+                }
+                for item in features
+            ]
+            stmt = pg_insert(GroupFeaturePermission).values(values)
+            stmt = stmt.on_conflict_do_update(
+                constraint="uq_group_feature",
+                set_={"enabled": stmt.excluded.enabled},
+            )
+            await session.execute(stmt)
+            await session.commit()
+
+        # 批量清缓存
+        await asyncio.gather(
+            *[
+                self._cache.delete(
+                    _KEY_GROUP.format(group_id=group_id, feature=item["feature_name"])
+                )
+                for item in features
+            ]
+        )
 
     async def get_private_users(self, feature_name: str) -> list[int]:
         """获取私聊黑/白名单用户列表。"""
@@ -349,7 +379,7 @@ class FeaturePermissionService:
         """添加用户到黑/白名单。"""
         async with self._factory() as session:
             stmt = pg_insert(PrivateFeaturePermission).values(
-                id=__import__("uuid").uuid4(),
+                id=uuid.uuid4(),
                 feature_name=feature_name,
                 user_qq=user_qq,
             )
@@ -373,17 +403,15 @@ class FeaturePermissionService:
         await self._cache.delete(_KEY_PRIVATE.format(feature=feature_name, qq=user_qq))
 
     async def get_permission_matrix(self) -> dict[str, Any]:
-        """获取完整权限矩阵（所有活跃群 × 所有活跃 controller 功能）。"""
+        """获取完整权限矩阵（所有活跃群 × 所有活跃功能，含 controller + method 两级）。"""
         async with self._factory() as session:
-            # 所有活跃 controller 功能
+            # 所有活跃功能（含 controller 和 method 两级）
             feat_rows = await session.execute(
-                select(Feature).where(Feature.is_active.is_(True), Feature.parent.is_(None))
+                select(Feature).where(Feature.is_active.is_(True)).order_by(Feature.name)
             )
-            features = feat_rows.scalars().all()
+            all_features = feat_rows.scalars().all()
 
             # 所有群
-            from src.models.personnel import Group
-
             group_rows = await session.execute(
                 select(Group.group_id, Group.group_name).where(Group.is_active.is_(True))
             )
@@ -395,21 +423,55 @@ class FeaturePermissionService:
                 (p.group_id, p.feature_name): p.enabled for p in perm_rows.scalars().all()
             }
 
-        return {
-            "features": [
+        # 构建树形 features 结构
+        ctrl_features: list[Feature] = [f for f in all_features if f.parent is None]
+        method_features_map: dict[str, list[Feature]] = {}
+        for f in all_features:
+            if f.parent is not None:
+                method_features_map.setdefault(f.parent, []).append(f)
+
+        features_tree = []
+        for ctrl in ctrl_features:
+            ctrl_meta = self._metadata.get(ctrl.name, {})
+            children = []
+            for method in method_features_map.get(ctrl.name, []):
+                method_meta = self._metadata.get(method.name, {})
+                children.append(
+                    {
+                        "name": method.name,
+                        "display_name": method.display_name,
+                        "description": method.description,
+                        "enabled": method.enabled,
+                        "admin": method_meta.get("admin", False),
+                        "message_scope": method_meta.get("message_scope", "all"),
+                        "mapping_type": method_meta.get("mapping_type", ""),
+                    }
+                )
+            features_tree.append(
                 {
-                    "name": f.name,
-                    "display_name": f.display_name,
-                    "enabled": f.enabled,
+                    "name": ctrl.name,
+                    "display_name": ctrl.display_name,
+                    "description": ctrl.description,
+                    "enabled": ctrl.enabled,
+                    "admin": ctrl_meta.get("admin", False),
+                    "tags": ctrl_meta.get("tags", []),
+                    "children": children,
                 }
-                for f in features
-            ],
+            )
+
+        # 构建每个群的权限 map（包含所有 feature name）
+        all_feature_names = [f.name for f in all_features]
+        feature_default_map = {f.name: f.enabled for f in all_features}
+
+        return {
+            "features": features_tree,
             "groups": [
                 {
                     "group_id": g.group_id,
                     "group_name": g.group_name,
                     "permissions": {
-                        f.name: perms.get((g.group_id, f.name), f.enabled) for f in features
+                        name: perms.get((g.group_id, name), feature_default_map[name])
+                        for name in all_feature_names
                     },
                 }
                 for g in groups

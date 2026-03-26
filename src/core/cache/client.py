@@ -55,6 +55,6 @@ class CacheClient:
         val = await self.get(key)
         if val is not None:
             return val
-        val = factory() if not callable(factory) else factory()
+        val = factory()
         await self.set(key, val, ttl)
         return val

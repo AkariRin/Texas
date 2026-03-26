@@ -15,6 +15,11 @@ export interface FeatureItem {
   enabled: boolean
   private_mode: 'blacklist' | 'whitelist'
   is_active: boolean
+  // 内存元数据注解字段（从装饰器同步）
+  admin?: boolean
+  message_scope?: string
+  mapping_type?: string
+  tags?: string[]
   children: FeatureItem[]
 }
 
@@ -23,14 +28,33 @@ export interface GroupFeaturePermission {
   display_name: string
   enabled: boolean
   is_explicit: boolean
+  parent: string | null
+}
+
+/** matrix feature 子项（method 级） */
+export interface MatrixMethodFeature {
+  name: string
+  display_name: string
+  description: string
+  enabled: boolean
+  admin: boolean
+  message_scope: string
+  mapping_type: string
+}
+
+/** matrix feature 顶级项（controller 级） */
+export interface MatrixControllerFeature {
+  name: string
+  display_name: string
+  description: string
+  enabled: boolean
+  admin: boolean
+  tags: string[]
+  children: MatrixMethodFeature[]
 }
 
 export interface PermissionMatrix {
-  features: {
-    name: string
-    display_name: string
-    enabled: boolean
-  }[]
+  features: MatrixControllerFeature[]
   groups: {
     group_id: number
     group_name: string

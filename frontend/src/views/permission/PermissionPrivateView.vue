@@ -3,30 +3,74 @@
     <PageHeader />
 
     <v-row>
-      <!-- 左侧：功能列表 -->
+      <!-- 左侧：功能树形列表 -->
       <v-col cols="12" md="4">
         <v-card flat>
           <v-card-title class="text-subtitle-1">功能列表</v-card-title>
           <v-list density="compact" nav>
-            <v-list-item
-              v-for="feat in permStore.controllerFeatures"
-              :key="feat.name"
-              :value="feat.name"
-              :active="selectedFeature === feat.name"
-              active-color="red"
-              rounded="lg"
-              @click="selectFeature(feat)"
-            >
-              <template #prepend>
-                <v-icon :color="feat.enabled ? 'green' : 'grey'">
-                  {{ feat.enabled ? 'mdi-check-circle' : 'mdi-close-circle' }}
-                </v-icon>
-              </template>
-              <v-list-item-title>{{ feat.display_name || feat.name }}</v-list-item-title>
-              <v-list-item-subtitle class="text-caption">
-                {{ feat.description || feat.name }}
-              </v-list-item-subtitle>
-            </v-list-item>
+            <template v-for="feat in permStore.controllerFeatures" :key="feat.name">
+              <v-list-group :value="feat.name">
+                <template #activator="{ props }">
+                  <v-list-item
+                    v-bind="props"
+                    :active="selectedFeature === feat.name"
+                    active-color="red"
+                    rounded="lg"
+                    @click.stop="selectFeature(feat)"
+                  >
+                    <template #prepend>
+                      <v-icon :color="feat.enabled ? 'green' : 'grey'" size="small">
+                        {{ feat.enabled ? 'mdi-check-circle' : 'mdi-close-circle' }}
+                      </v-icon>
+                    </template>
+                    <v-list-item-title>{{ feat.display_name || feat.name }}</v-list-item-title>
+                    <v-list-item-subtitle class="text-caption">
+                      {{ feat.description || feat.name }}
+                    </v-list-item-subtitle>
+                    <template #append>
+                      <v-chip v-if="feat.admin" size="x-small" color="warning" variant="tonal">
+                        管理员
+                      </v-chip>
+                    </template>
+                  </v-list-item>
+                </template>
+
+                <!-- Method 子节点（仅展示，不可选择私聊权限） -->
+                <v-list-item
+                  v-for="child in feat.children"
+                  :key="child.name"
+                  class="ps-6"
+                  density="compact"
+                >
+                  <template #prepend>
+                    <v-tooltip location="top">
+                      <template #activator="{ props: tp }">
+                        <v-chip
+                          v-bind="tp"
+                          size="x-small"
+                          variant="outlined"
+                          color="grey"
+                          style="font-family: monospace; cursor: help"
+                        >
+                          {{ child.mapping_type || 'event' }}
+                        </v-chip>
+                      </template>
+                      <div>
+                        <div v-if="child.message_scope !== 'all'">scope: {{ child.message_scope }}</div>
+                        <div v-if="child.admin">管理员专用指令</div>
+                        <div v-if="!child.admin && child.message_scope === 'all'">无额外限制</div>
+                      </div>
+                    </v-tooltip>
+                  </template>
+                  <v-list-item-title class="text-caption">
+                    {{ child.display_name || child.name }}
+                  </v-list-item-title>
+                  <v-list-item-subtitle v-if="child.description" class="text-caption">
+                    {{ child.description }}
+                  </v-list-item-subtitle>
+                </v-list-item>
+              </v-list-group>
+            </template>
           </v-list>
         </v-card>
       </v-col>

@@ -27,7 +27,7 @@ import { useRoute } from 'vue-router'
 const route = useRoute()
 
 const breadcrumbItems = computed(() => [
-  { title: route.meta.group, disabled: true },
-  { title: route.meta.title, disabled: true },
+  { title: route.meta.group ?? '', disabled: true },
+  { title: route.meta.title ?? '', disabled: true },
 ])
 </script>

@@ -28,6 +28,27 @@ export const usePermissionStore = defineStore('permission', () => {
     features.value.filter((f) => f.parent === null && f.is_active),
   )
 
+  /** 矩阵中所有功能名（controller + method 两级），用于统计 */
+  const allMatrixFeatureNames = computed((): string[] => {
+    if (!matrix.value) return []
+    const names: string[] = []
+    for (const ctrl of matrix.value.features) {
+      names.push(ctrl.name)
+      for (const child of ctrl.children) {
+        names.push(child.name)
+      }
+    }
+    return names
+  })
+
+  /** 计算某群已启用的功能数量 */
+  function groupEnabledCount(permissions: Record<string, boolean>): number {
+    return allMatrixFeatureNames.value.filter((name) => permissions[name] !== false).length
+  }
+
+  /** 矩阵中所有功能总数（controller + method） */
+  const totalMatrixFeatureCount = computed((): number => allMatrixFeatureNames.value.length)
+
   // ── Actions ──
 
   async function loadFeatures() {
@@ -119,6 +140,9 @@ export const usePermissionStore = defineStore('permission', () => {
     loading,
     error,
     controllerFeatures,
+    allMatrixFeatureNames,
+    totalMatrixFeatureCount,
+    groupEnabledCount,
     loadFeatures,
     loadMatrix,
     patchFeature,

@@ -10,11 +10,24 @@ if TYPE_CHECKING:
     from src.core.framework.context import Context
 
 
-@controller(name="status", description="Bot 状态查询处理器", version="1.0.0")
+@controller(
+    name="status",
+    display_name="Bot 状态",
+    description="Bot 状态查询处理器，提供运行状态和帮助信息",
+    tags=["system"],
+    version="1.0.0",
+    default_enabled=True,
+)
 class StatusHandler:
     """提供 /status 命令以查询 Bot 信息。"""
 
-    @on_command("status", aliases={"状态"}, priority=10)
+    @on_command(
+        "status",
+        aliases={"状态"},
+        priority=10,
+        display_name="状态查询",
+        description="显示 Bot 当前运行状态和登录信息",
+    )
     async def handle_status(self, ctx: Context) -> bool:
         """处理 /status —— 显示 Bot 运行状态。"""
         try:
@@ -29,7 +42,13 @@ class StatusHandler:
             await ctx.reply("Bot is running.")
         return True
 
-    @on_command("help", aliases={"帮助"}, priority=10)
+    @on_command(
+        "help",
+        aliases={"帮助"},
+        priority=10,
+        display_name="帮助",
+        description="显示所有可用命令列表",
+    )
     async def handle_help(self, ctx: Context) -> bool:
         """处理 /help —— 显示可用命令。"""
         help_text = (

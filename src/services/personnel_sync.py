@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import time
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 import structlog
 
@@ -207,8 +207,8 @@ class SyncCoordinator:
 
             # 4. 直接持久化到数据库
             await self._personnel_service.persist_sync_data(
-                friends=friends_data,
-                groups=groups_data,
+                friends=cast("list[dict[str, Any]] | None", friends_data),
+                groups=cast("list[dict[str, Any]] | None", groups_data),
                 members=members_data,
             )
 

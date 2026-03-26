@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -31,11 +31,16 @@ def get_permission_service(request: Request) -> FeaturePermissionService:
 
 class FeatureUpdateBody(BaseModel):
     enabled: bool | None = None
-    private_mode: str | None = None
+    private_mode: Literal["blacklist", "whitelist"] | None = None
+
+
+class FeatureSetItem(BaseModel):
+    feature_name: str
+    enabled: bool
 
 
 class GroupFeatureSetBody(BaseModel):
-    features: list[dict[str, Any]]  # [{feature_name: str, enabled: bool}]
+    features: list[FeatureSetItem]
 
 
 class PrivateUserBody(BaseModel):
@@ -91,7 +96,7 @@ async def set_group_features(
     service: FeaturePermissionService = Depends(get_permission_service),
 ) -> dict[str, Any]:
     """批量设置群功能状态。"""
-    await service.batch_set_group_features(group_id, body.features)
+    await service.batch_set_group_features(group_id, [f.model_dump() for f in body.features])
     return ok(None, message="ok")
 
 

@@ -16,7 +16,14 @@ from src.services.personnel import PersonnelService
 logger = structlog.get_logger()
 
 
-@controller(name="personnel_event", description="用户数据增量更新处理器", version="1.0.0")
+@controller(
+    name="personnel_event",
+    display_name="人员事件",
+    description="用户数据增量更新处理器，监听群与好友变动事件",
+    tags=["system", "personnel"],
+    version="1.0.0",
+    default_enabled=True,
+)
 class PersonnelEventHandler:
     """用户数据增量更新 —— 监听群与好友变动事件。
 
@@ -24,7 +31,11 @@ class PersonnelEventHandler:
     服务由 ``EventDispatcher`` 在分发时注入到 ``Context`` 中。
     """
 
-    @on_notice(notice_type="friend_add")
+    @on_notice(
+        notice_type="friend_add",
+        display_name="好友添加",
+        description="处理新好友添加事件，更新用户关系记录",
+    )
     async def on_friend_add(self, ctx: Context) -> bool:
         """好友添加事件：若非管理员则升级为 friend。"""
         if not ctx.has_service(PersonnelService):
@@ -46,7 +57,11 @@ class PersonnelEventHandler:
             )
         return False  # 不阻止后续处理器
 
-    @on_notice(notice_type="group_increase")
+    @on_notice(
+        notice_type="group_increase",
+        display_name="群成员增加",
+        description="处理群成员加入事件，创建成员关系记录",
+    )
     async def on_group_increase(self, ctx: Context) -> bool:
         """群成员增加事件：创建成员关系记录。"""
         if not ctx.has_service(PersonnelService):
@@ -70,7 +85,11 @@ class PersonnelEventHandler:
             )
         return False
 
-    @on_notice(notice_type="group_decrease")
+    @on_notice(
+        notice_type="group_decrease",
+        display_name="群成员减少",
+        description="处理群成员退出事件，标记成员关系为非活跃",
+    )
     async def on_group_decrease(self, ctx: Context) -> bool:
         """群成员减少事件：标记成员关系为非活跃，重算 relation。"""
         if not ctx.has_service(PersonnelService):
@@ -95,7 +114,11 @@ class PersonnelEventHandler:
             )
         return False
 
-    @on_notice(notice_type="group_admin")
+    @on_notice(
+        notice_type="group_admin",
+        display_name="管理员变动",
+        description="处理群管理员变动事件，更新成员角色字段",
+    )
     async def on_group_admin(self, ctx: Context) -> bool:
         """群管理员变动事件：更新 role 字段。"""
         if not ctx.has_service(PersonnelService):
@@ -120,7 +143,11 @@ class PersonnelEventHandler:
             )
         return False
 
-    @on_notice(notice_type="group_card")
+    @on_notice(
+        notice_type="group_card",
+        display_name="名片变更",
+        description="处理群名片变更事件，更新成员 card 字段",
+    )
     async def on_group_card(self, ctx: Context) -> bool:
         """群名片变更事件：更新 card 字段。"""
         if not ctx.has_service(PersonnelService):
