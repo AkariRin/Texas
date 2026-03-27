@@ -14,7 +14,7 @@ logger = structlog.get_logger()
 
 def _build_services() -> tuple[Any, Any]:
     """延迟构建归档服务所需的引擎和 session factory。"""
-    from src.core.chat.archive_service import ArchiveService
+    from src.core.chat.archive_service import ArchiveService  # type: ignore[import-untyped]
     from src.core.config import get_settings
     from src.core.db.engine import create_engine, create_session_factory
 

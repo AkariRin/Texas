@@ -93,7 +93,12 @@ const router = createRouter({
       path: '/chat/messages',
       name: 'chat-messages',
       component: () => import('@/views/chat/ChatMessagesView.vue'),
-      meta: { title: '消息记录' },
+      meta: {
+        title: '消息记录',
+        icon: 'mdi-message-text-outline',
+        subtitle: '查看群聊和私聊消息记录',
+        group: '聊天记录',
+      },
     },
     {
       path: '/chat/archive',

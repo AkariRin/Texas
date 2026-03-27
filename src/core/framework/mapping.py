@@ -7,10 +7,8 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 from src.core.framework.decorators import Permission
-from src.core.protocol.models.events import (
-    GroupMessageEvent,
-    MessageEvent,
-)
+from src.core.protocol.models.events import GroupMessageEvent, MessageEvent
+from src.core.protocol.utils import extract_plaintext
 
 if TYPE_CHECKING:
     import re
@@ -32,28 +30,27 @@ class HandlerMethod:
     method_name: str = ""
 
 
+@dataclass
+class ResolvedHandler:
+    """resolve() 的结果单元 —— 包含 HandlerMethod 及本次匹配产生的上下文数据。
+
+    之所以不把匹配结果写入 HandlerMethod（全局单例），是为了避免并发竞态：
+    多个事件同时 resolve 同一正则 handler 时，写全局元数据会导致数据错乱。
+    """
+
+    handler: HandlerMethod
+    regex_match: re.Match[str] | None = None
+
+
 class HandlerMapping(ABC):
     """抽象处理器映射（类似 Spring HandlerMapping）。"""
 
     @abstractmethod
-    def resolve(self, event: OneBotEvent) -> list[HandlerMethod]: ...
+    def resolve(self, event: OneBotEvent) -> list[ResolvedHandler]: ...
 
     @abstractmethod
     def register(self, handler_method: HandlerMethod) -> None: ...
 
-
-def _get_plaintext(event: OneBotEvent) -> str:
-    """从消息事件中提取纯文本。"""
-    if not isinstance(event, MessageEvent):
-        return ""
-    msg = event.message
-    if isinstance(msg, str):
-        return msg
-    parts: list[str] = []
-    for seg in msg:
-        if seg.type == "text":
-            parts.append(str(seg.data.get("text", "")))
-    return "".join(parts).strip()
 
 
 # ── 具体映射实现 ──
@@ -73,15 +70,15 @@ class CommandHandlerMapping(HandlerMapping):
         for name in {cmd} | aliases:
             self._handlers.setdefault(name, []).append(handler_method)
 
-    def resolve(self, event: OneBotEvent) -> list[HandlerMethod]:
+    def resolve(self, event: OneBotEvent) -> list[ResolvedHandler]:
         if not isinstance(event, MessageEvent):
             return []
-        text = _get_plaintext(event)
+        text = extract_plaintext(event)
         if not text.startswith(self._prefix):
             return []
         cmd_text = text[len(self._prefix) :]
         cmd_name = cmd_text.split()[0] if cmd_text else ""
-        return list(self._handlers.get(cmd_name, []))
+        return [ResolvedHandler(handler=hm) for hm in self._handlers.get(cmd_name, [])]
 
 
 class RegexHandlerMapping(HandlerMapping):
@@ -95,17 +92,17 @@ class RegexHandlerMapping(HandlerMapping):
         if pattern:
             self._handlers.append((pattern, handler_method))
 
-    def resolve(self, event: OneBotEvent) -> list[HandlerMethod]:
+    def resolve(self, event: OneBotEvent) -> list[ResolvedHandler]:
         if not isinstance(event, MessageEvent):
             return []
-        text = _get_plaintext(event)
-        results: list[HandlerMethod] = []
+        text = extract_plaintext(event)
+        results: list[ResolvedHandler] = []
         for pattern, hm in self._handlers:
             match = pattern.search(text)
             if match:
-                # 将匹配结果存入元数据，供 ctx.get_regex_match() 使用
-                hm.metadata["_last_match"] = match
-                results.append(hm)
+                # 将匹配结果存入 ResolvedHandler（每次 resolve 独立创建），
+                # 而非写入全局 HandlerMethod 元数据，避免并发竞态
+                results.append(ResolvedHandler(handler=hm, regex_match=match))
         return results
 
 
@@ -120,15 +117,15 @@ class KeywordHandlerMapping(HandlerMapping):
         if keywords:
             self._handlers.append((keywords, handler_method))
 
-    def resolve(self, event: OneBotEvent) -> list[HandlerMethod]:
+    def resolve(self, event: OneBotEvent) -> list[ResolvedHandler]:
         if not isinstance(event, MessageEvent):
             return []
-        text = _get_plaintext(event)
-        results: list[HandlerMethod] = []
-        for keywords, hm in self._handlers:
-            if any(kw in text for kw in keywords):
-                results.append(hm)
-        return results
+        text = extract_plaintext(event)
+        return [
+            ResolvedHandler(handler=hm)
+            for keywords, hm in self._handlers
+            if any(kw in text for kw in keywords)
+        ]
 
 
 class StartsWithHandlerMapping(HandlerMapping):
@@ -140,11 +137,15 @@ class StartsWithHandlerMapping(HandlerMapping):
         if prefix:
             self._handlers.append((prefix, handler_method))
 
-    def resolve(self, event: OneBotEvent) -> list[HandlerMethod]:
+    def resolve(self, event: OneBotEvent) -> list[ResolvedHandler]:
         if not isinstance(event, MessageEvent):
             return []
-        text = _get_plaintext(event)
-        return [hm for prefix, hm in self._handlers if text.startswith(prefix)]
+        text = extract_plaintext(event)
+        return [
+            ResolvedHandler(handler=hm)
+            for prefix, hm in self._handlers
+            if text.startswith(prefix)
+        ]
 
 
 class EndsWithHandlerMapping(HandlerMapping):
@@ -156,11 +157,15 @@ class EndsWithHandlerMapping(HandlerMapping):
         if suffix:
             self._handlers.append((suffix, handler_method))
 
-    def resolve(self, event: OneBotEvent) -> list[HandlerMethod]:
+    def resolve(self, event: OneBotEvent) -> list[ResolvedHandler]:
         if not isinstance(event, MessageEvent):
             return []
-        text = _get_plaintext(event)
-        return [hm for suffix, hm in self._handlers if text.endswith(suffix)]
+        text = extract_plaintext(event)
+        return [
+            ResolvedHandler(handler=hm)
+            for suffix, hm in self._handlers
+            if text.endswith(suffix)
+        ]
 
 
 class FullMatchHandlerMapping(HandlerMapping):
@@ -172,11 +177,11 @@ class FullMatchHandlerMapping(HandlerMapping):
         if text:
             self._handlers.setdefault(text, []).append(handler_method)
 
-    def resolve(self, event: OneBotEvent) -> list[HandlerMethod]:
+    def resolve(self, event: OneBotEvent) -> list[ResolvedHandler]:
         if not isinstance(event, MessageEvent):
             return []
-        text = _get_plaintext(event)
-        return list(self._handlers.get(text, []))
+        text = extract_plaintext(event)
+        return [ResolvedHandler(handler=hm) for hm in self._handlers.get(text, [])]
 
 
 class EventTypeHandlerMapping(HandlerMapping):
@@ -188,8 +193,8 @@ class EventTypeHandlerMapping(HandlerMapping):
     def register(self, handler_method: HandlerMethod) -> None:
         self._handlers.append(handler_method)
 
-    def resolve(self, event: OneBotEvent) -> list[HandlerMethod]:
-        results: list[HandlerMethod] = []
+    def resolve(self, event: OneBotEvent) -> list[ResolvedHandler]:
+        results: list[ResolvedHandler] = []
         for hm in self._handlers:
             meta = hm.metadata
             target_event_type = meta.get("event_type", "")
@@ -217,7 +222,7 @@ class EventTypeHandlerMapping(HandlerMapping):
                 if actual_request_type != target_request_type:
                     continue
 
-            results.append(hm)
+            results.append(ResolvedHandler(handler=hm))
         return results
 
 
@@ -258,24 +263,24 @@ class CompositeHandlerMapping(HandlerMapping):
         if target:
             target.register(handler_method)
 
-    def resolve(self, event: OneBotEvent) -> list[HandlerMethod]:
-        handlers: list[HandlerMethod] = []
+    def resolve(self, event: OneBotEvent) -> list[ResolvedHandler]:
+        resolved: list[ResolvedHandler] = []
         for mapping in self._mappings:
-            handlers.extend(mapping.resolve(event))
+            resolved.extend(mapping.resolve(event))
 
         # message_scope 过滤：仅对消息事件生效
         if isinstance(event, MessageEvent):
             is_group = isinstance(event, GroupMessageEvent)
-            handlers = [
-                h
-                for h in handlers
-                if (scope := h.metadata.get("message_scope", "all")) == "all"
+            resolved = [
+                r
+                for r in resolved
+                if (scope := r.handler.metadata.get("message_scope", "all")) == "all"
                 or (scope == "group" and is_group)
                 or (scope == "private" and not is_group)
             ]
 
-        handlers.sort(key=lambda h: h.priority)
-        return handlers
+        resolved.sort(key=lambda r: r.handler.priority)
+        return resolved
 
     @property
     def registered_count(self) -> int:

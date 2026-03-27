@@ -14,6 +14,7 @@ import structlog
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from prometheus_client import generate_latest
+from starlette.requests import Request
 from starlette.responses import Response
 
 from src.api.router import api_router
@@ -56,35 +57,13 @@ if TYPE_CHECKING:
     from src.services.llm import LLMService
     from src.services.permission import FeaturePermissionService
     from src.services.personnel import PersonnelService
+    from src.services.personnel_query import PersonnelQueryService
     from src.services.personnel_sync import SyncCoordinator
 
 logger = structlog.get_logger()
 
-# ── 全局实例（模块级单例） ──
+# ── 应用配置（只读，安全用作模块级常量） ──
 settings = get_settings()
-conn_mgr = ConnectionManager()
-heartbeat = HeartbeatMonitor(interval_ms=settings.NAPCAT_HEART_INTERVAL)
-bot_api = BotAPI(connection_manager=conn_mgr)
-
-# ── 构建 HandlerMapping 链 ──
-composite_mapping = CompositeHandlerMapping(
-    [
-        CommandHandlerMapping(),
-        RegexHandlerMapping(),
-        KeywordHandlerMapping(),
-        StartsWithHandlerMapping(),
-        EndsWithHandlerMapping(),
-        FullMatchHandlerMapping(),
-        EventTypeHandlerMapping(),
-    ]
-)
-
-# ── 核心调度器 & 扫描器 ──
-dispatcher = EventDispatcher(
-    mapping=composite_mapping,
-    interceptors=[LoggingInterceptor(), MetricsInterceptor()],
-)
-scanner = ComponentScanner(mapping=composite_mapping)
 
 
 # ─────────────────────── 模块启动函数 ───────────────────────
@@ -139,15 +118,24 @@ def _startup_personnel(
     session_factory: async_sessionmaker[AsyncSession],
     cache_client: CacheClient,
     settings: Settings,
-) -> tuple[PersonnelService, SyncCoordinator]:
-    """用户管理模块初始化，返回 (personnel_service, sync_coordinator)。"""
+    *,
+    bot_api: BotAPI,
+    conn_mgr: ConnectionManager,
+) -> tuple[PersonnelService, PersonnelQueryService, SyncCoordinator]:
+    """用户管理模块初始化，返回 (personnel_service, query_service, sync_coordinator)。"""
     from src.services.personnel import PersonnelService
+    from src.services.personnel_query import PersonnelQueryService
     from src.services.personnel_sync import SyncCoordinator
 
     personnel_service = PersonnelService(
         session_factory=session_factory,
         cache=cache_client,
         settings=settings,
+    )
+    # 只读查询服务（共享同一 session_factory / cache）
+    personnel_query_service = PersonnelQueryService(
+        session_factory=session_factory,
+        cache=cache_client,
     )
 
     # 同步协调器（集中管理同步任务生命周期，杜绝重复触发）
@@ -157,7 +145,7 @@ def _startup_personnel(
         personnel_service=personnel_service,
         settings=settings,
     )
-    return personnel_service, sync_coordinator
+    return personnel_service, personnel_query_service, sync_coordinator
 
 
 def _startup_llm(
@@ -166,17 +154,17 @@ def _startup_llm(
 ) -> LLMService:
     """LLM 模块初始化，返回 LLMService。"""
     from src.services.llm import LLMService
-    from src.services.llm_completion import init_completion
 
-    llm_service = LLMService(session_factory=session_factory, cache=cache_client)
-    init_completion(llm_service)
-    return llm_service
+    return LLMService(session_factory=session_factory, cache=cache_client)
 
 
 async def _startup_permission(
     session_factory: async_sessionmaker[AsyncSession],
     cache_client: CacheClient,
     personnel_svc: PersonnelService,
+    *,
+    scanner: ComponentScanner,
+    dispatcher: EventDispatcher,
 ) -> FeaturePermissionService:
     """初始化权限系统：同步功能注册表并注入 dispatcher。"""
     from src.core.framework.permission_checker import FeaturePermissionChecker
@@ -206,7 +194,12 @@ async def _startup_permission(
     return permission_service
 
 
-def _startup_framework(settings: Settings) -> None:
+def _startup_framework(
+    settings: Settings,
+    *,
+    scanner: ComponentScanner,
+    composite_mapping: CompositeHandlerMapping,
+) -> None:
     """扫描处理器与独立功能组件。"""
     # 扫描 handler 包 + 服务层 + 任务层（收集 @feature 装饰的独立功能）
     scan_packages = list(settings.HANDLER_SCAN_PACKAGES) + ["src.services", "src.tasks"]
@@ -259,15 +252,16 @@ def _register_services_to_dispatcher(
 
     供 Controller 通过 ctx.get_service() 获取。
     """
-    from src.services.personnel import PersonnelService
+    from src.core.cache.client import CacheClient as CacheClientClass
+    from src.services.llm import LLMService as LLMServiceClass
+    from src.services.personnel import PersonnelService as PersonnelServiceClass
 
     if personnel_service is not None:
-        dispatcher_instance.services[PersonnelService] = personnel_service
-
-    # 未来可在此处注册更多服务类型:
-    # from src.core.llm.service import LLMService
-    # if llm_service is not None:
-    #     dispatcher_instance.services[LLMService] = llm_service
+        dispatcher_instance.services[PersonnelServiceClass] = personnel_service
+    if llm_service is not None:
+        dispatcher_instance.services[LLMServiceClass] = llm_service
+    if cache_client is not None:
+        dispatcher_instance.services[CacheClientClass] = cache_client
 
 
 # ─────────────────────── Lifespan ───────────────────────
@@ -287,7 +281,28 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
 
     logger.info("Texas 正在启动", version="0.1.0", event_type="app.starting")
 
-    # 基础设施 —— 引擎创建（触发迁移目标注册）
+    # ── 基础设施实例（集中在 lifespan 内创建，通过 app.state 统一暴露） ──
+    conn_mgr = ConnectionManager()
+    heartbeat = HeartbeatMonitor(interval_ms=settings.NAPCAT_HEART_INTERVAL)
+    bot_api = BotAPI(connection_manager=conn_mgr)
+
+    composite_mapping = CompositeHandlerMapping(
+        [
+            CommandHandlerMapping(),
+            RegexHandlerMapping(),
+            KeywordHandlerMapping(),
+            StartsWithHandlerMapping(),
+            EndsWithHandlerMapping(),
+            FullMatchHandlerMapping(),
+            EventTypeHandlerMapping(),
+        ]
+    )
+    dispatcher = EventDispatcher(
+        mapping=composite_mapping,
+        interceptors=[LoggingInterceptor(), MetricsInterceptor()],
+    )
+    scanner = ComponentScanner(mapping=composite_mapping)
+
     from src.core.cache.client import CacheClient
 
     engine, session_factory = await _startup_database(settings)
@@ -305,17 +320,19 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     await run_all_startup_migrations({"main": engine, "chat": chat_engine}, settings)
 
     # 业务模块（依赖 schema 已就绪）
-    personnel_service, sync_coordinator = _startup_personnel(
-        session_factory, cache_client, settings
+    personnel_service, personnel_query_service, sync_coordinator = _startup_personnel(
+        session_factory, cache_client, settings, bot_api=bot_api, conn_mgr=conn_mgr
     )
     llm_service = _startup_llm(session_factory, cache_client)
     chat_service, archive_service = await _startup_chat(chat_engine, session_factory, settings)
 
     # 框架
-    _startup_framework(settings)
+    _startup_framework(settings, scanner=scanner, composite_mapping=composite_mapping)
 
     # 权限系统（功能同步 + checker 注入）
-    permission_service = await _startup_permission(session_factory, cache_client, personnel_service)
+    permission_service = await _startup_permission(
+        session_factory, cache_client, personnel_service, scanner=scanner, dispatcher=dispatcher
+    )
 
     # 将服务注册到 Dispatcher（供 Controller 通过 ctx.get_service() 获取）
     _register_services_to_dispatcher(
@@ -340,6 +357,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     app.state.chat_service = chat_service
     app.state.archive_service = archive_service
     app.state.personnel_service = personnel_service
+    app.state.personnel_query_service = personnel_query_service
     app.state.sync_coordinator = sync_coordinator
     app.state.event_dispatch_callback = event_dispatch_callback
 
@@ -400,11 +418,11 @@ app.include_router(ws_router, prefix="/ws")
 
 # 3. 系统端点
 @app.get("/health")
-async def health_check() -> dict[str, Any]:
+async def health_check(request: Request) -> dict[str, Any]:
     """就绪检查。"""
     return {
         "status": "healthy",
-        "ws_connected": conn_mgr.connected,
+        "ws_connected": request.app.state.conn_mgr.connected,
     }
 
 

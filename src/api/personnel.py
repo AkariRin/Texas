@@ -8,11 +8,16 @@ import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
-from src.core.dependencies import get_personnel_service, get_sync_coordinator
+from src.core.dependencies import (
+    get_personnel_query_service,
+    get_personnel_service,
+    get_sync_coordinator,
+)
 from src.core.utils.response import ok
 
 if TYPE_CHECKING:
     from src.services.personnel import PersonnelService
+    from src.services.personnel_query import PersonnelQueryService
     from src.services.personnel_sync import SyncCoordinator
 
 logger = structlog.get_logger()
@@ -81,7 +86,7 @@ async def list_users(
     relation: str | None = None,
     qq: int | None = None,
     nickname: str | None = None,
-    service: PersonnelService = Depends(get_personnel_service),
+    service: PersonnelQueryService = Depends(get_personnel_query_service),
 ) -> dict[str, Any]:
     """分页查询用户列表。"""
     result = await service.list_users(
@@ -93,7 +98,7 @@ async def list_users(
 @router.get("/users/{qq}")
 async def get_user(
     qq: int,
-    service: PersonnelService = Depends(get_personnel_service),
+    service: PersonnelQueryService = Depends(get_personnel_query_service),
 ) -> dict[str, Any]:
     """获取单个用户详情。"""
     user = await service.get_user(qq)
@@ -105,7 +110,7 @@ async def get_user(
 @router.get("/users/{qq}/groups")
 async def get_user_groups(
     qq: int,
-    service: PersonnelService = Depends(get_personnel_service),
+    service: PersonnelQueryService = Depends(get_personnel_query_service),
 ) -> dict[str, Any]:
     """获取用户所属的所有群聊。"""
     groups = await service.get_user_groups(qq)
@@ -121,7 +126,7 @@ async def list_groups(
     page_size: int = Query(20, ge=1, le=100),
     group_name: str | None = None,
     is_active: bool | None = None,
-    service: PersonnelService = Depends(get_personnel_service),
+    service: PersonnelQueryService = Depends(get_personnel_query_service),
 ) -> dict[str, Any]:
     """分页查询群列表。"""
     result = await service.list_groups(
@@ -133,7 +138,7 @@ async def list_groups(
 @router.get("/groups/{group_id}")
 async def get_group(
     group_id: int,
-    service: PersonnelService = Depends(get_personnel_service),
+    service: PersonnelQueryService = Depends(get_personnel_query_service),
 ) -> dict[str, Any]:
     """获取单个群聊详情。"""
     group = await service.get_group(group_id)
@@ -150,7 +155,7 @@ async def list_group_members(
     role: str | None = None,
     nickname: str | None = None,
     qq: int | None = None,
-    service: PersonnelService = Depends(get_personnel_service),
+    service: PersonnelQueryService = Depends(get_personnel_query_service),
 ) -> dict[str, Any]:
     """分页获取群成员列表。"""
     result = await service.list_group_members(

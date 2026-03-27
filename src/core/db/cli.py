@@ -18,9 +18,10 @@ import sys
 from typing import TYPE_CHECKING
 
 from alembic import command
-from alembic.config import Config
 
 if TYPE_CHECKING:
+    from alembic.config import Config
+
     from src.core.config import Settings
     from src.core.db.migration_registry import MigrationTarget
 

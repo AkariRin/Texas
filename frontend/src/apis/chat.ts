@@ -2,9 +2,12 @@
  * Chat API 接口层 —— 封装 /api/v1/chat 所有后端接口调用。
  */
 
-import axios from 'axios'
+import http from './client'
+import type { ApiResponse, PaginatedResult } from './types'
 
 // ── 类型定义 ──
+
+export type { PaginatedResult } from './types'
 
 export interface ChatMessage {
   id: number
@@ -48,20 +51,6 @@ export interface ArchiveLog {
   completed_at: string | null
 }
 
-export interface PaginatedResult<T> {
-  items: T[]
-  total: number
-  page: number
-  page_size: number
-  pages: number
-}
-
-interface ApiResponse<T> {
-  code: number
-  data: T
-  message: string
-}
-
 // ── API 调用 ──
 
 const BASE = '/api/v1/chat'
@@ -86,7 +75,7 @@ export async function fetchGroupMessages(
   if (params?.userId) query.user_id = params.userId
   if (params?.startDate) query.start_date = params.startDate
   if (params?.endDate) query.end_date = params.endDate
-  const { data } = await axios.get<ApiResponse<ChatMessage[]>>(
+  const { data } = await http.get<ApiResponse<ChatMessage[]>>(
     `${BASE}/messages/group/${groupId}`,
     { params: query },
   )
@@ -100,7 +89,7 @@ export async function fetchPrivateMessages(
   const query: Record<string, string | number> = {}
   if (params?.before) query.before = params.before
   if (params?.limit) query.limit = params.limit
-  const { data } = await axios.get<ApiResponse<ChatMessage[]>>(
+  const { data } = await http.get<ApiResponse<ChatMessage[]>>(
     `${BASE}/messages/private/${userId}`,
     { params: query },
   )
@@ -114,7 +103,7 @@ export async function fetchMessageContext(
 ): Promise<MessageContext> {
   const params: Record<string, string | number> = { created_at: createdAt }
   if (context) params.context = context
-  const { data } = await axios.get<ApiResponse<MessageContext>>(
+  const { data } = await http.get<ApiResponse<MessageContext>>(
     `${BASE}/messages/${messageId}/context`,
     { params },
   )
@@ -130,7 +119,7 @@ export async function fetchArchives(
   const params: Record<string, number> = {}
   if (page) params.page = page
   if (pageSize) params.page_size = pageSize
-  const { data } = await axios.get<ApiResponse<PaginatedResult<ArchiveLog>>>(`${BASE}/archives`, {
+  const { data } = await http.get<ApiResponse<PaginatedResult<ArchiveLog>>>(`${BASE}/archives`, {
     params,
   })
   return data.data
@@ -138,7 +127,7 @@ export async function fetchArchives(
 
 export async function triggerArchive(partitionName?: string): Promise<{ task_id: string }> {
   const body = partitionName ? { partition_name: partitionName } : {}
-  const { data } = await axios.post<ApiResponse<{ task_id: string }>>(
+  const { data } = await http.post<ApiResponse<{ task_id: string }>>(
     `${BASE}/archives/trigger`,
     body,
   )
@@ -153,7 +142,7 @@ export async function queryArchive(
   const params: Record<string, string | number> = { period_start: periodStart }
   if (groupId) params.group_id = groupId
   if (limit) params.limit = limit
-  const { data } = await axios.get<ApiResponse<ChatMessage[]>>(`${BASE}/archives/query`, {
+  const { data } = await http.get<ApiResponse<ChatMessage[]>>(`${BASE}/archives/query`, {
     params,
   })
   return data.data

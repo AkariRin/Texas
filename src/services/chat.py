@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any
 import structlog
 from sqlalchemy import func, select, text
 
+from src.core.db.utils import escape_like as _escape_like
 from src.core.utils import SHANGHAI_TZ
 from src.models.chat import ChatMessage, MessageType
 
@@ -106,7 +107,9 @@ class ChatHistoryService:
             stmt = stmt.where(ChatMessage.created_at > func.now() - text("INTERVAL '30 days'"))
 
         if keyword:
-            stmt = stmt.where(ChatMessage.raw_message.ilike(f"%{keyword}%"))
+            stmt = stmt.where(
+                ChatMessage.raw_message.ilike(f"%{_escape_like(keyword)}%", escape="\\")
+            )
         if user_id:
             stmt = stmt.where(ChatMessage.user_id == user_id)
         if start_date:
@@ -209,16 +212,17 @@ class ChatHistoryService:
         offset: int = 0,
     ) -> dict[str, Any]:
         """搜索消息（关键词 + 筛选条件）。"""
+        keyword_filter = ChatMessage.raw_message.ilike(f"%{_escape_like(keyword)}%", escape="\\")
         stmt = (
             select(ChatMessage)
-            .where(ChatMessage.raw_message.ilike(f"%{keyword}%"))
+            .where(keyword_filter)
             .order_by(ChatMessage.created_at.desc())
         )
 
         count_stmt = (
             select(func.count())
             .select_from(ChatMessage)
-            .where(ChatMessage.raw_message.ilike(f"%{keyword}%"))
+            .where(keyword_filter)
         )
 
         if group_id:

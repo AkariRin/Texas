@@ -2,9 +2,12 @@
  * 用户管理 API 接口层 —— 封装 /api/v1/personnel 所有后端接口调用。
  */
 
-import axios from 'axios'
+import http from './client'
+import type { ApiResponse, PaginatedResult } from './types'
 
 // ── 类型定义 ──
+
+export type { PaginatedResult } from './types'
 
 export interface UserItem {
   qq: number
@@ -55,20 +58,6 @@ export interface SyncStatus {
   memberships_synced: number
 }
 
-export interface PaginatedResult<T> {
-  items: T[]
-  total: number
-  page: number
-  page_size: number
-  pages: number
-}
-
-interface ApiResponse<T> {
-  code: number
-  data: T
-  message: string
-}
-
 // ── API 调用 ──
 
 const BASE = '/api/v1/personnel'
@@ -87,19 +76,19 @@ export async function fetchUsers(params: {
   if (params.qq) query.qq = params.qq
   if (params.nickname) query.nickname = params.nickname
 
-  const { data } = await axios.get<ApiResponse<PaginatedResult<UserItem>>>(`${BASE}/users`, {
+  const { data } = await http.get<ApiResponse<PaginatedResult<UserItem>>>(`${BASE}/users`, {
     params: query,
   })
   return data.data
 }
 
 export async function fetchUser(qq: number): Promise<UserDetail> {
-  const { data } = await axios.get<ApiResponse<UserDetail>>(`${BASE}/users/${qq}`)
+  const { data } = await http.get<ApiResponse<UserDetail>>(`${BASE}/users/${qq}`)
   return data.data
 }
 
 export async function fetchUserGroups(qq: number): Promise<GroupItem[]> {
-  const { data } = await axios.get<ApiResponse<GroupItem[]>>(`${BASE}/users/${qq}/groups`)
+  const { data } = await http.get<ApiResponse<GroupItem[]>>(`${BASE}/users/${qq}/groups`)
   return data.data
 }
 
@@ -116,14 +105,14 @@ export async function fetchGroups(params: {
   if (params.is_active !== null && params.is_active !== undefined)
     query.is_active = params.is_active
 
-  const { data } = await axios.get<ApiResponse<PaginatedResult<GroupItem>>>(`${BASE}/groups`, {
+  const { data } = await http.get<ApiResponse<PaginatedResult<GroupItem>>>(`${BASE}/groups`, {
     params: query,
   })
   return data.data
 }
 
 export async function fetchGroup(groupId: number): Promise<GroupItem> {
-  const { data } = await axios.get<ApiResponse<GroupItem>>(`${BASE}/groups/${groupId}`)
+  const { data } = await http.get<ApiResponse<GroupItem>>(`${BASE}/groups/${groupId}`)
   return data.data
 }
 
@@ -144,7 +133,7 @@ export async function fetchGroupMembers(
   if (params.nickname) query.nickname = params.nickname
   if (params.qq) query.qq = params.qq
 
-  const { data } = await axios.get<ApiResponse<PaginatedResult<GroupMemberItem>>>(
+  const { data } = await http.get<ApiResponse<PaginatedResult<GroupMemberItem>>>(
     `${BASE}/groups/${groupId}/members`,
     { params: query },
   )
@@ -152,23 +141,23 @@ export async function fetchGroupMembers(
 }
 
 export async function triggerSync(): Promise<void> {
-  await axios.post<ApiResponse<null>>(`${BASE}/sync`)
+  await http.post<ApiResponse<null>>(`${BASE}/sync`)
 }
 
 export async function fetchSyncStatus(): Promise<SyncStatus> {
-  const { data } = await axios.get<ApiResponse<SyncStatus>>(`${BASE}/sync/status`)
+  const { data } = await http.get<ApiResponse<SyncStatus>>(`${BASE}/sync/status`)
   return data.data
 }
 
 export async function fetchAdmins(): Promise<UserItem[]> {
-  const { data } = await axios.get<ApiResponse<UserItem[]>>(`${BASE}/admins`)
+  const { data } = await http.get<ApiResponse<UserItem[]>>(`${BASE}/admins`)
   return data.data
 }
 
 export async function addAdmin(qq: number): Promise<void> {
-  await axios.post<ApiResponse<null>>(`${BASE}/admins/${qq}/add`)
+  await http.post<ApiResponse<null>>(`${BASE}/admins/${qq}/add`)
 }
 
 export async function removeAdmin(qq: number): Promise<void> {
-  await axios.post<ApiResponse<null>>(`${BASE}/admins/${qq}/delete`)
+  await http.post<ApiResponse<null>>(`${BASE}/admins/${qq}/delete`)
 }

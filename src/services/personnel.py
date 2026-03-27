@@ -1,4 +1,8 @@
-"""用户管理业务逻辑 —— relation 计算、批量 upsert、数据采集编排。"""
+"""用户管理写操作服务 —— relation 计算、批量 upsert、增量事件、管理员管理。
+
+只读查询（列表、详情）已迁移至 PersonnelQueryService（personnel_query.py），
+本类专注于写入操作，遵循单一职责原则。
+"""
 
 from __future__ import annotations
 
@@ -7,7 +11,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any, cast
 
 import structlog
-from sqlalchemy import case, select, update
+from sqlalchemy import case, func, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from src.core.cache.keys import (
@@ -36,15 +40,6 @@ if TYPE_CHECKING:
     from src.core.config import Settings
 
 logger = structlog.get_logger()
-
-
-# ── 关系等级优先级 ──
-RELATION_PRIORITY = {
-    "stranger": 0,
-    "group_member": 1,
-    "friend": 2,
-    "admin": 3,
-}
 
 
 def compute_relation(
@@ -287,22 +282,26 @@ class PersonnelService:
         )
 
     async def recalculate_relations(self, session: AsyncSession, friend_qq_set: set[int]) -> None:
-        """重算所有非 admin 用户的 relation 字段。"""
+        """重算所有非 admin 用户的 relation 字段（批量查询替代 N+1）。"""
         # 查询所有非 admin 用户
         result = await session.execute(select(User).where(User.relation != "admin"))
         users = result.scalars().all()
 
-        for user in users:
-            # 检查是否有活跃的群成员关系
-            mem_result = await session.execute(
-                select(GroupMembership.id)
-                .where(
-                    GroupMembership.user_id == user.qq,
-                    GroupMembership.is_active.is_(True),
-                )
-                .limit(1)
+        if not users:
+            return
+
+        # 一次性查出所有有活跃群成员关系的用户 ID 集合，避免 N+1
+        user_ids = [u.qq for u in users]
+        mem_result = await session.execute(
+            select(GroupMembership.user_id.distinct()).where(
+                GroupMembership.user_id.in_(user_ids),
+                GroupMembership.is_active.is_(True),
             )
-            has_active_membership = mem_result.scalar_one_or_none() is not None
+        )
+        active_member_ids: set[int] = {row[0] for row in mem_result.all()}
+
+        for user in users:
+            has_active_membership = user.qq in active_member_ids
             is_friend = user.qq in friend_qq_set
 
             new_relation = compute_relation(user.relation, is_friend, has_active_membership)
@@ -631,242 +630,6 @@ class PersonnelService:
         await self._cache.set(cache_key, qq_list, ttl=300)
         return set(qq_list)
 
-    # ── 查询操作 ──
-
-    async def get_user(self, qq: int) -> dict[str, Any] | None:
-        """获取单个用户详情。"""
-        async with self._session_factory() as session:
-            user = await session.get(User, qq)
-            if not user:
-                return None
-
-            # 计算活跃群聊数
-            mem_result = await session.execute(
-                select(GroupMembership).where(
-                    GroupMembership.user_id == qq, GroupMembership.is_active.is_(True)
-                )
-            )
-            memberships = mem_result.scalars().all()
-
-            return {
-                "qq": user.qq,
-                "nickname": user.nickname,
-                "relation": user.relation,
-                "group_count": len(memberships),
-                "last_synced": user.last_synced.isoformat() if user.last_synced else None,
-            }
-
-    async def list_users(
-        self,
-        page: int = 1,
-        page_size: int = 20,
-        relation: str | None = None,
-        qq: int | None = None,
-        nickname: str | None = None,
-    ) -> dict[str, Any]:
-        """分页查询用户列表。"""
-        async with self._session_factory() as session:
-            query = select(User)
-            count_query = select(User.qq)
-
-            if relation:
-                query = query.where(User.relation == relation)
-                count_query = count_query.where(User.relation == relation)
-            if qq:
-                query = query.where(User.qq == qq)
-                count_query = count_query.where(User.qq == qq)
-            if nickname:
-                query = query.where(User.nickname.contains(nickname))
-                count_query = count_query.where(User.nickname.contains(nickname))
-
-            # 总数
-            total_result = await session.execute(count_query)
-            total = len(total_result.all())
-
-            # 分页
-            offset = (page - 1) * page_size
-            query = query.offset(offset).limit(page_size).order_by(User.qq)
-            result = await session.execute(query)
-            users = result.scalars().all()
-
-            items = []
-            for u in users:
-                mem_result = await session.execute(
-                    select(GroupMembership.id).where(
-                        GroupMembership.user_id == u.qq,
-                        GroupMembership.is_active.is_(True),
-                    )
-                )
-                group_count = len(mem_result.all())
-                items.append(
-                    {
-                        "qq": u.qq,
-                        "nickname": u.nickname,
-                        "relation": u.relation,
-                        "group_count": group_count,
-                        "last_synced": u.last_synced.isoformat() if u.last_synced else None,
-                    }
-                )
-
-            pages = (total + page_size - 1) // page_size if total > 0 else 0
-            return {
-                "items": items,
-                "total": total,
-                "page": page,
-                "page_size": page_size,
-                "pages": pages,
-            }
-
-    async def get_user_groups(self, qq: int) -> list[dict[str, Any]]:
-        """获取用户所属的所有群聊。"""
-        async with self._session_factory() as session:
-            result = await session.execute(
-                select(GroupMembership, Group)
-                .join(Group, GroupMembership.group_id == Group.group_id)
-                .where(GroupMembership.user_id == qq, GroupMembership.is_active.is_(True))
-            )
-            rows = result.all()
-            return [
-                {
-                    "group_id": group.group_id,
-                    "group_name": group.group_name,
-                    "member_count": group.member_count,
-                    "max_member_count": group.max_member_count,
-                    "is_active": group.is_active,
-                    "last_synced": group.last_synced.isoformat() if group.last_synced else None,
-                    "card": membership.card,
-                    "role": membership.role,
-                    "join_time": membership.join_time,
-                }
-                for membership, group in rows
-            ]
-
-    async def list_groups(
-        self,
-        page: int = 1,
-        page_size: int = 20,
-        group_name: str | None = None,
-        is_active: bool | None = None,
-    ) -> dict[str, Any]:
-        """分页查询群列表。"""
-        async with self._session_factory() as session:
-            query = select(Group)
-            count_query = select(Group.group_id)
-
-            if group_name:
-                query = query.where(Group.group_name.contains(group_name))
-                count_query = count_query.where(Group.group_name.contains(group_name))
-            if is_active is not None:
-                query = query.where(Group.is_active == is_active)
-                count_query = count_query.where(Group.is_active == is_active)
-
-            total_result = await session.execute(count_query)
-            total = len(total_result.all())
-
-            offset = (page - 1) * page_size
-            query = query.offset(offset).limit(page_size).order_by(Group.group_id)
-            result = await session.execute(query)
-            groups = result.scalars().all()
-
-            items = [
-                {
-                    "group_id": g.group_id,
-                    "group_name": g.group_name,
-                    "member_count": g.member_count,
-                    "max_member_count": g.max_member_count,
-                    "is_active": g.is_active,
-                    "last_synced": g.last_synced.isoformat() if g.last_synced else None,
-                }
-                for g in groups
-            ]
-
-            pages = (total + page_size - 1) // page_size if total > 0 else 0
-            return {
-                "items": items,
-                "total": total,
-                "page": page,
-                "page_size": page_size,
-                "pages": pages,
-            }
-
-    async def get_group(self, group_id: int) -> dict[str, Any] | None:
-        """获取单个群聊详情。"""
-        async with self._session_factory() as session:
-            group = await session.get(Group, group_id)
-            if not group:
-                return None
-            return {
-                "group_id": group.group_id,
-                "group_name": group.group_name,
-                "member_count": group.member_count,
-                "max_member_count": group.max_member_count,
-                "is_active": group.is_active,
-                "last_synced": group.last_synced.isoformat() if group.last_synced else None,
-            }
-
-    async def list_group_members(
-        self,
-        group_id: int,
-        page: int = 1,
-        page_size: int = 20,
-        role: str | None = None,
-        nickname: str | None = None,
-        qq: int | None = None,
-    ) -> dict[str, Any]:
-        """分页获取群成员列表。"""
-        async with self._session_factory() as session:
-            query = (
-                select(GroupMembership, User)
-                .join(User, GroupMembership.user_id == User.qq)
-                .where(GroupMembership.group_id == group_id, GroupMembership.is_active.is_(True))
-            )
-            count_query = (
-                select(GroupMembership.id)
-                .join(User, GroupMembership.user_id == User.qq)
-                .where(GroupMembership.group_id == group_id, GroupMembership.is_active.is_(True))
-            )
-
-            if role:
-                query = query.where(GroupMembership.role == role)
-                count_query = count_query.where(GroupMembership.role == role)
-            if nickname:
-                query = query.where(User.nickname.contains(nickname))
-                count_query = count_query.where(User.nickname.contains(nickname))
-            if qq:
-                query = query.where(GroupMembership.user_id == qq)
-                count_query = count_query.where(GroupMembership.user_id == qq)
-
-            total_result = await session.execute(count_query)
-            total = len(total_result.all())
-
-            offset = (page - 1) * page_size
-            query = query.offset(offset).limit(page_size).order_by(GroupMembership.user_id)
-            result = await session.execute(query)
-            rows = result.all()
-
-            items = [
-                {
-                    "qq": user.qq,
-                    "nickname": user.nickname,
-                    "card": membership.card,
-                    "role": membership.role,
-                    "relation": user.relation,
-                    "join_time": membership.join_time,
-                    "last_active_time": membership.last_active_time,
-                    "title": membership.title,
-                }
-                for membership, user in rows
-            ]
-
-            pages = (total + page_size - 1) // page_size if total > 0 else 0
-            return {
-                "items": items,
-                "total": total,
-                "page": page,
-                "page_size": page_size,
-                "pages": pages,
-            }
-
     async def get_sync_status(self) -> dict[str, Any]:
         """获取最近一次同步状态。"""
         data = await self._cache.get(personnel_sync_status_key())
@@ -900,32 +663,53 @@ class PersonnelService:
     # ── 内部辅助 ──
 
     async def _update_gauge_metrics(self) -> None:
-        """更新 Gauge 类型的 Prometheus 指标。"""
+        """更新 Gauge 类型的 Prometheus 指标（使用 COUNT(*) 替代内存计数）。"""
         try:
             async with self._session_factory() as session:
                 # 用户总数
-                result = await session.execute(select(User.qq))
-                personnel_users_total.set(len(result.all()))
-
+                personnel_users_total.set(
+                    (await session.execute(select(func.count()).select_from(User))).scalar() or 0
+                )
                 # 好友总数
-                result = await session.execute(select(User.qq).where(User.relation == "friend"))
-                personnel_friends_total.set(len(result.all()))
-
+                personnel_friends_total.set(
+                    (
+                        await session.execute(
+                            select(func.count()).select_from(User).where(User.relation == "friend")
+                        )
+                    ).scalar()
+                    or 0
+                )
                 # 超级管理员总数
-                result = await session.execute(select(User.qq).where(User.relation == "admin"))
-                personnel_admins_total.set(len(result.all()))
-
+                personnel_admins_total.set(
+                    (
+                        await session.execute(
+                            select(func.count()).select_from(User).where(User.relation == "admin")
+                        )
+                    ).scalar()
+                    or 0
+                )
                 # 活跃群总数
-                result = await session.execute(
-                    select(Group.group_id).where(Group.is_active.is_(True))
+                personnel_groups_total.set(
+                    (
+                        await session.execute(
+                            select(func.count())
+                            .select_from(Group)
+                            .where(Group.is_active.is_(True))
+                        )
+                    ).scalar()
+                    or 0
                 )
-                personnel_groups_total.set(len(result.all()))
-
                 # 活跃成员关系总数
-                result = await session.execute(
-                    select(GroupMembership.id).where(GroupMembership.is_active.is_(True))
+                personnel_memberships_total.set(
+                    (
+                        await session.execute(
+                            select(func.count())
+                            .select_from(GroupMembership)
+                            .where(GroupMembership.is_active.is_(True))
+                        )
+                    ).scalar()
+                    or 0
                 )
-                personnel_memberships_total.set(len(result.all()))
         except Exception as exc:
             logger.warning(
                 "更新 Gauge 指标失败", error=str(exc), event_type="personnel.metrics_error"
@@ -934,19 +718,10 @@ class PersonnelService:
     async def _invalidate_all_relation_cache(self) -> None:
         """清除所有用户关系缓存（全量同步后）。"""
         try:
-            redis = self._cache._redis  # noqa: SLF001
-            cursor = 0
-            pattern = "texas:personnel:user:*:relation"
-            while True:
-                cursor, keys = await redis.scan(cursor=cursor, match=pattern, count=100)
-                if keys:
-                    await redis.delete(*keys)
-                if cursor == 0:
-                    break
+            await self._cache.delete_by_pattern("texas:personnel:user:*:relation")
+            # 同时清除超级管理员集合缓存
+            await self._cache.delete(admin_set_key())
         except Exception as exc:
             logger.warning(
                 "清除关系缓存失败", error=str(exc), event_type="personnel.cache_invalidate_error"
             )
-
-        # 同时清除超级管理员集合缓存
-        await self._cache.delete(admin_set_key())

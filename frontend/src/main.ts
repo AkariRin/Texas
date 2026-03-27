@@ -6,8 +6,6 @@ import 'vuetify/styles'
 import '@mdi/font/css/materialdesignicons.css'
 import 'unfonts.css'
 import { createVuetify } from 'vuetify'
-import * as components from 'vuetify/components'
-import * as directives from 'vuetify/directives'
 import { zhHans } from 'vuetify/locale'
 
 import App from './App.vue'
@@ -18,8 +16,6 @@ createApp(App)
   .use(router)
   .use(
     createVuetify({
-      components,
-      directives,
       icons: {
         defaultSet: 'mdi',
       },

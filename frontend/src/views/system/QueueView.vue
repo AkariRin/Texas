@@ -146,8 +146,9 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref, computed } from 'vue'
 import { useQueueStore } from '@/stores/queue'
-import type { TaskCategory } from '@/apis/queue'
+import type { TaskCategory, UnifiedTask } from '@/apis/queue'
 import PageHeader from '@/components/PageHeader.vue'
+import { formatTimestamp } from '@/utils/format'
 
 const store = useQueueStore()
 
@@ -165,36 +166,24 @@ const unifiedHeaders = [
 
 const filteredTasks = computed(() => {
   if (taskFilter.value === 'all') return store.allTasks
-  return store.allTasks.filter((t) => t.category === taskFilter.value)
+  return store.allTasks.filter((t: UnifiedTask) => t.category === taskFilter.value)
 })
 
+const CATEGORY_META: Record<TaskCategory, { label: string; color: string }> = {
+  scheduled: { label: '定时', color: 'purple' },
+  active: { label: '执行中', color: 'blue' },
+  reserved: { label: '预取', color: 'orange' },
+  pending: { label: '等待中', color: 'teal' },
+}
+
 function categoryLabel(cat: TaskCategory): string {
-  const map: Record<TaskCategory, string> = {
-    scheduled: '定时',
-    active: '执行中',
-    reserved: '预取',
-    pending: '等待中',
-  }
-  return map[cat] ?? cat
+  return CATEGORY_META[cat]?.label ?? cat
 }
 
 function categoryColor(cat: TaskCategory): string {
-  const map: Record<TaskCategory, string> = {
-    scheduled: 'purple',
-    active: 'blue',
-    reserved: 'orange',
-    pending: 'teal',
-  }
-  return map[cat] ?? 'grey'
+  return CATEGORY_META[cat]?.color ?? 'grey'
 }
 
-function formatTimestamp(ts: number): string {
-  try {
-    return new Date(ts * 1000).toLocaleString('zh-CN')
-  } catch {
-    return String(ts)
-  }
-}
 
 onMounted(() => {
   store.connect()

@@ -191,6 +191,9 @@ import { usePersonnelStore } from '@/stores/personnel'
 import type { UserDetail, GroupItem } from '@/apis/personnel'
 import SyncDialog from './SyncDialog.vue'
 import PageHeader from '@/components/PageHeader.vue'
+import { formatTime } from '@/utils/format'
+import { relationColor, relationLabel, relationIcon } from '@/utils/personnel'
+import { debounce } from '@/utils/ui'
 
 const store = usePersonnelStore()
 
@@ -223,49 +226,7 @@ const headers = [
   { title: '操作', key: 'actions', sortable: false, align: 'center' as const },
 ]
 
-function relationColor(r: string) {
-  const map: Record<string, string> = {
-    stranger: 'grey',
-    group_member: 'blue',
-    friend: 'green',
-    admin: 'red',
-  }
-  return map[r] ?? 'grey'
-}
-
-function relationIcon(r: string) {
-  const map: Record<string, string> = {
-    stranger: 'mdi-account-outline',
-    group_member: 'mdi-account-multiple',
-    friend: 'mdi-account-heart',
-    admin: 'mdi-shield-account',
-  }
-  return map[r] ?? 'mdi-account'
-}
-
-function relationLabel(r: string) {
-  const map: Record<string, string> = {
-    stranger: '陌生人',
-    group_member: '群友',
-    friend: '好友',
-    admin: '管理员',
-  }
-  return map[r] ?? r
-}
-
-function formatTime(iso: string) {
-  try {
-    return new Date(iso).toLocaleString('zh-CN')
-  } catch {
-    return iso
-  }
-}
-
-let debounceTimer: ReturnType<typeof setTimeout> | null = null
-function debouncedLoad() {
-  if (debounceTimer) clearTimeout(debounceTimer)
-  debounceTimer = setTimeout(() => loadPage(1), 400)
-}
+const debouncedLoad = debounce(() => loadPage(1))
 
 function loadPage(p: number) {
   page.value = p

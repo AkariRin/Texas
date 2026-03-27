@@ -2,7 +2,8 @@
  * LLM API 接口层 —— 封装 /api/v1/llm 所有后端接口调用。
  */
 
-import axios from 'axios'
+import http from './client'
+import type { ApiResponse } from './types'
 
 // ── 类型定义 ──
 
@@ -99,12 +100,6 @@ export interface TestResult {
   model?: string | null
 }
 
-interface ApiResponse<T> {
-  code: number
-  data: T
-  message: string
-}
-
 // ── API 调用 ──
 
 const BASE = '/api/v1/llm'
@@ -112,17 +107,17 @@ const BASE = '/api/v1/llm'
 // ── 提供商 ──
 
 export async function fetchProviders(): Promise<ProviderItem[]> {
-  const { data } = await axios.get<ApiResponse<ProviderItem[]>>(`${BASE}/providers`)
+  const { data } = await http.get<ApiResponse<ProviderItem[]>>(`${BASE}/providers`)
   return data.data
 }
 
 export async function fetchProvider(id: string): Promise<ProviderDetail> {
-  const { data } = await axios.get<ApiResponse<ProviderDetail>>(`${BASE}/providers/${id}`)
+  const { data } = await http.get<ApiResponse<ProviderDetail>>(`${BASE}/providers/${id}`)
   return data.data
 }
 
 export async function createProvider(payload: ProviderCreateData): Promise<ProviderItem> {
-  const { data } = await axios.post<ApiResponse<ProviderItem>>(`${BASE}/providers`, payload)
+  const { data } = await http.post<ApiResponse<ProviderItem>>(`${BASE}/providers`, payload)
   return data.data
 }
 
@@ -130,16 +125,16 @@ export async function updateProvider(
   id: string,
   payload: ProviderUpdateData,
 ): Promise<ProviderItem> {
-  const { data } = await axios.post<ApiResponse<ProviderItem>>(`${BASE}/providers/${id}`, payload)
+  const { data } = await http.post<ApiResponse<ProviderItem>>(`${BASE}/providers/${id}`, payload)
   return data.data
 }
 
 export async function deleteProvider(id: string): Promise<void> {
-  await axios.post<ApiResponse<null>>(`${BASE}/providers/${id}/delete`)
+  await http.post<ApiResponse<null>>(`${BASE}/providers/${id}/delete`)
 }
 
 export async function testProvider(id: string): Promise<TestResult> {
-  const { data } = await axios.post<ApiResponse<TestResult>>(`${BASE}/providers/${id}/test`)
+  const { data } = await http.post<ApiResponse<TestResult>>(`${BASE}/providers/${id}/test`)
   return data.data
 }
 
@@ -148,27 +143,27 @@ export async function testProvider(id: string): Promise<TestResult> {
 export async function fetchModels(providerId?: string): Promise<ModelItem[]> {
   const params: Record<string, string> = {}
   if (providerId) params.provider_id = providerId
-  const { data } = await axios.get<ApiResponse<ModelItem[]>>(`${BASE}/models`, { params })
+  const { data } = await http.get<ApiResponse<ModelItem[]>>(`${BASE}/models`, { params })
   return data.data
 }
 
 export async function fetchModel(id: string): Promise<ModelItem> {
-  const { data } = await axios.get<ApiResponse<ModelItem>>(`${BASE}/models/${id}`)
+  const { data } = await http.get<ApiResponse<ModelItem>>(`${BASE}/models/${id}`)
   return data.data
 }
 
 export async function createModel(payload: ModelCreateData): Promise<ModelItem> {
-  const { data } = await axios.post<ApiResponse<ModelItem>>(`${BASE}/models`, payload)
+  const { data } = await http.post<ApiResponse<ModelItem>>(`${BASE}/models`, payload)
   return data.data
 }
 
 export async function updateModel(id: string, payload: ModelUpdateData): Promise<ModelItem> {
-  const { data } = await axios.post<ApiResponse<ModelItem>>(`${BASE}/models/${id}`, payload)
+  const { data } = await http.post<ApiResponse<ModelItem>>(`${BASE}/models/${id}`, payload)
   return data.data
 }
 
 export async function deleteModel(id: string): Promise<void> {
-  await axios.post<ApiResponse<null>>(`${BASE}/models/${id}/delete`)
+  await http.post<ApiResponse<null>>(`${BASE}/models/${id}/delete`)
 }
 
 // ── Chat (非流式) ──
@@ -178,7 +173,7 @@ export async function chat(
   messages: ChatMessage[],
   options?: { temperature?: number; max_tokens?: number },
 ): Promise<ChatResponse> {
-  const { data } = await axios.post<ApiResponse<ChatResponse>>(`${BASE}/chat`, {
+  const { data } = await http.post<ApiResponse<ChatResponse>>(`${BASE}/chat`, {
     model_id: modelId,
     messages,
     stream: false,

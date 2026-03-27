@@ -12,12 +12,12 @@
         <v-row v-if="status" class="mt-1">
           <!-- 同步状态 -->
           <v-col cols="12" sm="4">
-            <v-card variant="elevated" :color="statusColor" class="pa-3">
+            <v-card variant="elevated" :color="statusMeta.color" class="pa-3">
               <div class="d-flex align-center ga-2 mb-1">
-                <v-icon size="18">{{ statusIcon }}</v-icon>
+                <v-icon size="18">{{ statusMeta.icon }}</v-icon>
                 <span class="text-caption">同步状态</span>
               </div>
-              <div class="text-h6 font-weight-bold">{{ statusLabel }}</div>
+              <div class="text-h6 font-weight-bold">{{ statusMeta.label }}</div>
             </v-card>
           </v-col>
 
@@ -118,6 +118,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import { usePersonnelStore } from '@/stores/personnel'
+import { formatTime } from '@/utils/format'
 
 const dialog = defineModel<boolean>({ default: false })
 
@@ -129,39 +130,16 @@ const snackColor = ref('success')
 
 const status = computed(() => store.syncStatus)
 
-const statusColor = computed(() => {
-  const s = status.value?.status
-  if (s === 'success') return 'success'
-  if (s === 'running') return 'info'
-  if (s === 'failure') return 'error'
-  return 'grey'
-})
-
-const statusIcon = computed(() => {
-  const s = status.value?.status
-  if (s === 'success') return 'mdi-check-circle'
-  if (s === 'running') return 'mdi-loading mdi-spin'
-  if (s === 'failure') return 'mdi-alert-circle'
-  return 'mdi-help-circle'
-})
-
-const statusLabel = computed(() => {
-  const map: Record<string, string> = {
-    success: '同步成功',
-    running: '同步中...',
-    failure: '同步失败',
-    never: '从未同步',
-  }
-  return map[status.value?.status ?? ''] ?? '未知'
-})
-
-function formatTime(iso: string) {
-  try {
-    return new Date(iso).toLocaleString('zh-CN')
-  } catch {
-    return iso
-  }
+const STATUS_META: Record<string, { color: string; icon: string; label: string }> = {
+  success: { color: 'success', icon: 'mdi-check-circle', label: '同步成功' },
+  running: { color: 'info', icon: 'mdi-loading mdi-spin', label: '同步中...' },
+  failure: { color: 'error', icon: 'mdi-alert-circle', label: '同步失败' },
+  never: { color: 'grey', icon: 'mdi-help-circle', label: '从未同步' },
 }
+const DEFAULT_STATUS_META = { color: 'grey', icon: 'mdi-help-circle', label: '未知' }
+
+const statusMeta = computed(() => STATUS_META[status.value?.status ?? ''] ?? DEFAULT_STATUS_META)
+
 
 function showSnack(text: string, color = 'success') {
   snackText.value = text

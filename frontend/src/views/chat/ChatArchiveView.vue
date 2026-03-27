@@ -215,6 +215,7 @@ import { ref, onMounted } from 'vue'
 import { useChatStore } from '@/stores/chat'
 import type { ArchiveLog } from '@/apis/chat'
 import PageHeader from '@/components/PageHeader.vue'
+import { formatTime, formatBytes, formatNumber } from '@/utils/format'
 
 const store = useChatStore()
 
@@ -246,22 +247,6 @@ function statusColor(status: string): string {
     failed: 'red',
   }
   return colors[status] ?? 'grey'
-}
-
-function formatNumber(n: number): string {
-  return n.toLocaleString()
-}
-
-function formatBytes(bytes: number): string {
-  if (bytes === 0) return '0 B'
-  const units = ['B', 'KB', 'MB', 'GB']
-  const i = Math.floor(Math.log(bytes) / Math.log(1024))
-  return (bytes / Math.pow(1024, i)).toFixed(1) + ' ' + units[i]
-}
-
-function formatTime(iso: string | null): string {
-  if (!iso) return '-'
-  return new Date(iso).toLocaleString('zh-CN')
 }
 
 function showDetail(archive: ArchiveLog) {

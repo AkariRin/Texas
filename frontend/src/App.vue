@@ -70,139 +70,36 @@
       </v-menu>
     </v-app-bar>
     <v-navigation-drawer :rail="rail" permanent class="nav-drawer">
-      <!-- 仪表盘 -->
+      <!-- 无分组路由（仪表盘等） -->
       <v-list density="compact" nav class="nav-list">
-        <v-list-subheader v-if="!rail" class="nav-subheader">总览</v-list-subheader>
         <v-list-item
-          prepend-icon="mdi-view-dashboard"
-          title="仪表盘"
-          value="dashboard"
-          to="/"
+          v-for="route in ungroupedRoutes"
+          :key="String(route.name)"
+          :prepend-icon="route.meta.icon"
+          :title="route.meta.title"
+          :value="String(route.name)"
+          :to="route.path"
           rounded="lg"
           class="nav-item"
         ></v-list-item>
       </v-list>
 
-      <!-- 用户与群组 -->
-      <v-list density="compact" nav class="nav-list">
-        <v-list-subheader v-if="!rail" class="nav-subheader">用户与群组</v-list-subheader>
-        <v-list-item
-          prepend-icon="mdi-account-group"
-          title="用户管理"
-          value="personnel-users"
-          to="/personnel/users"
-          rounded="lg"
-          class="nav-item"
-        ></v-list-item>
-        <v-list-item
-          prepend-icon="mdi-forum"
-          title="群聊管理"
-          value="personnel-groups"
-          to="/personnel/groups"
-          rounded="lg"
-          class="nav-item"
-        ></v-list-item>
-        <v-list-item
-          prepend-icon="mdi-shield-crown"
-          title="超级管理员"
-          value="personnel-admins"
-          to="/personnel/admins"
-          rounded="lg"
-          class="nav-item"
-        ></v-list-item>
-      </v-list>
-
-      <!-- 聊天记录 -->
-      <v-list density="compact" nav class="nav-list">
-        <v-list-subheader v-if="!rail" class="nav-subheader">聊天记录</v-list-subheader>
-        <v-list-item
-          prepend-icon="mdi-message-text-outline"
-          title="消息记录"
-          value="chat-messages"
-          to="/chat/messages"
-          rounded="lg"
-          class="nav-item"
-        ></v-list-item>
-        <v-list-item
-          prepend-icon="mdi-archive-outline"
-          title="归档管理"
-          value="chat-archive"
-          to="/chat/archive"
-          rounded="lg"
-          class="nav-item"
-        ></v-list-item>
-      </v-list>
-
-      <!-- 大模型 -->
-      <v-list density="compact" nav class="nav-list">
-        <v-list-subheader v-if="!rail" class="nav-subheader">大模型</v-list-subheader>
-        <v-list-item
-          prepend-icon="mdi-server-network"
-          title="提供商"
-          value="llm-providers"
-          to="/llm/providers"
-          rounded="lg"
-          class="nav-item"
-        ></v-list-item>
-        <v-list-item
-          prepend-icon="mdi-brain"
-          title="模型管理"
-          value="llm-models"
-          to="/llm/models"
-          rounded="lg"
-          class="nav-item"
-        ></v-list-item>
-      </v-list>
-
-      <!-- 权限管理 -->
-      <v-list density="compact" nav class="nav-list">
-        <v-list-subheader v-if="!rail" class="nav-subheader">权限管理</v-list-subheader>
-        <v-list-item
-          prepend-icon="mdi-shield-check"
-          title="群聊权限"
-          value="permissions-groups"
-          to="/permissions/groups"
-          rounded="lg"
-          class="nav-item"
-        ></v-list-item>
-        <v-list-item
-          prepend-icon="mdi-account-lock"
-          title="私聊权限"
-          value="permissions-private"
-          to="/permissions/private"
-          rounded="lg"
-          class="nav-item"
-        ></v-list-item>
-      </v-list>
-
-      <!-- 系统 -->
-      <v-list density="compact" nav class="nav-list">
-        <v-list-subheader v-if="!rail" class="nav-subheader">系统</v-list-subheader>
-        <v-list-item
-          prepend-icon="mdi-tray-full"
-          title="任务队列"
-          value="queue"
-          to="/queue"
-          rounded="lg"
-          class="nav-item"
-        ></v-list-item>
-        <v-list-item
-          prepend-icon="mdi-text-box-outline"
-          title="应用日志"
-          value="logs"
-          to="/logs"
-          rounded="lg"
-          class="nav-item"
-        ></v-list-item>
-        <v-list-item
-          prepend-icon="mdi-cog"
-          title="设置"
-          value="settings"
-          to="/settings"
-          rounded="lg"
-          class="nav-item"
-        ></v-list-item>
-      </v-list>
+      <!-- 分组路由 -->
+      <template v-for="[group, routes] in groupedRoutes" :key="group">
+        <v-list density="compact" nav class="nav-list">
+          <v-list-subheader v-if="!rail" class="nav-subheader">{{ group }}</v-list-subheader>
+          <v-list-item
+            v-for="route in routes"
+            :key="String(route.name)"
+            :prepend-icon="route.meta.icon"
+            :title="route.meta.title"
+            :value="String(route.name)"
+            :to="route.path"
+            rounded="lg"
+            class="nav-item"
+          ></v-list-item>
+        </v-list>
+      </template>
     </v-navigation-drawer>
     <v-main>
       <v-dialog v-model="dialogDark" max-width="300">
@@ -231,16 +128,38 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useTheme } from 'vuetify'
+import { useRouter } from 'vue-router'
 import { useThemeStore } from './stores/theme'
 import { useBotStore } from './stores/bot'
 import type { ThemePreference } from './stores/theme'
 
 const vuetifyTheme = useTheme()
+const router = useRouter()
 const themeStore = useThemeStore()
 const botStore = useBotStore()
 
 const dialogDark = ref(false)
 const rail = ref(false)
+
+// 路由在应用启动时注册完毕后不再变动，无需放入 computed 中重复调用
+const navRoutes = router
+  .getRoutes()
+  .filter((r) => r.meta.icon && r.meta.title && !r.redirect)
+
+/** 无分组路由（仪表盘等顶层页面） */
+const ungroupedRoutes = navRoutes.filter((r) => !r.meta.group)
+
+/** 按 group 分组，保持路由定义中的出现顺序 */
+const groupedRoutes = (() => {
+  const map = new Map<string, typeof navRoutes>()
+  for (const route of navRoutes) {
+    const group = route.meta.group
+    if (!group) continue
+    if (!map.has(group)) map.set(group, [])
+    map.get(group)!.push(route)
+  }
+  return map
+})()
 
 const themePreference = computed({
   get(): ThemePreference {

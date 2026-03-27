@@ -1,4 +1,4 @@
-import { ref, computed } from 'vue'
+import { ref, shallowRef, computed } from 'vue'
 import { defineStore } from 'pinia'
 import {
   connectQueueStream,
@@ -12,12 +12,13 @@ import {
 } from '@/apis/queue'
 
 export const useQueueStore = defineStore('queue', () => {
-  const scheduledTasks = ref<ScheduledTask[]>([])
-  const activeTasks = ref<ActiveTask[]>([])
-  const reservedTasks = ref<ReservedTask[]>([])
-  const pendingTasks = ref<PendingTask[]>([])
-  const workers = ref<WorkerInfo[]>([])
-  const queueLength = ref<QueueLength | null>(null)
+  // shallowRef：这些数组每次 SSE 推送都整体替换，不需要深度响应式
+  const scheduledTasks = shallowRef<ScheduledTask[]>([])
+  const activeTasks = shallowRef<ActiveTask[]>([])
+  const reservedTasks = shallowRef<ReservedTask[]>([])
+  const pendingTasks = shallowRef<PendingTask[]>([])
+  const workers = shallowRef<WorkerInfo[]>([])
+  const queueLength = shallowRef<QueueLength | null>(null)
 
   const connected = ref(false)
   const error = ref<string | null>(null)
@@ -101,14 +102,24 @@ export const useQueueStore = defineStore('queue', () => {
     error.value = null
     connected.value = true
 
+    // 仅在数据实际变化时更新引用，避免 SSE 心跳引发不必要的重渲染
+    // 数组先比较长度（O(1) 快路径），长度相同再做全量序列化比较
+    function setIfChanged<T>(ref: { value: T }, next: T) {
+      if (Array.isArray(ref.value) && Array.isArray(next) && ref.value.length !== next.length) {
+        ref.value = next
+        return
+      }
+      if (JSON.stringify(ref.value) !== JSON.stringify(next)) ref.value = next
+    }
+
     closeStream = connectQueueStream(
       (data) => {
-        scheduledTasks.value = data.scheduledTasks
-        activeTasks.value = data.activeTasks
-        reservedTasks.value = data.reservedTasks
-        pendingTasks.value = data.pendingTasks ?? []
-        workers.value = data.workers
-        queueLength.value = data.queueLength
+        setIfChanged(scheduledTasks, data.scheduledTasks)
+        setIfChanged(activeTasks, data.activeTasks)
+        setIfChanged(reservedTasks, data.reservedTasks)
+        setIfChanged(pendingTasks, data.pendingTasks ?? [])
+        setIfChanged(workers, data.workers)
+        setIfChanged(queueLength, data.queueLength)
         error.value = null
       },
       (err) => {

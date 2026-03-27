@@ -206,6 +206,9 @@ import { usePersonnelStore } from '@/stores/personnel'
 import type { GroupItem } from '@/apis/personnel'
 import SyncDialog from './SyncDialog.vue'
 import PageHeader from '@/components/PageHeader.vue'
+import { formatTime, formatTimestamp } from '@/utils/format'
+import { relationColor, relationLabel, roleColor, roleLabel } from '@/utils/personnel'
+import { debounce } from '@/utils/ui'
 
 const store = usePersonnelStore()
 
@@ -266,60 +269,9 @@ watch(memberDialog, (open) => {
 
 // ── 辅助函数 ──
 
-function formatTime(iso: string) {
-  try {
-    return new Date(iso).toLocaleString('zh-CN')
-  } catch {
-    return iso
-  }
-}
-
-function formatTimestamp(ts: number) {
-  if (!ts) return '-'
-  try {
-    return new Date(ts * 1000).toLocaleString('zh-CN')
-  } catch {
-    return String(ts)
-  }
-}
-
-function roleColor(r: string) {
-  const map: Record<string, string> = { owner: 'amber', admin: 'green', member: 'grey' }
-  return map[r] ?? 'grey'
-}
-
-function roleLabel(r: string) {
-  const map: Record<string, string> = { owner: '群主', admin: '管理员', member: '成员' }
-  return map[r] ?? r
-}
-
-function relationColor(r: string) {
-  const map: Record<string, string> = {
-    stranger: 'grey',
-    group_member: 'blue',
-    friend: 'green',
-    admin: 'red',
-  }
-  return map[r] ?? 'grey'
-}
-
-function relationLabel(r: string) {
-  const map: Record<string, string> = {
-    stranger: '陌生人',
-    group_member: '群友',
-    friend: '好友',
-    admin: '管理员',
-  }
-  return map[r] ?? r
-}
-
 // ── 群列表操作 ──
 
-let debounceTimer: ReturnType<typeof setTimeout> | null = null
-function debouncedLoad() {
-  if (debounceTimer) clearTimeout(debounceTimer)
-  debounceTimer = setTimeout(() => loadPage(1), 400)
-}
+const debouncedLoad = debounce(() => loadPage(1))
 
 function loadPage(p: number) {
   page.value = p
@@ -343,11 +295,7 @@ function openMembers(group: GroupItem) {
 
 // ── 成员列表操作 ──
 
-let memberDebounceTimer: ReturnType<typeof setTimeout> | null = null
-function debouncedMemberLoad() {
-  if (memberDebounceTimer) clearTimeout(memberDebounceTimer)
-  memberDebounceTimer = setTimeout(() => loadMembers(1), 400)
-}
+const debouncedMemberLoad = debounce(() => loadMembers(1))
 
 function loadMembers(p: number) {
   if (!selectedGroup.value) return

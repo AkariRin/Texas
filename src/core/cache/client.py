@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import inspect
 import json
 from typing import TYPE_CHECKING, Any, TypeVar
 
@@ -29,14 +30,14 @@ class CacheClient:
             return None
         try:
             return json.loads(val)
-        except json.JSONDecodeError, TypeError:
+        except (json.JSONDecodeError, TypeError):
             return val
 
     async def set(self, key: str, value: Any, ttl: int | None = None) -> None:
-        ttl = ttl or self._default_ttl
+        ttl = ttl if ttl is not None else self._default_ttl
         if isinstance(value, (dict, list)):
             value = json.dumps(value, ensure_ascii=False)
-        await self._redis.set(key, value, ex=ttl)
+        await self._redis.set(key, value, ex=ttl if ttl else None)
 
     async def delete(self, key: str) -> None:
         await self._redis.delete(key)
@@ -51,10 +52,25 @@ class CacheClient:
         await self._redis.expire(key, ttl)
 
     async def get_or_set(self, key: str, factory: Callable[[], Any], ttl: int | None = None) -> Any:
-        """从缓存中获取值；若未命中，则调用 factory，缓存结果并返回。"""
+        """从缓存中获取值；若未命中，则调用 factory，缓存结果并返回。
+
+        factory 可以是同步函数或 async 函数。
+        """
         val = await self.get(key)
         if val is not None:
             return val
         val = factory()
+        if inspect.isawaitable(val):
+            val = await val
         await self.set(key, val, ttl)
         return val
+
+    async def delete_by_pattern(self, pattern: str) -> None:
+        """按 glob 模式批量删除匹配的键（使用 SCAN 迭代，避免 KEYS 阻塞）。"""
+        cursor = 0
+        while True:
+            cursor, keys = await self._redis.scan(cursor=cursor, match=pattern, count=100)
+            if keys:
+                await self._redis.delete(*keys)
+            if cursor == 0:
+                break

@@ -11,7 +11,7 @@ from src.core.framework.decorators import Permission
 
 if TYPE_CHECKING:
     from src.core.framework.interceptor import HandlerInterceptor
-    from src.core.framework.mapping import CompositeHandlerMapping, HandlerMethod
+    from src.core.framework.mapping import CompositeHandlerMapping, HandlerMethod, ResolvedHandler
     from src.core.framework.permission_checker import FeaturePermissionChecker
     from src.core.protocol.api import BotAPI
     from src.core.protocol.models.base import OneBotEvent
@@ -39,7 +39,7 @@ class EventDispatcher:
 
     async def _check_role_permission(self, ctx: Context) -> bool:
         """角色级权限检查（原 PermissionInterceptor 逻辑，移至 per-handler 级别）。"""
-        handler = ctx.handler_method
+        handler: HandlerMethod | None = ctx.handler_method
         if handler is None:
             return True
 
@@ -90,9 +90,9 @@ class EventDispatcher:
                     return
 
             # 2. 解析匹配的处理器
-            handlers: list[HandlerMethod] = self.mapping.resolve(event)
+            resolved_handlers: list[ResolvedHandler] = self.mapping.resolve(event)
 
-            if not handlers:
+            if not resolved_handlers:
                 logger.debug(
                     "未找到匹配的处理器",
                     post_type=event.post_type,
@@ -101,13 +101,13 @@ class EventDispatcher:
                 return
 
             # 3. 按优先级执行处理器
-            for handler in handlers:
+            for resolved in resolved_handlers:
+                handler = resolved.handler
                 ctx.handler_method = handler
 
-                # 对于正则匹配，将匹配结果设置到上下文
-                regex_match = handler.metadata.get("_last_match")
-                if regex_match:
-                    ctx.set_regex_match(regex_match)
+                # ResolvedHandler 在每次 resolve 时独立创建，避免并发事件互相覆盖元数据
+                if resolved.regex_match is not None:
+                    ctx.set_regex_match(resolved.regex_match)
 
                 # 功能级权限检查（per-handler）
                 if self.feature_checker is not None and not await self.feature_checker.check(ctx):

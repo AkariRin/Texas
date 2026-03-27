@@ -17,7 +17,6 @@ from typing import TYPE_CHECKING, Any
 import structlog
 from alembic import command
 from alembic.autogenerate import compare_metadata
-from alembic.config import Config
 from alembic.migration import MigrationContext
 from alembic.script import ScriptDirectory
 from alembic.util.exc import CommandError
@@ -26,6 +25,7 @@ from sqlalchemy import text
 from src.core.db.alembic_config_factory import build_alembic_config
 
 if TYPE_CHECKING:
+    from alembic.config import Config
     from sqlalchemy.ext.asyncio import AsyncEngine
 
     from src.core.config import Settings

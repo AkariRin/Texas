@@ -23,6 +23,7 @@ if TYPE_CHECKING:
     from src.services.llm import LLMService
     from src.services.permission import FeaturePermissionService
     from src.services.personnel import PersonnelService
+    from src.services.personnel_query import PersonnelQueryService
     from src.services.personnel_sync import SyncCoordinator
 
 
@@ -55,8 +56,13 @@ def get_archive_service(request: Request) -> ArchiveService:
 
 
 def get_personnel_service(request: Request) -> PersonnelService:
-    """获取用户管理服务。"""
+    """获取用户管理写操作服务（upsert、事件、管理员管理）。"""
     return request.app.state.personnel_service  # type: ignore[no-any-return]
+
+
+def get_personnel_query_service(request: Request) -> PersonnelQueryService:
+    """获取用户管理只读查询服务（列表、详情）。"""
+    return request.app.state.personnel_query_service  # type: ignore[no-any-return]
 
 
 def get_cache_client(request: Request) -> CacheClient:

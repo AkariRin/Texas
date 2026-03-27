@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Any, TypeVar
 
 from src.core.protocol.models.events import GroupMessageEvent, MessageEvent
 from src.core.protocol.segment import Seg
+from src.core.protocol.utils import extract_plaintext
 
 if TYPE_CHECKING:
     import re
@@ -77,16 +78,7 @@ class Context:
 
     def get_plaintext(self) -> str:
         """从消息中提取纯文本。"""
-        if not isinstance(self.event, MessageEvent):
-            return ""
-        msg = self.event.message
-        if isinstance(msg, str):
-            return msg
-        parts: list[str] = []
-        for seg in msg:
-            if seg.type == "text":
-                parts.append(str(seg.data.get("text", "")))
-        return "".join(parts).strip()
+        return extract_plaintext(self.event)
 
     def get_args(self) -> list[str]:
         """提取命令参数（命令名之后的文本）。"""

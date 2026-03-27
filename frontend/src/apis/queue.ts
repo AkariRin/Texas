@@ -132,6 +132,8 @@ export function connectQueueStream(
   }
 
   return () => {
+    eventSource.onmessage = null
+    eventSource.onerror = null
     eventSource.close()
   }
 }
