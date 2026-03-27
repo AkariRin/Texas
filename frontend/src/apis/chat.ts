@@ -1,5 +1,5 @@
 /**
- * Chat API 接口层 —— 封装 /api/v1/chat 所有后端接口调用。
+ * Chat API 接口层 —— 封装 /api/chat 所有后端接口调用。
  */
 
 import http from './client'
@@ -53,7 +53,7 @@ export interface ArchiveLog {
 
 // ── API 调用 ──
 
-const BASE = '/api/v1/chat'
+const BASE = '/api/chat'
 
 // ── 消息查询 ──
 

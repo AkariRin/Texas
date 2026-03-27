@@ -1,5 +1,5 @@
 /**
- * 权限管理 API 接口层 —— 封装 /api/v1/permissions 所有后端接口调用。
+ * 权限管理 API 接口层 —— 封装 /api/permissions 所有后端接口调用。
  */
 
 import http from './client'
@@ -77,7 +77,7 @@ export interface GroupFeatureSetData {
 
 // ── API 调用 ──
 
-const BASE = '/api/v1/permissions'
+const BASE = '/api/permissions'
 
 // ── 功能树 ──
 

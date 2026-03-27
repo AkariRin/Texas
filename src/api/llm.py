@@ -27,7 +27,7 @@ if TYPE_CHECKING:
 
 logger = structlog.get_logger()
 
-router = APIRouter(prefix="/v1/llm", tags=["llm"])
+router = APIRouter(prefix="/llm", tags=["llm"])
 
 
 def _parse_uuid(value: str, name: str = "ID") -> uuid.UUID:

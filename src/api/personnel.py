@@ -22,7 +22,7 @@ if TYPE_CHECKING:
 
 logger = structlog.get_logger()
 
-router = APIRouter(prefix="/v1/personnel", tags=["personnel"])
+router = APIRouter(prefix="/personnel", tags=["personnel"])
 
 # ── 响应模型 ──
 

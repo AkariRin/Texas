@@ -17,6 +17,7 @@ if TYPE_CHECKING:
     from celery.app.control import Inspect
 
 from src.core.tasks.celery_app import celery_app
+from src.core.utils.response import fail, ok
 
 logger = structlog.get_logger()
 
@@ -34,23 +35,20 @@ def _display_name(task_path: str) -> str:
     return TASK_DISPLAY_NAMES.get(task_path, task_path)
 
 
-@router.get("/scheduled-tasks")
-async def get_scheduled_tasks() -> dict[str, Any]:
-    """获取已注册的 Celery Beat 定时任务列表。"""
-    # 从 celery_app.conf.beat_schedule 导入（含运行时注册的任务）
+# ── 可复用的同步数据收集函数 ──
+
+
+def _build_scheduled_tasks() -> list[dict[str, Any]]:
+    """收集已注册的 Celery Beat 定时任务。"""
     from src.core.tasks.scheduled import celery_app as scheduled_app
 
     beat_schedule: dict[str, Any] = getattr(scheduled_app.conf, "beat_schedule", {}) or {}
-
     tasks: list[dict[str, Any]] = []
     for _name, config in beat_schedule.items():
         schedule = config.get("schedule")
-        # schedule 可能是 int/float（秒）或 crontab 等
-        if isinstance(schedule, (int, float)):
-            schedule_display = f"每 {int(schedule)} 秒"
-        else:
-            schedule_display = str(schedule)
-
+        schedule_display = (
+            f"每 {int(schedule)} 秒" if isinstance(schedule, (int, float)) else str(schedule)
+        )
         options = config.get("options", {})
         tasks.append(
             {
@@ -67,220 +65,16 @@ async def get_scheduled_tasks() -> dict[str, Any]:
                 "enabled": config.get("enabled", True),
             }
         )
-
-    return {"code": 0, "data": tasks, "message": "ok"}
-
-
-@router.get("/active-tasks")
-async def get_active_tasks() -> dict[str, Any]:
-    """获取当前正在执行的任务。"""
-    try:
-        inspect: Inspect = celery_app.control.inspect(timeout=3.0)
-        active = inspect.active() or {}
-
-        result: list[dict[str, Any]] = []
-        for worker_name, tasks in active.items():
-            for task in tasks:
-                result.append(
-                    {
-                        "worker": worker_name,
-                        "id": task.get("id"),
-                        "name": _display_name(task.get("name", "")),
-                        "args": task.get("args"),
-                        "kwargs": task.get("kwargs"),
-                        "started": task.get("time_start"),
-                        "acknowledged": task.get("acknowledged"),
-                    }
-                )
-
-        return {"code": 0, "data": result, "message": "ok"}
-    except Exception as exc:
-        logger.warning("获取活跃任务失败", error=str(exc), event_type="queue.inspect_error")
-        return {"code": -1, "data": [], "message": f"无法连接 Worker: {exc}"}
+    return tasks
 
 
-@router.get("/reserved-tasks")
-async def get_reserved_tasks() -> dict[str, Any]:
-    """获取已预取但尚未开始执行的队列消息（reserved）。"""
-    try:
-        inspect: Inspect = celery_app.control.inspect(timeout=3.0)
-        reserved = inspect.reserved() or {}
-
-        result: list[dict[str, Any]] = []
-        for worker_name, tasks in reserved.items():
-            for task in tasks:
-                result.append(
-                    {
-                        "worker": worker_name,
-                        "id": task.get("id"),
-                        "name": _display_name(task.get("name", "")),
-                        "args": task.get("args"),
-                        "kwargs": task.get("kwargs"),
-                        "acknowledged": task.get("acknowledged"),
-                    }
-                )
-
-        return {"code": 0, "data": result, "message": "ok"}
-    except Exception as exc:
-        logger.warning("获取预留任务失败", error=str(exc), event_type="queue.inspect_error")
-        return {"code": -1, "data": [], "message": f"无法连接 Worker: {exc}"}
-
-
-@router.get("/workers")
-async def get_workers() -> dict[str, Any]:
-    """获取在线 Worker 节点信息。"""
-    try:
-        inspect: Inspect = celery_app.control.inspect(timeout=3.0)
-        stats = inspect.stats() or {}
-
-        workers: list[dict[str, Any]] = []
-        for worker_name, info in stats.items():
-            workers.append(
-                {
-                    "name": worker_name,
-                    "concurrency": info.get("pool", {}).get("max-concurrency"),
-                    "broker": info.get("broker", {}).get("transport"),
-                    "prefetch_count": info.get("prefetch_count"),
-                    "pid": info.get("pid"),
-                    "uptime": info.get("clock"),
-                }
-            )
-
-        return {"code": 0, "data": workers, "message": "ok"}
-    except Exception as exc:
-        logger.warning("获取 Worker 信息失败", error=str(exc), event_type="queue.inspect_error")
-        return {"code": -1, "data": [], "message": f"无法连接 Worker: {exc}"}
-
-
-@router.get("/queue-length")
-async def get_queue_length() -> dict[str, Any]:
-    """获取 Redis Broker 中各队列的消息数量。"""
-    try:
-        # 使用 celery 内置方法获取队列长度
-        with celery_app.connection_or_acquire() as conn:
-            channel = conn.default_channel
-            # 默认队列名为 celery
-            queue_name = "celery"
-            queue_length = channel.client.llen(queue_name)
-
-        return {
-            "code": 0,
-            "data": {"queue": queue_name, "length": queue_length},
-            "message": "ok",
-        }
-    except Exception as exc:
-        logger.warning("获取队列长度失败", error=str(exc), event_type="queue.broker_error")
-        return {"code": -1, "data": {"queue": "celery", "length": None}, "message": str(exc)}
-
-
-def _parse_pending_tasks(max_count: int = 200) -> list[dict[str, Any]]:
-    """从 Redis Broker 队列中读取等待中的任务消息（不消费，只读取）。"""
-    pending: list[dict[str, Any]] = []
-    try:
-        with celery_app.connection_or_acquire() as conn:
-            channel = conn.default_channel
-            redis_client = channel.client
-            # Celery 使用 Redis List 作为 Broker 队列，队列名为 celery
-            raw_messages = redis_client.lrange("celery", 0, max_count - 1)
-
-            for raw in raw_messages:
-                try:
-                    msg = json.loads(raw) if isinstance(raw, (str, bytes)) else raw
-                    # Celery JSON 消息格式: body 是 base64 编码的 JSON，或直接 JSON
-                    headers = msg.get("headers") or {}
-                    body_raw = msg.get("body")
-                    body: dict[str, Any] = {}
-                    if body_raw:
-                        try:
-                            body = json.loads(base64.b64decode(body_raw))
-                        except Exception:
-                            try:
-                                body = json.loads(body_raw) if isinstance(body_raw, str) else {}
-                            except Exception:
-                                body = {}
-
-                    task_id = headers.get("id") or msg.get("properties", {}).get(
-                        "correlation_id", ""
-                    )
-                    task_name = headers.get("task") or ""
-                    task_args = (
-                        body[0]
-                        if isinstance(body, (list, tuple)) and len(body) > 0
-                        else headers.get("argsrepr")
-                    )
-                    task_kwargs = (
-                        body[1]
-                        if isinstance(body, (list, tuple)) and len(body) > 1
-                        else headers.get("kwargsrepr")
-                    )
-
-                    pending.append(
-                        {
-                            "id": task_id,
-                            "name": _display_name(task_name),
-                            "args": str(task_args) if task_args else None,
-                            "kwargs": str(task_kwargs) if task_kwargs else None,
-                        }
-                    )
-                except Exception:
-                    # 无法解析的消息跳过
-                    continue
-    except Exception as exc:
-        logger.warning("获取等待任务失败", error=str(exc), event_type="queue.broker_error")
-
-    return pending
-
-
-@router.get("/pending-tasks")
-async def get_pending_tasks() -> dict[str, Any]:
-    """获取 Redis Broker 队列中等待被消费的任务。"""
-    loop = asyncio.get_running_loop()
-    try:
-        result = await loop.run_in_executor(None, _parse_pending_tasks)
-        return {"code": 0, "data": result, "message": "ok"}
-    except Exception as exc:
-        logger.warning("获取等待任务失败", error=str(exc), event_type="queue.broker_error")
-        return {"code": -1, "data": [], "message": f"无法读取队列: {exc}"}
-
-
-# ── SSE 实时推送 ──
-
-
-def _collect_all() -> dict[str, Any]:
-    """同步收集全部队列状态数据（在线程池中运行）。"""
-    from src.core.tasks.scheduled import celery_app as scheduled_app
-
-    # 定时任务
-    beat_schedule: dict[str, Any] = getattr(scheduled_app.conf, "beat_schedule", {}) or {}
-    scheduled_tasks: list[dict[str, Any]] = []
-    for _name, config in beat_schedule.items():
-        schedule = config.get("schedule")
-        if isinstance(schedule, (int, float)):
-            schedule_display = f"每 {int(schedule)} 秒"
-        else:
-            schedule_display = str(schedule)
-        options = config.get("options", {})
-        scheduled_tasks.append(
-            {
-                "name": _display_name(config.get("task", "")),
-                "task": config.get("task", ""),
-                "schedule": schedule_display,
-                "schedule_raw": schedule if isinstance(schedule, (int, float)) else None,
-                "args": config.get("args"),
-                "kwargs": config.get("kwargs"),
-                "options": {
-                    "expires": options.get("expires"),
-                    "queue": options.get("queue"),
-                },
-                "enabled": config.get("enabled", True),
-            }
-        )
-
-    # Celery inspect（单次连接）
+def _build_inspect_data() -> tuple[
+    list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]
+]:
+    """收集活跃任务、预留任务、Worker 信息（单次 inspect 连接）。"""
     active_tasks: list[dict[str, Any]] = []
     reserved_tasks: list[dict[str, Any]] = []
     workers: list[dict[str, Any]] = []
-    queue_length_data: dict[str, Any] = {"queue": "celery", "length": None}
 
     try:
         inspect: Inspect = celery_app.control.inspect(timeout=3.0)
@@ -324,28 +118,158 @@ def _collect_all() -> dict[str, Any]:
                 }
             )
     except Exception as exc:
-        logger.warning("SSE inspect 失败", error=str(exc), event_type="queue.sse_error")
+        logger.warning("Celery inspect 失败", error=str(exc), event_type="queue.inspect_error")
 
+    return active_tasks, reserved_tasks, workers
+
+
+def _build_queue_length() -> dict[str, Any]:
+    """获取 Redis Broker 队列长度。"""
     try:
         with celery_app.connection_or_acquire() as conn:
             channel = conn.default_channel
-            queue_length_data = {
-                "queue": "celery",
-                "length": channel.client.llen("celery"),
-            }
+            return {"queue": "celery", "length": channel.client.llen("celery")}
     except Exception as exc:
-        logger.warning("SSE 获取队列长度失败", error=str(exc), event_type="queue.sse_error")
+        logger.warning("获取队列长度失败", error=str(exc), event_type="queue.broker_error")
+        return {"queue": "celery", "length": None}
 
-    # 等待中的任务（Redis Broker 队列中尚未被消费的消息）
-    pending_tasks = _parse_pending_tasks()
 
+def _parse_pending_tasks(max_count: int = 200) -> list[dict[str, Any]]:
+    """从 Redis Broker 队列中读取等待中的任务消息（不消费，只读取）。"""
+    pending: list[dict[str, Any]] = []
+    try:
+        with celery_app.connection_or_acquire() as conn:
+            channel = conn.default_channel
+            raw_messages = channel.client.lrange("celery", 0, max_count - 1)
+
+            for raw in raw_messages:
+                try:
+                    msg = json.loads(raw) if isinstance(raw, (str, bytes)) else raw
+                    headers = msg.get("headers") or {}
+                    body_raw = msg.get("body")
+                    body: dict[str, Any] = {}
+                    if body_raw:
+                        try:
+                            body = json.loads(base64.b64decode(body_raw))
+                        except Exception:
+                            try:
+                                body = json.loads(body_raw) if isinstance(body_raw, str) else {}
+                            except Exception:
+                                body = {}
+
+                    task_id = headers.get("id") or msg.get("properties", {}).get(
+                        "correlation_id", ""
+                    )
+                    task_name = headers.get("task") or ""
+                    task_args = (
+                        body[0]
+                        if isinstance(body, (list, tuple)) and len(body) > 0
+                        else headers.get("argsrepr")
+                    )
+                    task_kwargs = (
+                        body[1]
+                        if isinstance(body, (list, tuple)) and len(body) > 1
+                        else headers.get("kwargsrepr")
+                    )
+
+                    pending.append(
+                        {
+                            "id": task_id,
+                            "name": _display_name(task_name),
+                            "args": str(task_args) if task_args else None,
+                            "kwargs": str(task_kwargs) if task_kwargs else None,
+                        }
+                    )
+                except Exception:
+                    continue
+    except Exception as exc:
+        logger.warning("获取等待任务失败", error=str(exc), event_type="queue.broker_error")
+
+    return pending
+
+
+# ── REST 端点 ──
+
+
+@router.get("/scheduled-tasks")
+async def get_scheduled_tasks() -> dict[str, Any]:
+    """获取已注册的 Celery Beat 定时任务列表。"""
+    return ok(_build_scheduled_tasks())
+
+
+@router.get("/active-tasks")
+async def get_active_tasks() -> dict[str, Any]:
+    """获取当前正在执行的任务。"""
+    try:
+        loop = asyncio.get_running_loop()
+        active, _, _ = await loop.run_in_executor(None, _build_inspect_data)
+        return ok(active)
+    except Exception as exc:
+        logger.warning("获取活跃任务失败", error=str(exc), event_type="queue.inspect_error")
+        return fail(f"无法连接 Worker: {exc}", data=[])
+
+
+@router.get("/reserved-tasks")
+async def get_reserved_tasks() -> dict[str, Any]:
+    """获取已预取但尚未开始执行的队列消息（reserved）。"""
+    try:
+        loop = asyncio.get_running_loop()
+        _, reserved, _ = await loop.run_in_executor(None, _build_inspect_data)
+        return ok(reserved)
+    except Exception as exc:
+        logger.warning("获取预留任务失败", error=str(exc), event_type="queue.inspect_error")
+        return fail(f"无法连接 Worker: {exc}", data=[])
+
+
+@router.get("/workers")
+async def get_workers() -> dict[str, Any]:
+    """获取在线 Worker 节点信息。"""
+    try:
+        loop = asyncio.get_running_loop()
+        _, _, workers = await loop.run_in_executor(None, _build_inspect_data)
+        return ok(workers)
+    except Exception as exc:
+        logger.warning("获取 Worker 信息失败", error=str(exc), event_type="queue.inspect_error")
+        return fail(f"无法连接 Worker: {exc}", data=[])
+
+
+@router.get("/queue-length")
+async def get_queue_length() -> dict[str, Any]:
+    """获取 Redis Broker 中各队列的消息数量。"""
+    loop = asyncio.get_running_loop()
+    try:
+        data = await loop.run_in_executor(None, _build_queue_length)
+        return ok(data)
+    except Exception as exc:
+        logger.warning("获取队列长度失败", error=str(exc), event_type="queue.broker_error")
+        return fail(str(exc), data={"queue": "celery", "length": None})
+
+
+@router.get("/pending-tasks")
+async def get_pending_tasks() -> dict[str, Any]:
+    """获取 Redis Broker 队列中等待被消费的任务。"""
+    loop = asyncio.get_running_loop()
+    try:
+        result = await loop.run_in_executor(None, _parse_pending_tasks)
+        return ok(result)
+    except Exception as exc:
+        logger.warning("获取等待任务失败", error=str(exc), event_type="queue.broker_error")
+        return fail(f"无法读取队列: {exc}", data=[])
+
+
+# ── SSE 实时推送 ──
+
+
+def _collect_all() -> dict[str, Any]:
+    """同步收集全部队列状态数据（在线程池中运行）。"""
+    active_tasks, reserved_tasks, workers = _build_inspect_data()
     return {
-        "scheduledTasks": scheduled_tasks,
+        "scheduledTasks": _build_scheduled_tasks(),
         "activeTasks": active_tasks,
         "reservedTasks": reserved_tasks,
-        "pendingTasks": pending_tasks,
+        "pendingTasks": _parse_pending_tasks(),
         "workers": workers,
-        "queueLength": queue_length_data,
+        "queueLength": _build_queue_length(),
     }
 
 

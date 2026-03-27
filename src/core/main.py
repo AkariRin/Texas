@@ -11,11 +11,12 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import structlog
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
+from fastapi.exceptions import RequestValidationError
 from fastapi.staticfiles import StaticFiles
 from prometheus_client import generate_latest
-from starlette.requests import Request
-from starlette.responses import Response
+from starlette.requests import Request  # noqa: TC002
+from starlette.responses import JSONResponse, Response
 
 from src.api.router import api_router
 from src.core.config import get_settings, validate_settings
@@ -23,7 +24,7 @@ from src.core.db.engine import create_engine, create_session_factory
 from src.core.db.migration import run_all_startup_migrations
 from src.core.framework.dispatcher import EventDispatcher
 from src.core.framework.interceptors.logging import LoggingInterceptor
-from src.core.framework.interceptors.metrics import MetricsInterceptor
+from src.core.framework.interceptors.rate_limit import RateLimitInterceptor
 from src.core.framework.mapping import (
     CommandHandlerMapping,
     CompositeHandlerMapping,
@@ -286,6 +287,11 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     heartbeat = HeartbeatMonitor(interval_ms=settings.NAPCAT_HEART_INTERVAL)
     bot_api = BotAPI(connection_manager=conn_mgr)
 
+    from src.core.cache.client import CacheClient
+
+    engine, session_factory = await _startup_database(settings)
+    cache_client = CacheClient(url=settings.CACHE_REDIS_URL, default_ttl=settings.CACHE_DEFAULT_TTL)
+
     composite_mapping = CompositeHandlerMapping(
         [
             CommandHandlerMapping(),
@@ -299,14 +305,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     )
     dispatcher = EventDispatcher(
         mapping=composite_mapping,
-        interceptors=[LoggingInterceptor(), MetricsInterceptor()],
+        interceptors=[LoggingInterceptor(), RateLimitInterceptor(cache_client=cache_client)],
     )
     scanner = ComponentScanner(mapping=composite_mapping)
-
-    from src.core.cache.client import CacheClient
-
-    engine, session_factory = await _startup_database(settings)
-    cache_client = CacheClient(url=settings.CACHE_REDIS_URL, default_ttl=settings.CACHE_DEFAULT_TTL)
 
     import src.core.db.chat_migrations  # noqa: F401 — 触发聊天库迁移目标注册
 
@@ -350,7 +351,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     app.state.conn_mgr = conn_mgr
     app.state.bot_api = bot_api
     app.state.heartbeat = heartbeat
-    app.state.access_token = settings.NAPCAT_ACCESS_TOKEN
+    app.state.access_token = settings.NAPCAT_ACCESS_TOKEN.get_secret_value()
     app.state.cache_client = cache_client
     app.state.scanner = scanner
     app.state.llm_service = llm_service
@@ -409,7 +410,33 @@ app = FastAPI(
     openapi_url=_openapi_url,
 )
 
-# 1. 管理 API (/api/v1)
+# ── 全局异常处理器（统一响应格式为 {code, data, message}）──
+
+from src.core.utils.response import fail  # noqa: E402
+
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException) -> JSONResponse:
+    return JSONResponse(
+        status_code=exc.status_code,
+        content=fail(str(exc.detail), code=exc.status_code),
+    )
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(
+    request: Request, exc: RequestValidationError
+) -> JSONResponse:
+    return JSONResponse(status_code=422, content=fail(str(exc.errors()), code=422))
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    logger.exception("未处理的异常", path=request.url.path, event_type="app.unhandled_exception")
+    return JSONResponse(status_code=500, content=fail("服务器内部错误"))
+
+
+# 1. 管理 API (/api)
 app.include_router(api_router, prefix="/api")
 
 # 2. NapCat WebSocket 端点 (/ws)

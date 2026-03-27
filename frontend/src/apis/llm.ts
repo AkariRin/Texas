@@ -1,5 +1,5 @@
 /**
- * LLM API 接口层 —— 封装 /api/v1/llm 所有后端接口调用。
+ * LLM API 接口层 —— 封装 /api/llm 所有后端接口调用。
  */
 
 import http from './client'
@@ -102,7 +102,7 @@ export interface TestResult {
 
 // ── API 调用 ──
 
-const BASE = '/api/v1/llm'
+const BASE = '/api/llm'
 
 // ── 提供商 ──
 

@@ -1,5 +1,5 @@
 /**
- * 用户管理 API 接口层 —— 封装 /api/v1/personnel 所有后端接口调用。
+ * 用户管理 API 接口层 —— 封装 /api/personnel 所有后端接口调用。
  */
 
 import http from './client'
@@ -60,7 +60,7 @@ export interface SyncStatus {
 
 // ── API 调用 ──
 
-const BASE = '/api/v1/personnel'
+const BASE = '/api/personnel'
 
 export async function fetchUsers(params: {
   page?: number

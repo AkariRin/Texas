@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 
 logger = structlog.get_logger()
 
-router = APIRouter(prefix="/v1/permissions", tags=["permissions"])
+router = APIRouter(prefix="/permissions", tags=["permissions"])
 
 
 # ─────────────────────── 依赖 ───────────────────────

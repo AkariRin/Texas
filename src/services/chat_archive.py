@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import tempfile
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any
@@ -23,6 +24,9 @@ if TYPE_CHECKING:
     from src.core.config import Settings
 
 logger = structlog.get_logger()
+
+# 分区名白名单：只允许 chat_history_YYYY_MM 格式
+_PARTITION_NAME_RE = re.compile(r"^chat_history_\d{4}_\d{2}$")
 
 # ── Parquet Schema 定义 ──
 
@@ -83,6 +87,10 @@ class ArchiveService:
         如果未指定 partition_name，则自动发现超过保留月数的分区。
         """
         if partition_name:
+            if not _PARTITION_NAME_RE.match(partition_name):
+                raise ValueError(
+                    f"非法分区名: {partition_name!r}，格式须为 chat_history_YYYY_MM"
+                )
             partitions = [partition_name]
         else:
             partitions = await self._discover_archivable_partitions()
@@ -367,7 +375,7 @@ class ArchiveService:
         }
         if self._settings.S3_ACCESS_KEY_ID:
             kwargs["aws_access_key_id"] = self._settings.S3_ACCESS_KEY_ID
-            kwargs["aws_secret_access_key"] = self._settings.S3_SECRET_ACCESS_KEY
+            kwargs["aws_secret_access_key"] = self._settings.S3_SECRET_ACCESS_KEY.get_secret_value()
         if self._settings.S3_ENDPOINT_URL:
             kwargs["endpoint_url"] = self._settings.S3_ENDPOINT_URL
 
@@ -533,7 +541,7 @@ class ArchiveService:
         }
         if self._settings.S3_ACCESS_KEY_ID:
             s3_kwargs["access_key"] = self._settings.S3_ACCESS_KEY_ID
-            s3_kwargs["secret_key"] = self._settings.S3_SECRET_ACCESS_KEY
+            s3_kwargs["secret_key"] = self._settings.S3_SECRET_ACCESS_KEY.get_secret_value()
         if self._settings.S3_ENDPOINT_URL:
             s3_kwargs["endpoint_override"] = self._settings.S3_ENDPOINT_URL
 

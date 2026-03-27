@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 
 logger = structlog.get_logger()
 
-router = APIRouter(prefix="/v1/chat", tags=["chat"])
+router = APIRouter(prefix="/chat", tags=["chat"])
 
 # ── 请求模型 ──
 
