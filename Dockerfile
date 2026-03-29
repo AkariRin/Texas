@@ -1,4 +1,4 @@
-# ── 阶段 1：前端构建 ──
+# 阶段 1：前端构建
 FROM node:22-slim AS frontend-builder
 RUN corepack enable
 WORKDIR /build
@@ -7,7 +7,7 @@ RUN pnpm install --frozen-lockfile
 COPY frontend/ .
 RUN pnpm build
 
-# ── 阶段 2：后端构建 ──
+# 阶段 2：后端构建
 FROM python:3.14-slim AS backend-builder
 WORKDIR /build
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
@@ -15,7 +15,7 @@ COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-dev --no-editable
 COPY src/ src/
 
-# ── 阶段 3：运行时 ──
+# 阶段 3：运行时
 FROM python:3.14-slim AS runtime
 WORKDIR /app
 
@@ -36,7 +36,7 @@ ENV PYTHONUNBUFFERED=1
 USER texas
 EXPOSE 8000
 
-# 默认角色：bot-core。可通过 ROLE=worker 或 ROLE=beat 覆盖
+# 默认角色：bot-core，可通过 ROLE=worker 或 ROLE=beat 覆盖
 ENV ROLE=bot
 CMD if [ "$ROLE" = "worker" ]; then \
       celery -A src.core.tasks.celery_app worker --loglevel=info; \
@@ -45,4 +45,3 @@ CMD if [ "$ROLE" = "worker" ]; then \
     else \
       uvicorn src.core.main:app --host 0.0.0.0 --port 8000; \
     fi
-

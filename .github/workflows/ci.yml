@@ -62,6 +62,9 @@ jobs:
       - name: Format check
         run: uv run ruff format --check src/
 
+      - name: Type check
+        run: uv run mypy src
+
   docker:
     name: Build & Push Docker Image
     runs-on: ubuntu-latest
