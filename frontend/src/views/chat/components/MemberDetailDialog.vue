@@ -1,18 +1,32 @@
 <template>
-  <v-dialog :model-value="modelValue" max-width="480" scrollable @update:model-value="$emit('update:modelValue', $event)">
+  <v-dialog
+    :model-value="modelValue"
+    max-width="480"
+    scrollable
+    @update:model-value="$emit('update:modelValue', $event)"
+  >
     <v-card rounded="lg">
       <v-card-title class="d-flex align-center">
         <v-icon class="mr-2" size="small">mdi-account-details</v-icon>
         群成员详情
         <v-spacer></v-spacer>
-        <v-btn icon="mdi-close" size="small" variant="text" @click="$emit('update:modelValue', false)"></v-btn>
+        <v-btn
+          icon="mdi-close"
+          size="small"
+          variant="text"
+          @click="$emit('update:modelValue', false)"
+        ></v-btn>
       </v-card-title>
       <v-divider></v-divider>
       <v-card-text class="pa-0">
         <!-- 加载中 -->
         <div v-if="loading">
           <div class="d-flex align-center pa-4" style="gap: 16px">
-            <v-skeleton-loader type="avatar" style="width: 64px; height: 64px" boilerplate></v-skeleton-loader>
+            <v-skeleton-loader
+              type="avatar"
+              style="width: 64px; height: 64px"
+              boilerplate
+            ></v-skeleton-loader>
             <div class="flex-grow-1">
               <v-skeleton-loader type="heading" class="mb-1"></v-skeleton-loader>
               <v-skeleton-loader type="text" style="max-width: 160px"></v-skeleton-loader>

@@ -1,6 +1,5 @@
 <template>
   <PageLayout>
-
     <v-row>
       <!-- 左侧：功能树形列表 -->
       <v-col cols="12" md="4">
@@ -55,7 +54,9 @@
                         </v-chip>
                       </template>
                       <div>
-                        <div v-if="child.message_scope !== 'all'">scope: {{ child.message_scope }}</div>
+                        <div v-if="child.message_scope !== 'all'">
+                          scope: {{ child.message_scope }}
+                        </div>
                         <div v-if="child.admin">管理员专用指令</div>
                         <div v-if="!child.admin && child.message_scope === 'all'">无额外限制</div>
                       </div>

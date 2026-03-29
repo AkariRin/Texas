@@ -142,9 +142,7 @@ const dialogDark = ref(false)
 const rail = ref(false)
 
 // 路由在应用启动时注册完毕后不再变动，无需放入 computed 中重复调用
-const navRoutes = router
-  .getRoutes()
-  .filter((r) => r.meta.icon && r.meta.title && !r.redirect)
+const navRoutes = router.getRoutes().filter((r) => r.meta.icon && r.meta.title && !r.redirect)
 
 /** 无分组路由（仪表盘等顶层页面） */
 const ungroupedRoutes = navRoutes.filter((r) => !r.meta.group)

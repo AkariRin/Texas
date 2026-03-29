@@ -216,7 +216,11 @@ async function onAtChipClick(qq: unknown) {
   memberDetailDialog.value = true
 
   try {
-    const result = await fetchGroupMembers(currentSession.value.id, { page: 1, page_size: 1, qq: qqNum })
+    const result = await fetchGroupMembers(currentSession.value.id, {
+      page: 1,
+      page_size: 1,
+      qq: qqNum,
+    })
     memberDetail.value = result.items[0] ?? null
   } catch {
     // 静默失败

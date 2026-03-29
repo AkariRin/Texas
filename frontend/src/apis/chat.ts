@@ -75,10 +75,9 @@ export async function fetchGroupMessages(
   if (params?.userId) query.user_id = params.userId
   if (params?.startDate) query.start_date = params.startDate
   if (params?.endDate) query.end_date = params.endDate
-  const { data } = await http.get<ApiResponse<ChatMessage[]>>(
-    `${BASE}/messages/group/${groupId}`,
-    { params: query },
-  )
+  const { data } = await http.get<ApiResponse<ChatMessage[]>>(`${BASE}/messages/group/${groupId}`, {
+    params: query,
+  })
   return data.data
 }
 

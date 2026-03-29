@@ -2,10 +2,7 @@
   <div class="message-bubble d-flex align-start mb-3">
     <!-- 头像 -->
     <v-avatar size="36" class="flex-shrink-0 mr-2">
-      <v-img
-        :src="`https://q1.qlogo.cn/g?b=qq&nk=${msg.user_id}&s=100`"
-        :alt="msg.sender_nickname"
-      >
+      <v-img :src="`https://q1.qlogo.cn/g?b=qq&nk=${msg.user_id}&s=100`" :alt="msg.sender_nickname">
         <template #error>
           <v-icon>mdi-account-circle</v-icon>
         </template>
@@ -73,7 +70,9 @@
                 </div>
               </template>
               <template #error>
-                <div class="d-flex align-center justify-center fill-height bg-grey-lighten-3 rounded pa-2">
+                <div
+                  class="d-flex align-center justify-center fill-height bg-grey-lighten-3 rounded pa-2"
+                >
                   <v-icon color="grey">mdi-image-broken</v-icon>
                 </div>
               </template>

@@ -56,5 +56,5 @@ export function roleColor(r: string | undefined): string {
 }
 
 export function roleLabel(r: string | undefined): string {
-  return ROLE_LABEL[r ?? ''] ?? (r ?? '')
+  return ROLE_LABEL[r ?? ''] ?? r ?? ''
 }

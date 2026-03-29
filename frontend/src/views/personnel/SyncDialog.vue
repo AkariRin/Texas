@@ -140,7 +140,6 @@ const DEFAULT_STATUS_META = { color: 'grey', icon: 'mdi-help-circle', label: 'æœ
 
 const statusMeta = computed(() => STATUS_META[status.value?.status ?? ''] ?? DEFAULT_STATUS_META)
 
-
 function showSnack(text: string, color = 'success') {
   snackText.value = text
   snackColor.value = color

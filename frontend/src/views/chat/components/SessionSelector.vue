@@ -123,9 +123,7 @@ const filteredGroups = computed(() => {
 const filteredUsers = computed(() => {
   if (!searchQuery.value) return users.value
   const q = searchQuery.value.toLowerCase()
-  return users.value.filter(
-    (u) => u.nickname.toLowerCase().includes(q) || String(u.qq).includes(q),
-  )
+  return users.value.filter((u) => u.nickname.toLowerCase().includes(q) || String(u.qq).includes(q))
 })
 
 async function loadData() {

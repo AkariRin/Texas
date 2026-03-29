@@ -6,7 +6,6 @@
       </v-btn>
     </template>
     <v-card flat>
-
       <div v-if="store.adminsLoading" class="d-flex flex-wrap ga-4 pa-4">
         <v-skeleton-loader
           v-for="n in 4"
@@ -19,7 +18,10 @@
       </div>
 
       <template v-else>
-        <div v-if="store.admins.length === 0" class="d-flex flex-column align-center justify-center py-16 text-medium-emphasis">
+        <div
+          v-if="store.admins.length === 0"
+          class="d-flex flex-column align-center justify-center py-16 text-medium-emphasis"
+        >
           <v-icon icon="mdi-shield-off-outline" size="48" class="mb-4" />
           <div class="text-body-1">暂无超级管理员</div>
           <div class="text-body-2 mt-1">点击右上角「添加超级管理员」来设置</div>

@@ -4,7 +4,6 @@
       <v-btn color="red" prepend-icon="mdi-plus" @click="openCreate"> 添加提供商 </v-btn>
     </template>
     <v-card flat>
-
       <v-row v-if="store.providersLoading" class="pa-4" dense>
         <v-col v-for="n in 4" :key="n" cols="12" sm="6" md="4" lg="3">
           <v-skeleton-loader type="card" elevation="2" />

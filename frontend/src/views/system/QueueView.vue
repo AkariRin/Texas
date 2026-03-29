@@ -184,7 +184,6 @@ function categoryColor(cat: TaskCategory): string {
   return CATEGORY_META[cat]?.color ?? 'grey'
 }
 
-
 onMounted(() => {
   store.connect()
 })

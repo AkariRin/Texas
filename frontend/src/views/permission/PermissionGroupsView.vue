@@ -1,6 +1,5 @@
 <template>
   <PageLayout>
-
     <!-- 数据表格 -->
     <v-data-table
       :headers="headers"
@@ -94,20 +93,14 @@
                           color="red"
                           hide-details
                           @click.stop
-                          @update:model-value="
-                            (val) => onToggle(item.group_id, ctrl.name, !!val)
-                          "
+                          @update:model-value="(val) => onToggle(item.group_id, ctrl.name, !!val)"
                         />
                       </template>
                     </v-list-item>
                   </template>
 
                   <!-- Method 子节点 -->
-                  <v-list-item
-                    v-for="child in ctrl.children"
-                    :key="child.name"
-                    class="method-item"
-                  >
+                  <v-list-item v-for="child in ctrl.children" :key="child.name" class="method-item">
                     <template #prepend>
                       <v-tooltip location="top">
                         <template #activator="{ props: tp }">
@@ -127,9 +120,7 @@
                             scope: {{ child.message_scope }}
                           </div>
                           <div v-if="child.admin">管理员专用指令</div>
-                          <div v-if="!child.admin && child.message_scope === 'all'">
-                            无额外限制
-                          </div>
+                          <div v-if="!child.admin && child.message_scope === 'all'">无额外限制</div>
                         </div>
                       </v-tooltip>
                     </template>
@@ -143,9 +134,7 @@
                         density="compact"
                         color="red"
                         hide-details
-                        @update:model-value="
-                          (val) => onToggle(item.group_id, child.name, !!val)
-                        "
+                        @update:model-value="(val) => onToggle(item.group_id, child.name, !!val)"
                       />
                     </template>
                   </v-list-item>
