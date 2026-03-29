@@ -1,9 +1,7 @@
 <template>
-  <v-container fluid>
-    <PageHeader />
-  </v-container>
+  <PageLayout />
 </template>
 
 <script setup lang="ts">
-import PageHeader from '@/components/PageHeader.vue'
+import PageLayout from '@/components/PageLayout.vue'
 </script>

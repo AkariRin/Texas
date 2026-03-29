@@ -1,6 +1,6 @@
 <template>
-  <v-container fluid class="pa-6">
-    <PageHeader>
+  <PageLayout>
+    <template #actions>
       <v-btn
         variant="elevated"
         color="primary"
@@ -20,7 +20,7 @@
       >
         手动归档
       </v-btn>
-    </PageHeader>
+    </template>
 
     <!-- 归档任务触发结果 -->
     <v-alert
@@ -207,14 +207,14 @@
         </v-card-text>
       </v-card>
     </v-dialog>
-  </v-container>
+  </PageLayout>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useChatStore } from '@/stores/chat'
 import type { ArchiveLog } from '@/apis/chat'
-import PageHeader from '@/components/PageHeader.vue'
+import PageLayout from '@/components/PageLayout.vue'
 import { formatTime, formatBytes, formatNumber } from '@/utils/format'
 
 const store = useChatStore()

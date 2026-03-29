@@ -1,6 +1,5 @@
 <template>
-  <v-container fluid>
-    <PageHeader />
+  <PageLayout>
 
     <v-row>
       <!-- 左侧：功能树形列表 -->
@@ -165,13 +164,13 @@
         </v-card>
       </v-col>
     </v-row>
-  </v-container>
+  </PageLayout>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { usePermissionStore } from '@/stores/permission'
-import PageHeader from '@/components/PageHeader.vue'
+import PageLayout from '@/components/PageLayout.vue'
 import type { FeatureItem } from '@/apis/permission'
 
 const permStore = usePermissionStore()

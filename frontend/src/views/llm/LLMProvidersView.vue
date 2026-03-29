@@ -1,8 +1,8 @@
 <template>
-  <v-container fluid>
-    <PageHeader>
+  <PageLayout>
+    <template #actions>
       <v-btn color="red" prepend-icon="mdi-plus" @click="openCreate"> 添加提供商 </v-btn>
-    </PageHeader>
+    </template>
     <v-card flat>
 
       <v-row v-if="store.providersLoading" class="pa-4" dense>
@@ -192,14 +192,14 @@
         {{ snackbarText }}
       </v-snackbar>
     </v-card>
-  </v-container>
+  </PageLayout>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue'
 import { useLLMStore } from '@/stores/llm'
 import type { ProviderItem } from '@/apis/llm'
-import PageHeader from '@/components/PageHeader.vue'
+import PageLayout from '@/components/PageLayout.vue'
 
 const store = useLLMStore()
 

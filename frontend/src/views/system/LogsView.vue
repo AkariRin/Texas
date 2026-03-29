@@ -1,6 +1,6 @@
 <template>
-  <v-container fluid class="logs-container">
-    <PageHeader>
+  <PageLayout class="logs-container">
+    <template #actions>
       <div class="d-flex align-center ga-2">
         <v-chip :color="connected ? 'success' : 'error'" variant="elevated" size="small">
           <v-icon
@@ -43,7 +43,7 @@
           </template>
         </v-tooltip>
       </div>
-    </PageHeader>
+    </template>
 
     <v-card class="log-card" variant="elevated">
       <div class="log-search-bar px-3 pt-2 pb-1">
@@ -78,12 +78,12 @@
         </div>
       </div>
     </v-card>
-  </v-container>
+  </PageLayout>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
-import PageHeader from '@/components/PageHeader.vue'
+import PageLayout from '@/components/PageLayout.vue'
 
 interface LogEntry {
   timestamp: string

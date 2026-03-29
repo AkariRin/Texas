@@ -1,10 +1,10 @@
 <template>
-  <v-container fluid>
-    <PageHeader>
+  <PageLayout>
+    <template #actions>
       <v-btn color="red" variant="elevated" prepend-icon="mdi-plus" @click="addDialog = true">
         添加超级管理员
       </v-btn>
-    </PageHeader>
+    </template>
     <v-card flat>
 
       <div v-if="store.adminsLoading" class="d-flex flex-wrap ga-4 pa-4">
@@ -125,14 +125,14 @@
         {{ snackText }}
       </v-snackbar>
     </v-card>
-  </v-container>
+  </PageLayout>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { usePersonnelStore } from '@/stores/personnel'
 import type { UserItem } from '@/apis/personnel'
-import PageHeader from '@/components/PageHeader.vue'
+import PageLayout from '@/components/PageLayout.vue'
 
 const store = usePersonnelStore()
 

@@ -1,6 +1,6 @@
 <template>
-  <v-container fluid>
-    <PageHeader>
+  <PageLayout>
+    <template #actions>
       <v-select
         v-model="filterProvider"
         :items="providerOptions"
@@ -13,7 +13,7 @@
         @update:model-value="loadPage"
       />
       <v-btn color="red" prepend-icon="mdi-plus" class="ml-2" @click="openCreate"> 添加模型 </v-btn>
-    </PageHeader>
+    </template>
     <v-card flat>
 
       <v-data-table :headers="headers" :items="store.models" :loading="store.modelsLoading" hover>
@@ -197,14 +197,14 @@
         </v-card>
       </v-dialog>
     </v-card>
-  </v-container>
+  </PageLayout>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue'
 import { useLLMStore } from '@/stores/llm'
 import type { ModelItem } from '@/apis/llm'
-import PageHeader from '@/components/PageHeader.vue'
+import PageLayout from '@/components/PageLayout.vue'
 
 const store = useLLMStore()
 

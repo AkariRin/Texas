@@ -1,6 +1,5 @@
 <template>
-  <v-container fluid>
-    <PageHeader />
+  <PageLayout>
 
     <!-- 数据表格 -->
     <v-data-table
@@ -158,14 +157,14 @@
         </tr>
       </template>
     </v-data-table>
-  </v-container>
+  </PageLayout>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { usePermissionStore } from '@/stores/permission'
 import type { PermissionMatrixGroup } from '@/apis/permission'
-import PageHeader from '@/components/PageHeader.vue'
+import PageLayout from '@/components/PageLayout.vue'
 
 const permStore = usePermissionStore()
 

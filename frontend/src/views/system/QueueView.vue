@@ -1,6 +1,6 @@
 <template>
-  <v-container fluid>
-    <PageHeader>
+  <PageLayout>
+    <template #actions>
       <v-chip
         :color="store.connected ? 'success' : 'grey'"
         variant="elevated"
@@ -8,7 +8,7 @@
       >
         {{ store.connected ? '实时推送中' : '未连接' }}
       </v-chip>
-    </PageHeader>
+    </template>
 
     <!-- 概览卡片 -->
     <v-row>
@@ -140,14 +140,14 @@
         </v-card>
       </v-col>
     </v-row>
-  </v-container>
+  </PageLayout>
 </template>
 
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref, computed } from 'vue'
 import { useQueueStore } from '@/stores/queue'
 import type { TaskCategory, UnifiedTask } from '@/apis/queue'
-import PageHeader from '@/components/PageHeader.vue'
+import PageLayout from '@/components/PageLayout.vue'
 import { formatTimestamp } from '@/utils/format'
 
 const store = useQueueStore()

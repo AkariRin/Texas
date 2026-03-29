@@ -1,6 +1,5 @@
 <template>
-  <v-container fluid>
-    <PageHeader />
+  <PageLayout>
     <v-card flat>
       <v-card-title class="d-flex align-center flex-wrap ga-2">
         <!-- 筛选栏 -->
@@ -182,7 +181,7 @@
         </v-card-text>
       </v-card>
     </v-dialog>
-  </v-container>
+  </PageLayout>
 </template>
 
 <script setup lang="ts">
@@ -190,7 +189,7 @@ import { ref, watch, onMounted } from 'vue'
 import { usePersonnelStore } from '@/stores/personnel'
 import type { UserDetail, GroupItem } from '@/apis/personnel'
 import SyncDialog from './SyncDialog.vue'
-import PageHeader from '@/components/PageHeader.vue'
+import PageLayout from '@/components/PageLayout.vue'
 import { formatTime } from '@/utils/format'
 import { relationColor, relationLabel, relationIcon } from '@/utils/personnel'
 import { debounce } from '@/utils/ui'
