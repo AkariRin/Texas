@@ -88,9 +88,7 @@ class ArchiveService:
         """
         if partition_name:
             if not _PARTITION_NAME_RE.match(partition_name):
-                raise ValueError(
-                    f"非法分区名: {partition_name!r}，格式须为 chat_history_YYYY_MM"
-                )
+                raise ValueError(f"非法分区名: {partition_name!r}，格式须为 chat_history_YYYY_MM")
             partitions = [partition_name]
         else:
             partitions = await self._discover_archivable_partitions()

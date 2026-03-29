@@ -213,17 +213,9 @@ class ChatHistoryService:
     ) -> dict[str, Any]:
         """搜索消息（关键词 + 筛选条件）。"""
         keyword_filter = ChatMessage.raw_message.ilike(f"%{_escape_like(keyword)}%", escape="\\")
-        stmt = (
-            select(ChatMessage)
-            .where(keyword_filter)
-            .order_by(ChatMessage.created_at.desc())
-        )
+        stmt = select(ChatMessage).where(keyword_filter).order_by(ChatMessage.created_at.desc())
 
-        count_stmt = (
-            select(func.count())
-            .select_from(ChatMessage)
-            .where(keyword_filter)
-        )
+        count_stmt = select(func.count()).select_from(ChatMessage).where(keyword_filter)
 
         if group_id:
             stmt = stmt.where(ChatMessage.group_id == group_id)

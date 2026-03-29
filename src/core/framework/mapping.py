@@ -52,7 +52,6 @@ class HandlerMapping(ABC):
     def register(self, handler_method: HandlerMethod) -> None: ...
 
 
-
 # ── 具体映射实现 ──
 
 
@@ -142,9 +141,7 @@ class StartsWithHandlerMapping(HandlerMapping):
             return []
         text = extract_plaintext(event)
         return [
-            ResolvedHandler(handler=hm)
-            for prefix, hm in self._handlers
-            if text.startswith(prefix)
+            ResolvedHandler(handler=hm) for prefix, hm in self._handlers if text.startswith(prefix)
         ]
 
 
@@ -162,9 +159,7 @@ class EndsWithHandlerMapping(HandlerMapping):
             return []
         text = extract_plaintext(event)
         return [
-            ResolvedHandler(handler=hm)
-            for suffix, hm in self._handlers
-            if text.endswith(suffix)
+            ResolvedHandler(handler=hm) for suffix, hm in self._handlers if text.endswith(suffix)
         ]
 
 

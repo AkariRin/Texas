@@ -692,9 +692,7 @@ class PersonnelService:
                 personnel_groups_total.set(
                     (
                         await session.execute(
-                            select(func.count())
-                            .select_from(Group)
-                            .where(Group.is_active.is_(True))
+                            select(func.count()).select_from(Group).where(Group.is_active.is_(True))
                         )
                     ).scalar()
                     or 0

@@ -99,7 +99,7 @@ class FeaturePermissionService:
                     )
 
             # 处理独立 @feature 功能
-            for feat in (standalone_features or []):
+            for feat in standalone_features or []:
                 feat_name: str = feat["name"]
                 feat_enabled: bool = feat.get("default_enabled", False)
                 feat_system: bool = feat.get("system", False)
@@ -322,9 +322,7 @@ class FeaturePermissionService:
             return bool(cached)
 
         async with self._factory() as session:
-            row = await session.execute(
-                select(Group.bot_enabled).where(Group.group_id == group_id)
-            )
+            row = await session.execute(select(Group.bot_enabled).where(Group.group_id == group_id))
             enabled = row.scalar_one_or_none()
             result = bool(enabled) if enabled is not None else True
 
