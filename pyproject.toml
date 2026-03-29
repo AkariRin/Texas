@@ -1,6 +1,6 @@
 [project]
 name = "Texas"
-version = "0.1.0"
+version = "1.0.0"
 description = "A high-performance, extensible QQ Bot framework based on NapCat / OneBot 11"
 requires-python = ">=3.14"
 dependencies = [
@@ -38,6 +38,8 @@ db = "src.core.db.cli:main"
 dev = [
     "ruff>=0.9",
     "mypy>=1.14",
+    "commitizen>=4.13.9",
+    "pre-commit>=4.5.1",
 ]
 
 [tool.ruff]
@@ -67,3 +69,13 @@ plugins = ["pydantic.mypy"]
 module = ["celery.*", "redbeat.*", "pyarrow.*", "boto3.*", "botocore.*"]
 ignore_missing_imports = true
 
+[tool.commitizen]
+name = "cz_conventional_commits"
+version_provider = "pep621"
+tag_format = "v$version"
+bump_message = "chore(release): v$new_version"
+version_files = [
+    "frontend/package.json:version",
+    "helm/texas/Chart.yaml:version",
+    "helm/texas/Chart.yaml:appVersion",
+]

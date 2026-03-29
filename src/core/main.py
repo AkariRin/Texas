@@ -37,6 +37,7 @@ from src.core.framework.mapping import (
 )
 from src.core.framework.scanner import ComponentScanner
 from src.core.logging.setup import _bootstrap_root_logging, setup_logging
+from src.core.version import get_description, get_version
 
 # 尽早初始化根 logger，确保 structlog 管道就绪（uvicorn 保留其自身日志格式）
 _bootstrap_root_logging()
@@ -280,7 +281,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
 
     install_log_broadcast()
 
-    logger.info("Texas 正在启动", version="0.1.0", event_type="app.starting")
+    logger.info("Texas 正在启动", version=get_version(), event_type="app.starting")
 
     # ── 基础设施实例（集中在 lifespan 内创建，通过 app.state 统一暴露） ──
     conn_mgr = ConnectionManager()
@@ -402,8 +403,8 @@ _openapi_url = None if settings.is_production else "/openapi.json"
 
 app = FastAPI(
     title="Texas",
-    version="0.1.0",
-    description="基于 NapCat / OneBot 11 的 QQ 机器人框架",
+    version=get_version(),
+    description=get_description(),
     lifespan=lifespan,
     docs_url=_docs_url,
     redoc_url=_redoc_url,

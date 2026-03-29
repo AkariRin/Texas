@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ruff check*)",
+      "Bash(ruff format*)",
+      "Bash(mypy*)",
+      "Bash(uv run*)",
+      "Bash(uv sync*)",
+      "Bash(uvicorn*)",
+      "Bash(python -m src.core.db.cli*)",
+      "Bash(cd frontend*)",
+      "Bash(docker compose*)",
+      "Bash(git status*)",
+      "Bash(git log*)",
+      "Bash(git diff*)",
+      "Bash(git show*)",
+      "Bash(git branch*)",
+      "Bash(git fetch*)",
+      "Bash(git pull*)"
+    ],
+    "deny": [
+      "Bash(rm -rf*)",
+      "Bash(docker build*)",
+      "Bash(docker push*)",
+      "Bash(helm install*)",
+      "Bash(helm upgrade*)"
+    ]
+  }
+}

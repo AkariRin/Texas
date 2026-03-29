@@ -41,16 +41,22 @@ spec:
           env:
             - name: ROLE
               value: worker
+          {{- with .Values.worker.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           envFrom:
             - configMapRef:
                 name: {{ include "texas.configMapName" . }}
             - secretRef:
                 name: {{ include "texas.secretName" . }}
-          {{- with .Values.worker.extraEnv }}
-            {{- toYaml . | nindent 12 }}
-          {{- end }}
           resources:
             {{- toYaml .Values.worker.resources | nindent 12 }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
       {{- with .Values.worker.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

@@ -2,14 +2,14 @@ apiVersion: v2
 name: texas
 description: A high-performance, extensible QQ Bot framework based on NapCat / OneBot 11
 type: application
-version: 0.1.0
-appVersion: "0.1.0"
+version: 1.0.0
+appVersion: "1.0.0"
 keywords:
   - qq-bot
   - napcat
   - onebot
   - fastapi
-home: https://github.com/your-org/texas
+home: https://github.com/AkariRin/texas
 maintainers:
   - name: Texas Team
 

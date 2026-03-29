@@ -42,14 +42,14 @@ spec:
           env:
             - name: ROLE
               value: bot
+          {{- with .Values.bot.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           envFrom:
             - configMapRef:
                 name: {{ include "texas.configMapName" . }}
             - secretRef:
                 name: {{ include "texas.secretName" . }}
-          {{- with .Values.bot.extraEnv }}
-            {{- toYaml . | nindent 12 }}
-          {{- end }}
           ports:
             - name: http
               containerPort: {{ .Values.service.port }}
@@ -64,6 +64,12 @@ spec:
           {{- end }}
           resources:
             {{- toYaml .Values.bot.resources | nindent 12 }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
       {{- with .Values.bot.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

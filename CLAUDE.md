@@ -57,6 +57,17 @@ docker build -t texas:latest .
 # worker/beat 仅用于聊天归档 Celery 任务；人员同步由主进程内 SyncCoordinator 管理
 ```
 
+### 快捷命令（Claude Code Slash Commands）
+
+| 命令 | 说明 |
+|------|------|
+| `/project:lint` | 后端 ruff + 前端 pnpm lint，一键全栈 lint |
+| `/project:typecheck` | mypy + vue-tsc 全栈类型检查 |
+| `/project:dev` | 检查中间件 → 启动后端 + 前端 |
+| `/project:new-handler` | 创建 Bot 事件处理器（带模板和约定提示）|
+| `/project:new-api` | 创建 API 端点（后端路由 + 前端 API 层 8 步检查清单）|
+| `/project:db-migrate` | 数据库迁移工作流（autogenerate → 检查 → 执行 → 验证）|
+
 ## 架构概览
 
 ### 双数据库设计

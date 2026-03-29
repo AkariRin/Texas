@@ -7,6 +7,7 @@ metadata:
     {{- include "texas.labels" . | nindent 4 }}
     app.kubernetes.io/component: beat
 spec:
+  # Beat 调度器必须保持单实例运行，多实例会导致重复触发任务，故硬编码为 1 而非引用 values
   replicas: 1
   strategy:
     type: Recreate
@@ -43,16 +44,22 @@ spec:
           env:
             - name: ROLE
               value: beat
+          {{- with .Values.beat.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           envFrom:
             - configMapRef:
                 name: {{ include "texas.configMapName" . }}
             - secretRef:
                 name: {{ include "texas.secretName" . }}
-          {{- with .Values.beat.extraEnv }}
-            {{- toYaml . | nindent 12 }}
-          {{- end }}
           resources:
             {{- toYaml .Values.beat.resources | nindent 12 }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
       {{- with .Values.beat.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
