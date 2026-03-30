@@ -11,6 +11,7 @@ from src.core.protocol.utils import extract_plaintext
 if TYPE_CHECKING:
     import re
 
+    from src.core.framework.session.base import InteractiveSession
     from src.core.protocol.api import BotAPI
     from src.core.protocol.models.base import MessageSegment, OneBotEvent
 
@@ -137,3 +138,29 @@ class Context:
     @property
     def is_group(self) -> bool:
         return isinstance(self.event, GroupMessageEvent)
+
+    # ── 交互式会话 ──
+
+    async def start_session(
+        self,
+        session_cls: type[InteractiveSession[Any]],
+        initial_data: dict[str, Any] | None = None,
+    ) -> bool:
+        """在当前上下文中启动一个交互式会话。
+
+        Args:
+            session_cls: 会话类（InteractiveSession 子类）。
+            initial_data: 传递给会话数据模型的初始值。
+
+        Returns:
+            是否成功启动。
+        """
+        from src.core.framework.session.manager import SessionManager
+
+        if not self.has_service(SessionManager):
+            raise RuntimeError(
+                "SessionManager 未注册到服务上下文，无法启动会话。"
+                "请确认 SessionManager 已在 lifespan 中初始化。"
+            )
+        manager = self.get_service(SessionManager)
+        return await manager.start_session(session_cls, self, initial_data)

@@ -42,7 +42,6 @@ def controller(
     display_name: str = "",
     tags: list[str] | None = None,
     admin: bool = False,
-    version: str = "0.0.0",
     default_priority: int = 50,
     default_enabled: bool = False,
     system: bool = False,
@@ -55,7 +54,6 @@ def controller(
         display_name: 展示名称，为空则取 name。
         tags: 分类标签列表，用于前端过滤展示。
         admin: 为 True 时该 controller 下所有方法默认为管理员指令。
-        version: 版本号。
         default_priority: 处理器默认优先级。
         default_enabled: 该功能默认是否启用（可被管理员覆盖），默认 False。
         system: 为 True 时标记为系统级功能，强制启用且不暴露给前端。
@@ -71,7 +69,6 @@ def controller(
                 "display_name": display_name or name,
                 "tags": tags or [],
                 "admin": admin,
-                "version": version,
                 "default_priority": default_priority,
                 "default_enabled": default_enabled,
                 "system": system,

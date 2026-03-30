@@ -5,12 +5,16 @@ from __future__ import annotations
 import importlib
 import inspect
 import pkgutil
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import structlog
 
 from src.core.framework.decorators import CONTROLLER_META, FEATURE_META, HANDLER_META
 from src.core.framework.mapping import CompositeHandlerMapping, HandlerMethod
+from src.core.framework.session.decorators import SESSION_META
+
+if TYPE_CHECKING:
+    from src.core.framework.session.manager import SessionManager
 
 logger = structlog.get_logger()
 
@@ -23,6 +27,7 @@ class ComponentScanner:
         self._controllers: list[dict[str, Any]] = []
         self._standalone_features: list[dict[str, Any]] = []
         self._feature_metadata: dict[str, dict[str, Any]] = {}
+        self._session_classes: list[tuple[str, type]] = []  # (controller_name, session_cls)
 
     @property
     def controllers(self) -> list[dict[str, Any]]:
@@ -42,6 +47,24 @@ class ComponentScanner:
         message_scope、mapping_type、tags、children（仅 controller 级）。
         """
         return self._feature_metadata
+
+    @property
+    def session_classes(self) -> list[tuple[str, type]]:
+        """返回所有已发现的交互式会话类。"""
+        return list(self._session_classes)
+
+    def register_sessions(self, session_manager: SessionManager) -> None:
+        """将扫描到的会话类注册到 SessionManager。"""
+        for controller_name, session_cls in self._session_classes:
+            name = f"{controller_name}.{session_cls.__name__}"
+            session_manager.register_session_class(name, session_cls)
+
+        if self._session_classes:
+            logger.info(
+                "交互式会话注册完成",
+                count=len(self._session_classes),
+                event_type="scanner.sessions_registered",
+            )
 
     def scan(self, packages: list[str]) -> None:
         """扫描给定的包路径以查找控制器，完成后构建内存元数据注册表。"""
@@ -225,6 +248,21 @@ class ComponentScanner:
             "methods": methods_info,
         }
         self._controllers.append(ctrl_info)
+
+        # 扫描内部类中的 @interactive_session 标记
+        for attr_name in dir(cls):
+            inner_cls = getattr(cls, attr_name, None)
+            if inner_cls is None or not inspect.isclass(inner_cls):
+                continue
+            session_meta = getattr(inner_cls, SESSION_META, None)
+            if session_meta is not None:
+                self._session_classes.append((controller_name, inner_cls))
+                logger.info(
+                    "交互式会话已发现",
+                    controller=controller_name,
+                    session=inner_cls.__name__,
+                    event_type="scanner.session_discovered",
+                )
 
         logger.info(
             "控制器注册成功",

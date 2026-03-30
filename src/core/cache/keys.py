@@ -49,3 +49,21 @@ def user_relation_key(qq: int) -> str:
 def admin_set_key() -> str:
     """超级管理员 QQ 号集合（Redis Set）。"""
     return "texas:personnel:admins"
+
+
+# ── 交互式会话 (Session) ──
+
+
+def session_key(session_key: str) -> str:
+    """会话元信息。"""
+    return f"texas:session:{session_key}"
+
+
+def session_data_key(session_key: str) -> str:
+    """会话数据（Pydantic 模型序列化）。"""
+    return f"texas:session:{session_key}:data"
+
+
+def session_fsm_key(session_key: str) -> str:
+    """会话状态机快照。"""
+    return f"texas:session:{session_key}:fsm"

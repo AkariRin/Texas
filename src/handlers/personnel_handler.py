@@ -21,7 +21,6 @@ logger = structlog.get_logger()
     display_name="人员事件",
     description="用户数据增量更新处理器，监听群与好友变动事件",
     tags=["system", "personnel"],
-    version="1.0.0",
     default_enabled=True,
     system=True,
 )

@@ -19,23 +19,20 @@ if TYPE_CHECKING:
 
     from sqlalchemy.ext.asyncio import async_sessionmaker
 
-    from src.core.cache.client import CacheClient
     from src.core.protocol.api import BotAPI
 
 logger = structlog.get_logger()
 
 
 class FeedbackService:
-    """用户反馈核心服务 —— 封装反馈 CRUD、会话管理、通知。"""
+    """用户反馈核心服务 —— 封装反馈 CRUD 和通知。"""
 
     def __init__(
         self,
         session_factory: async_sessionmaker[Any],
-        cache: CacheClient,
         bot_api: BotAPI,
     ) -> None:
         self._session_factory = session_factory
-        self._cache = cache
         self._bot_api = bot_api
 
     # ════════════════════════════════════════════
@@ -207,35 +204,8 @@ class FeedbackService:
             return list(result.scalars().all())
 
     # ════════════════════════════════════════════
-    #  会话管理
-    # ════════════════════════════════════════════
-
-    async def get_session(self, user_id: int) -> dict[str, Any] | None:
-        """获取用户会话状态。"""
-        key = self._session_key(user_id)
-        data = await self._cache.get(key)
-        if data and isinstance(data, dict):
-            return dict(data)
-        return None
-
-    async def set_session(self, user_id: int, data: dict[str, Any], ttl: int = 300) -> None:
-        """设置用户会话状态。"""
-        key = self._session_key(user_id)
-        await self._cache.set(key, data, ttl=ttl)
-
-    async def clear_session(self, user_id: int) -> None:
-        """清除用户会话状态。"""
-        key = self._session_key(user_id)
-        await self._cache.delete(key)
-
-    # ════════════════════════════════════════════
     #  内部辅助
     # ════════════════════════════════════════════
-
-    @staticmethod
-    def _session_key(user_id: int) -> str:
-        """生成会话缓存键。"""
-        return f"texas:feedback:session:{user_id}"
 
     async def _notify_admins(self, feedback: Feedback) -> None:
         """通知所有管理员有新反馈（私有方法）。"""

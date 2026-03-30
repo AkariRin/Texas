@@ -25,6 +25,7 @@ from src.core.db.migration import run_all_startup_migrations
 from src.core.framework.dispatcher import EventDispatcher
 from src.core.framework.interceptors.logging import LoggingInterceptor
 from src.core.framework.interceptors.rate_limit import RateLimitInterceptor
+from src.core.framework.interceptors.session import SessionInterceptor
 from src.core.framework.mapping import (
     CommandHandlerMapping,
     CompositeHandlerMapping,
@@ -36,6 +37,7 @@ from src.core.framework.mapping import (
     StartsWithHandlerMapping,
 )
 from src.core.framework.scanner import ComponentScanner
+from src.core.framework.session.manager import SessionManager
 from src.core.logging.setup import _bootstrap_root_logging, setup_logging
 from src.core.version import get_description, get_version
 
@@ -163,7 +165,6 @@ def _startup_llm(
 
 def _startup_feedback(
     session_factory: async_sessionmaker[AsyncSession],
-    cache_client: CacheClient,
     bot_api: BotAPI,
 ) -> FeedbackService:
     """反馈模块初始化，返回 FeedbackService。"""
@@ -171,7 +172,6 @@ def _startup_feedback(
 
     return FeedbackService(
         session_factory=session_factory,
-        cache=cache_client,
         bot_api=bot_api,
     )
 
@@ -265,12 +265,15 @@ def _register_services_to_dispatcher(
     personnel_service: PersonnelService | None = None,
     llm_service: LLMService | None = None,
     cache_client: CacheClient | None = None,
+    session_manager: SessionManager | None = None,
+    feedback_service: FeedbackService | None = None,
 ) -> None:
     """将业务服务注册到 EventDispatcher 的服务注册表。
 
     供 Controller 通过 ctx.get_service() 获取。
     """
     from src.core.cache.client import CacheClient as CacheClientClass
+    from src.services.feedback import FeedbackService as FeedbackServiceClass
     from src.services.llm import LLMService as LLMServiceClass
     from src.services.personnel import PersonnelService as PersonnelServiceClass
 
@@ -280,6 +283,10 @@ def _register_services_to_dispatcher(
         dispatcher_instance.services[LLMServiceClass] = llm_service
     if cache_client is not None:
         dispatcher_instance.services[CacheClientClass] = cache_client
+    if session_manager is not None:
+        dispatcher_instance.services[SessionManager] = session_manager
+    if feedback_service is not None:
+        dispatcher_instance.services[FeedbackServiceClass] = feedback_service
 
 
 # ─────────────────────── Lifespan ───────────────────────
@@ -320,9 +327,14 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
             EventTypeHandlerMapping(),
         ]
     )
+    session_manager = SessionManager(cache=cache_client)
     dispatcher = EventDispatcher(
         mapping=composite_mapping,
-        interceptors=[LoggingInterceptor(), RateLimitInterceptor(cache_client=cache_client)],
+        interceptors=[
+            LoggingInterceptor(),
+            SessionInterceptor(session_manager=session_manager),
+            RateLimitInterceptor(cache_client=cache_client),
+        ],
     )
     scanner = ComponentScanner(mapping=composite_mapping)
 
@@ -342,11 +354,14 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
         session_factory, cache_client, settings, bot_api=bot_api, conn_mgr=conn_mgr
     )
     llm_service = _startup_llm(session_factory, cache_client)
-    feedback_service = _startup_feedback(session_factory, cache_client, bot_api)
+    feedback_service = _startup_feedback(session_factory, bot_api)
     chat_service, archive_service = await _startup_chat(chat_engine, session_factory, settings)
 
     # 框架
     _startup_framework(settings, scanner=scanner, composite_mapping=composite_mapping)
+
+    # 注册交互式会话类到 SessionManager
+    scanner.register_sessions(session_manager)
 
     # 权限系统（功能同步 + checker 注入）
     permission_service = await _startup_permission(
@@ -359,6 +374,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
         personnel_service=personnel_service,
         llm_service=llm_service,
         cache_client=cache_client,
+        session_manager=session_manager,
+        feedback_service=feedback_service,
     )
 
     # 构建事件分发回调
@@ -379,6 +396,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     app.state.personnel_service = personnel_service
     app.state.personnel_query_service = personnel_query_service
     app.state.sync_coordinator = sync_coordinator
+    app.state.session_manager = session_manager
     app.state.event_dispatch_callback = event_dispatch_callback
 
     # 启动用户同步定时调度
@@ -405,6 +423,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
 
     # ── 关闭 ──
     sync_coordinator.stop_scheduler()
+    await session_manager.close()
     await llm_service.close()
     await cache_client.close()
     await chat_engine.dispose()

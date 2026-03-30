@@ -16,6 +16,7 @@ if TYPE_CHECKING:
 
     from src.core.cache.client import CacheClient
     from src.core.framework.scanner import ComponentScanner
+    from src.core.framework.session.manager import SessionManager
     from src.core.protocol.api import BotAPI
     from src.core.ws.connection import ConnectionManager
     from src.core.ws.heartbeat import HeartbeatMonitor
@@ -47,6 +48,7 @@ class AppState:
     personnel_query_service: PersonnelQueryService
     sync_coordinator: SyncCoordinator
     feedback_service: FeedbackService
+    session_manager: SessionManager
     event_dispatch_callback: Callable[[Any], Coroutine[Any, Any, None]] | None
 
 
