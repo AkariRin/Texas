@@ -1,4 +1,4 @@
-# /texas:commit — 智能创建 Commit
+# /texas:commit — 创建 Commit
 
 分析当前 git 改动，生成符合项目 Conventional Commits 规范的提交信息，支持拆分提交建议。
 
@@ -33,7 +33,18 @@ git diff
 
 ### 3. 生成 Commit Message
 
-格式：`<type>(<scope>): <description>`
+格式：
+```
+<type>(<scope>): <description>
+
+[可选 body]
+[可选 footer]
+```
+
+**语言要求（强制）：**
+- `<description>`（简介）：**必须使用中文**
+- `[body]`（完整提交内容）：**必须使用中文**
+- footer 可使用英文（如 `BREAKING CHANGE:`、`Closes #123`）
 
 **scope 推断规则：**
 - 改动在 `src/api/` → `api`
@@ -46,7 +57,6 @@ git diff
 - 前后端同时改动 → `api` 或最主要的 scope
 
 **description 要求：**
-- 中文或英文（与本 PR 其他提交保持一致）
 - 祈使语气
 - 不超过 72 字符
 - 不加句号

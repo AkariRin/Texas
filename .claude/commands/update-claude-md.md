@@ -1,4 +1,4 @@
-# /texas:update-docs — 分析 codebase 并更新提示词文档
+# /texas:update-claude-md — 分析 codebase 并更新提示词文档
 
 扫描整个代码库，对比 `CLAUDE.md` 和 `.claude/rules/*.md` 中的描述与实际代码状态，找出过时/缺失/不一致的内容，更新后保持文档与代码同步。
 
