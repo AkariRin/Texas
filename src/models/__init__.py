@@ -10,6 +10,7 @@
 # ── 聊天库模型（ChatBase.metadata） ──
 from src.models.chat import ChatMessage
 from src.models.chat_archive import ChatArchiveLog
+from src.models.feedback import Feedback, FeedbackSource, FeedbackStatus, FeedbackType
 from src.models.llm import LLM, LLMProvider
 from src.models.permission import Feature, GroupFeaturePermission, PrivateFeaturePermission
 from src.models.personnel import Group, GroupMembership, User
@@ -25,6 +26,10 @@ __all__: list[str] = [
     "Feature",
     "GroupFeaturePermission",
     "PrivateFeaturePermission",
+    "Feedback",
+    "FeedbackType",
+    "FeedbackStatus",
+    "FeedbackSource",
     # 聊天库
     "ChatMessage",
 ]
