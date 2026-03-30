@@ -25,5 +25,61 @@
       "Bash(helm install*)",
       "Bash(helm upgrade*)"
     ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "timeout": 5,
+            "statusMessage": "Checking file policy...",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/block-md-txt.sh"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "timeout": 30,
+            "statusMessage": "Running Prettier...",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/format-frontend.sh"
+          },
+          {
+            "type": "command",
+            "timeout": 15,
+            "statusMessage": "Running ruff format...",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/format-python.sh"
+          },
+          {
+            "type": "command",
+            "timeout": 5,
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/console-log-warn.sh"
+          },
+          {
+            "type": "command",
+            "timeout": 60,
+            "statusMessage": "Installing dependencies...",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/pnpm-install.sh"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "timeout": 15,
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/console-log-stop.sh"
+          }
+        ]
+      }
+    ]
   }
 }
