@@ -11,6 +11,7 @@ export const useChatStore = defineStore('chat', () => {
   // ── 消息列表 ──
   const messages = ref<ChatMessage[]>([])
   const messagesLoading = ref(false)
+  const messagesError = ref<string | null>(null)
   const hasMore = ref(true)
 
   async function loadGroupMessages(
@@ -25,6 +26,7 @@ export const useChatStore = defineStore('chat', () => {
     },
   ) {
     messagesLoading.value = true
+    messagesError.value = null
     try {
       const result = await api.fetchGroupMessages(groupId, params)
       if (params?.before) {
@@ -34,6 +36,8 @@ export const useChatStore = defineStore('chat', () => {
         messages.value = result
       }
       hasMore.value = result.length >= (params?.limit ?? 50)
+    } catch (err) {
+      messagesError.value = err instanceof Error ? err.message : '加载消息失败'
     } finally {
       messagesLoading.value = false
     }
@@ -41,6 +45,7 @@ export const useChatStore = defineStore('chat', () => {
 
   async function loadPrivateMessages(userId: number, params?: { before?: string; limit?: number }) {
     messagesLoading.value = true
+    messagesError.value = null
     try {
       const result = await api.fetchPrivateMessages(userId, params)
       if (params?.before) {
@@ -49,6 +54,8 @@ export const useChatStore = defineStore('chat', () => {
         messages.value = result
       }
       hasMore.value = result.length >= (params?.limit ?? 50)
+    } catch (err) {
+      messagesError.value = err instanceof Error ? err.message : '加载消息失败'
     } finally {
       messagesLoading.value = false
     }
@@ -86,6 +93,7 @@ export const useChatStore = defineStore('chat', () => {
     // 消息
     messages,
     messagesLoading,
+    messagesError,
     hasMore,
     loadGroupMessages,
     loadPrivateMessages,

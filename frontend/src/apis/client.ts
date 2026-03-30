@@ -11,19 +11,7 @@ const http = axios.create({
 http.interceptors.response.use(
   (response) => response,
   (error) => {
-    const status: number | undefined = error.response?.status
-    const message: string = error.response?.data?.message ?? error.message ?? '请求失败'
-
-    if (status === 401) {
-      console.error('[API] 未授权，请检查登录状态')
-    } else if (status === 403) {
-      console.error('[API] 权限不足')
-    } else if (status && status >= 500) {
-      console.error(`[API] 服务器错误 (${status}): ${message}`)
-    } else {
-      console.error(`[API] 请求失败: ${message}`)
-    }
-
+    // 统一拦截 HTTP 错误，由调用方处理具体展示逻辑
     return Promise.reject(error)
   },
 )

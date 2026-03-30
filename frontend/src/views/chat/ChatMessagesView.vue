@@ -222,8 +222,8 @@ async function onAtChipClick(qq: unknown) {
       qq: qqNum,
     })
     memberDetail.value = result.items[0] ?? null
-  } catch {
-    // 静默失败
+  } catch (err) {
+    console.warn('[chat] 加载群成员详情失败', err)
   } finally {
     memberDetailLoading.value = false
   }
