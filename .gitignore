@@ -215,5 +215,8 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 
-# Misc files
+# prettier生成的缓存
+node_modules/
+
+# 杂项
 misc/

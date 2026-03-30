@@ -5,9 +5,43 @@ repos:
       - id: commitizen
         stages: [commit-msg]
 
+  - repo: local
+    hooks:
+      # ── Frontend job: lint → type-check → build ─────────────────────
+      - id: frontend-lint
+        name: frontend lint (oxlint + eslint)
+        language: system
+        entry: bash -c 'cd frontend && pnpm lint'
+        files: ^frontend/.*\.(ts|vue|js|jsx|tsx)$
+        pass_filenames: false
+
+      - id: frontend-format
+        name: frontend format (prettier)
+        language: system
+        entry: bash -c 'cd frontend && pnpm format'
+        files: ^frontend/.*\.(ts|vue|js|jsx|tsx|css|json)$
+        pass_filenames: false
+
+      - id: frontend-type-check
+        name: frontend type check (vue-tsc)
+        language: system
+        entry: bash -c 'cd frontend && pnpm type-check'
+        files: ^frontend/.*\.(ts|vue)$
+        pass_filenames: false
+
+  # ── Backend job: lint → format → type-check ─────────────────────────
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.15.5
     hooks:
       - id: ruff
         args: [--fix]
       - id: ruff-format
+
+  - repo: local
+    hooks:
+      - id: backend-type-check
+        name: backend type check (mypy)
+        language: system
+        entry: uv run mypy src
+        files: ^src/.*\.py$
+        pass_filenames: false
