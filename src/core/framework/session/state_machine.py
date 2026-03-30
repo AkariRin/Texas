@@ -9,6 +9,8 @@ import structlog
 from src.core.framework.session.state import State, Transition  # noqa: TC001
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
+
     from src.core.framework.session.context import SessionContext
 
 logger = structlog.get_logger()
@@ -77,6 +79,10 @@ class StateMachine:
         """按名称获取状态。"""
         return self._states.get(name)
 
+    def iter_states(self) -> Iterator[State]:
+        """遍历所有已注册的状态。"""
+        return iter(self._states.values())
+
     async def start(self, ctx: SessionContext) -> None:
         """启动状态机，进入初始状态。"""
         if self._initial_state is None:
@@ -120,11 +126,9 @@ class StateMachine:
         if target not in self._states:
             raise InvalidTransitionError(f"目标状态 '{target}' 不存在")
 
-        # 退出当前状态
         if self._current_state is not None:
             await self._exit_state(self._current_state, ctx)
 
-        # 进入目标状态
         await self._enter_state(target, ctx)
 
     async def _enter_state(self, state_name: str, ctx: SessionContext) -> None:
@@ -147,15 +151,12 @@ class StateMachine:
             event_type="session.state_enter",
         )
 
-        # 执行 on_enter 回调
         if state.on_enter is not None:
             await state.on_enter(ctx)
 
-        # 如果是终止状态，不需要进入子状态
         if state.is_final:
             return
 
-        # 如果有初始子状态，递归进入
         if state.initial_substate is not None:
             await self._enter_state(state.initial_substate, ctx)
 
@@ -176,15 +177,12 @@ class StateMachine:
 
     async def _execute_transition(self, transition: Transition, ctx: SessionContext) -> None:
         """执行状态转换。"""
-        # 退出当前状态
         if self._current_state is not None:
             await self._exit_state(self._current_state, ctx)
 
-        # 执行转换动作
         if transition.action is not None:
             await transition.action(ctx)
 
-        # 进入目标状态
         await self._enter_state(transition.target, ctx)
 
     def serialize(self) -> dict[str, Any]:

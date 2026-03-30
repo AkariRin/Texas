@@ -63,7 +63,7 @@ async def list_feedbacks(
     service: FeedbackService = Depends(get_feedback_service),
 ) -> dict[str, Any]:
     """分页查询反馈列表。"""
-    from src.models.feedback import FeedbackSource, FeedbackStatus, FeedbackType
+    from src.models.enums import FeedbackSource, FeedbackStatus, FeedbackType
 
     # 转换字符串参数为枚举
     status_enum = FeedbackStatus(status) if status else None
@@ -145,7 +145,7 @@ async def update_feedback_status(
     """更新反馈状态。"""
     from uuid import UUID
 
-    from src.models.feedback import FeedbackStatus
+    from src.models.enums import FeedbackStatus
 
     status_enum = FeedbackStatus(body.status)
     feedback = await service.update_status(UUID(feedback_id), status_enum, body.admin_reply)

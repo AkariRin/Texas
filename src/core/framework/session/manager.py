@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, Any
 
 import structlog
 
+from src.core.cache import keys as cache_keys
 from src.core.framework.session.base import InteractiveSession  # noqa: TC001
 from src.core.framework.session.context import SessionContext  # noqa: TC001
 from src.core.framework.session.decorators import SESSION_META
@@ -68,29 +69,27 @@ class SessionManager:
         scope = session_meta.get("scope", SessionScope.USER)
         session_key = self._build_session_key(ctx.user_id, ctx.group_id, scope)
 
-        # 互斥检查
+        # 互斥：内存检查
         existing = self._active_sessions.get(session_key)
         if existing is not None:
             await ctx.reply("您有一个进行中的操作，请先完成或发送 /取消")
             return False
 
-        # 也检查 Redis（防止进程重启后内存丢失但 Redis 中仍有记录）
-        if await self._cache.exists(self._redis_key(session_key)):
-            # 清理过期的 Redis 记录
-            await self._cache.delete(self._redis_key(session_key))
-            await self._cache.delete(self._redis_data_key(session_key))
-            await self._cache.delete(self._redis_fsm_key(session_key))
+        # 互斥：Redis 残留清理（防止进程重启后内存丢失但 Redis 中仍有记录）
+        if await self._cache.exists(cache_keys.session_key(session_key)):
+            await asyncio.gather(
+                self._cache.delete(cache_keys.session_key(session_key)),
+                self._cache.delete(cache_keys.session_data_key(session_key)),
+                self._cache.delete(cache_keys.session_fsm_key(session_key)),
+            )
 
-        # 实例化会话
         session = session_cls()
         session.manager = self
         session._session_key = session_key
 
-        # 初始化会话数据（Pydantic 模型）
         data_cls = session_cls._resolve_data_cls()
         session.data = data_cls(**(initial_data or {}))
 
-        # 构建状态机
         states = await session.build_states()
         if states is not None:
             initial_state = states[0].name if states else None
@@ -99,20 +98,15 @@ class SessionManager:
             state_list, initial_state = session_cls._build_states_from_decorators()
             session.state_machine = StateMachine(state_list, initial_state=initial_state)
 
-        # 绑定方法到实例（装饰器收集的是未绑定函数，需要绑定到 session 实例）
+        # 装饰器收集的是未绑定函数，需要绑定到 session 实例
         self._bind_state_handlers(session)
 
-        # 存入内存和 Redis
         self._active_sessions[session_key] = session
         await self._persist_session(session_key, session, session_meta)
 
-        # 超时管理
-        timeout_config = session_meta.get("timeout", TimeoutConfig())
-        if isinstance(timeout_config, int):
-            timeout_config = TimeoutConfig(duration=timeout_config)
+        timeout_config = _resolve_timeout(session_meta.get("timeout", TimeoutConfig()))
         self._setup_timeout(session_key, session, timeout_config, ctx)
 
-        # 触发生命周期钩子和初始状态
         initial_state_name = session.state_machine.initial_state or ""
         session_ctx = SessionContext(ctx, session, initial_state_name, None)
 
@@ -167,9 +161,7 @@ class SessionManager:
 
             # 刷新超时
             session_meta = getattr(type(session), SESSION_META, {})
-            timeout_config = session_meta.get("timeout", TimeoutConfig())
-            if isinstance(timeout_config, int):
-                timeout_config = TimeoutConfig(duration=timeout_config)
+            timeout_config = _resolve_timeout(session_meta.get("timeout", TimeoutConfig()))
             if timeout_config.mode != TimeoutMode.NEVER:
                 self._refresh_timeout(session_key, session, timeout_config, ctx)
 
@@ -283,27 +275,15 @@ class SessionManager:
             return f"group:{group_id}"
         return f"user:{user_id}"
 
-    @staticmethod
-    def _redis_key(session_key: str) -> str:
-        return f"texas:session:{session_key}"
-
-    @staticmethod
-    def _redis_data_key(session_key: str) -> str:
-        return f"texas:session:{session_key}:data"
-
-    @staticmethod
-    def _redis_fsm_key(session_key: str) -> str:
-        return f"texas:session:{session_key}:fsm"
-
     def _bind_state_handlers(self, session: InteractiveSession[Any]) -> None:
         """将状态机中的未绑定函数绑定到会话实例。"""
-        for state in session.state_machine._states.values():
-            if state.on_enter is not None:
-                state.on_enter = _bind_method(state.on_enter, session)
-            if state.on_exit is not None:
-                state.on_exit = _bind_method(state.on_exit, session)
-            if state.on_input is not None:
-                state.on_input = _bind_method(state.on_input, session)
+        for s in session.state_machine.iter_states():
+            if s.on_enter is not None:
+                s.on_enter = _bind_method(s.on_enter, session)
+            if s.on_exit is not None:
+                s.on_exit = _bind_method(s.on_exit, session)
+            if s.on_input is not None:
+                s.on_input = _bind_method(s.on_input, session)
 
     async def _persist_session(
         self,
@@ -312,33 +292,27 @@ class SessionManager:
         session_meta: dict[str, Any],
     ) -> None:
         """持久化会话状态到 Redis。"""
-        timeout_config = session_meta.get("timeout", TimeoutConfig())
-        if isinstance(timeout_config, int):
-            timeout_config = TimeoutConfig(duration=timeout_config)
-
+        timeout_config = _resolve_timeout(session_meta.get("timeout", TimeoutConfig()))
         ttl = None if timeout_config.mode == TimeoutMode.NEVER else timeout_config.duration + 60
 
-        # 会话元信息
         meta_data = {
             "session_type": type(session).__name__,
             "scope": session_meta.get("scope", SessionScope.USER),
             "current_state": session.state_machine.current_state,
         }
-        await self._cache.set(self._redis_key(session_key), meta_data, ttl=ttl or 0)
-
-        # 会话数据
         data_json = session.data.model_dump(mode="json")
-        await self._cache.set(self._redis_data_key(session_key), data_json, ttl=ttl or 0)
-
-        # 状态机快照
         fsm_data = session.state_machine.serialize()
-        await self._cache.set(self._redis_fsm_key(session_key), fsm_data, ttl=ttl or 0)
+
+        await asyncio.gather(
+            self._cache.set(cache_keys.session_key(session_key), meta_data, ttl=ttl or 0),
+            self._cache.set(cache_keys.session_data_key(session_key), data_json, ttl=ttl or 0),
+            self._cache.set(cache_keys.session_fsm_key(session_key), fsm_data, ttl=ttl or 0),
+        )
 
     async def _cleanup_session(self, session_key: str) -> None:
         """清理会话（内存 + Redis + 定时任务）。"""
         self._active_sessions.pop(session_key, None)
 
-        # 取消超时任务
         timeout_task = self._timeout_tasks.pop(session_key, None)
         if timeout_task is not None and not timeout_task.done():
             timeout_task.cancel()
@@ -347,10 +321,11 @@ class SessionManager:
         if warning_task is not None and not warning_task.done():
             warning_task.cancel()
 
-        # 清理 Redis
-        await self._cache.delete(self._redis_key(session_key))
-        await self._cache.delete(self._redis_data_key(session_key))
-        await self._cache.delete(self._redis_fsm_key(session_key))
+        await asyncio.gather(
+            self._cache.delete(cache_keys.session_key(session_key)),
+            self._cache.delete(cache_keys.session_data_key(session_key)),
+            self._cache.delete(cache_keys.session_fsm_key(session_key)),
+        )
 
     def _setup_timeout(
         self,
@@ -363,7 +338,6 @@ class SessionManager:
         if config.mode == TimeoutMode.NEVER:
             return
 
-        # 超时任务
         async def _timeout_callback() -> None:
             try:
                 await asyncio.sleep(config.duration)
@@ -384,7 +358,6 @@ class SessionManager:
             except asyncio.CancelledError:
                 pass
 
-        # 提醒任务（仅 NOTIFY 模式）
         async def _warning_callback() -> None:
             try:
                 warning_time = config.duration - config.warning_before
@@ -396,6 +369,8 @@ class SessionManager:
                             await ctx.reply(msg)
             except asyncio.CancelledError:
                 pass
+            finally:
+                self._warning_tasks.pop(session_key, None)
 
         self._timeout_tasks[session_key] = asyncio.create_task(_timeout_callback())
         if config.mode == TimeoutMode.NOTIFY and config.warning_before > 0:
@@ -409,7 +384,6 @@ class SessionManager:
         ctx: Context,
     ) -> None:
         """刷新超时（用户交互后重置倒计时）。"""
-        # 取消旧的超时任务
         old_timeout = self._timeout_tasks.pop(session_key, None)
         if old_timeout is not None and not old_timeout.done():
             old_timeout.cancel()
@@ -418,7 +392,6 @@ class SessionManager:
         if old_warning is not None and not old_warning.done():
             old_warning.cancel()
 
-        # 重新设置
         self._setup_timeout(session_key, session, config, ctx)
 
     async def close(self) -> None:
@@ -435,5 +408,11 @@ def _bind_method(func: Any, instance: Any) -> Any:
     """
     if hasattr(func, "__self__"):
         return func
-    # 未绑定的函数 → 绑定到 instance
     return func.__get__(instance, type(instance))
+
+
+def _resolve_timeout(raw: TimeoutConfig | int) -> TimeoutConfig:
+    """将 int 或 TimeoutConfig 统一为 TimeoutConfig。"""
+    if isinstance(raw, int):
+        return TimeoutConfig(duration=raw)
+    return raw

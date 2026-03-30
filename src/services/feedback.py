@@ -11,7 +11,8 @@ from sqlalchemy.orm import selectinload
 
 from src.core.db.utils import escape_like as _escape_like
 from src.core.utils import SHANGHAI_TZ
-from src.models.feedback import Feedback, FeedbackSource, FeedbackStatus, FeedbackType
+from src.models.enums import FeedbackSource, FeedbackStatus, FeedbackType
+from src.models.feedback import Feedback
 from src.models.personnel import User
 
 if TYPE_CHECKING:

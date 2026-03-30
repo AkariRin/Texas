@@ -319,8 +319,9 @@ async function loadPage(p: number) {
     })
     items.value = result.items
     total.value = result.total
-  } catch (err) {
-    console.error('[feedback] 加载列表失败', err)
+  } catch {
+    items.value = []
+    total.value = 0
   } finally {
     loading.value = false
   }
@@ -348,8 +349,8 @@ async function saveAndNotify() {
     })
     detailDrawer.value = false
     loadPage(page.value)
-  } catch (err) {
-    console.error('[feedback] 更新状态失败', err)
+  } catch {
+    // 更新失败时保持抽屉打开，用户可重试
   } finally {
     updateLoading.value = false
   }

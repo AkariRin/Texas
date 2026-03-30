@@ -336,6 +336,8 @@ async function submitForm() {
     }
     store.loadProviders()
     formDialog.value = false
+  } catch {
+    showSnackbar('保存失败，请重试', 'error')
   } finally {
     saving.value = false
   }

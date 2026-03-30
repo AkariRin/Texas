@@ -195,6 +195,10 @@
           </v-card-actions>
         </v-card>
       </v-dialog>
+
+      <v-snackbar v-model="snackbar" :color="snackbarColor" :timeout="3000">
+        {{ snackbarText }}
+      </v-snackbar>
     </v-card>
   </PageLayout>
 </template>
@@ -213,6 +217,15 @@ const editingModel = ref<ModelItem | null>(null)
 const deleteDialog = ref(false)
 const deletingModel = ref<ModelItem | null>(null)
 const deleteLoading = ref(false)
+const snackbar = ref(false)
+const snackbarText = ref('')
+const snackbarColor = ref('error')
+
+function showSnackbar(text: string, color = 'error') {
+  snackbarText.value = text
+  snackbarColor.value = color
+  snackbar.value = true
+}
 
 const providerOptions = computed(() => store.providers.map((p) => ({ title: p.name, value: p.id })))
 
@@ -307,6 +320,8 @@ async function doDelete() {
   deleteLoading.value = true
   try {
     await store.deleteModel(deletingModel.value.id)
+  } catch {
+    showSnackbar('删除失败，请重试')
   } finally {
     deleteLoading.value = false
     deleteDialog.value = false
@@ -355,6 +370,8 @@ async function submitModelForm() {
     }
     loadPage()
     formDialog.value = false
+  } catch {
+    showSnackbar('保存失败，请重试')
   } finally {
     modelSaving.value = false
   }

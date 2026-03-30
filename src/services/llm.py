@@ -41,10 +41,15 @@ class LLMService:
     #  提供商 CRUD
     # ══════════════════════════════════════════════
 
-    async def list_providers(self) -> list[dict[str, Any]]:
+    async def list_providers(self, *, limit: int = 200) -> list[dict[str, Any]]:
         """列出所有提供商（含模型数量）。"""
         async with self._session_factory() as session:
-            stmt = select(LLMProvider).options(selectinload(LLMProvider.models))
+            stmt = (
+                select(LLMProvider)
+                .options(selectinload(LLMProvider.models))
+                .order_by(LLMProvider.name)
+                .limit(limit)
+            )
             result = await session.execute(stmt)
             providers = result.scalars().all()
             return [self._provider_to_dict(p) for p in providers]
@@ -143,10 +148,17 @@ class LLMService:
     #  模型 CRUD
     # ══════════════════════════════════════════════
 
-    async def list_models(self, provider_id: uuid.UUID | None = None) -> list[dict[str, Any]]:
+    async def list_models(
+        self, provider_id: uuid.UUID | None = None, *, limit: int = 500
+    ) -> list[dict[str, Any]]:
         """列出模型（可按提供商筛选）。"""
         async with self._session_factory() as session:
-            stmt = select(LLM).options(selectinload(LLM.provider))
+            stmt = (
+                select(LLM)
+                .options(selectinload(LLM.provider))
+                .order_by(LLM.model_name)
+                .limit(limit)
+            )
             if provider_id is not None:
                 stmt = stmt.where(LLM.provider_id == provider_id)
             result = await session.execute(stmt)

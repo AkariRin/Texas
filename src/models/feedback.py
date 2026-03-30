@@ -1,8 +1,7 @@
-"""用户反馈 ORM 模型 —— Feedback 及相关枚举。"""
+"""用户反馈 ORM 模型 —— Feedback。"""
 
 from __future__ import annotations
 
-import enum
 import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING
@@ -13,32 +12,10 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
 from src.core.db.base import Base
+from src.models.enums import FeedbackSource, FeedbackStatus, FeedbackType
 
 if TYPE_CHECKING:
     from src.models.personnel import User
-
-
-class FeedbackType(enum.StrEnum):
-    """反馈类型枚举。"""
-
-    BUG = "bug"
-    SUGGESTION = "suggestion"
-    COMPLAINT = "complaint"
-    OTHER = "other"
-
-
-class FeedbackStatus(enum.StrEnum):
-    """反馈状态枚举。"""
-
-    PENDING = "pending"
-    PROCESSED = "processed"
-
-
-class FeedbackSource(enum.StrEnum):
-    """反馈来源枚举。"""
-
-    GROUP = "group"
-    PRIVATE = "private"
 
 
 class Feedback(Base):

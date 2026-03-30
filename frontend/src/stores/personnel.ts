@@ -117,8 +117,8 @@ export const usePersonnelStore = defineStore('personnel', () => {
       await api.triggerSync()
       // 延迟后刷新状态
       setTimeout(() => loadSyncStatus(), 2000)
-    } catch (err) {
-      console.warn('[personnel] 触发同步失败', err)
+    } catch {
+      // 触发同步失败时静默处理，状态轮询会反映真实结果
     } finally {
       syncLoading.value = false
     }

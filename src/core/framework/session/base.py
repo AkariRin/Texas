@@ -35,10 +35,11 @@ class InteractiveSession(Generic[TData]):  # noqa: UP046
 
     def __init__(self) -> None:
         self.data: Any = None  # 由 SessionManager 初始化为 TData 实例
+        # 以下字段由 SessionManager.start_session() 在使用前赋值
         self.state_machine: StateMachine = None  # type: ignore[assignment]
         self.manager: SessionManager = None  # type: ignore[assignment]
-        self.controller: Any = None  # 所属的 controller 实例
-        self._session_key: str = ""  # Redis 存储键
+        self.controller: Any = None
+        self._session_key: str = ""
 
     # ── 生命周期钩子 ──
 

@@ -25,7 +25,12 @@ export const useLLMStore = defineStore('llm', () => {
   const currentProvider = ref<ProviderDetail | null>(null)
 
   async function loadProvider(id: string) {
-    currentProvider.value = await api.fetchProvider(id)
+    try {
+      currentProvider.value = await api.fetchProvider(id)
+    } catch {
+      currentProvider.value = null
+      throw new Error('加载提供商详情失败')
+    }
   }
 
   async function createProvider(data: api.ProviderCreateData) {
