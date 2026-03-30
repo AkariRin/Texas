@@ -2,13 +2,17 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import structlog
 
 from src.core.framework.decorators import feature
 from src.core.tasks.celery_app import celery_app
 from src.core.tasks.utils import run_async
+
+if TYPE_CHECKING:
+    from src.core.config import Settings
+    from src.services.chat_archive import ArchiveService
 
 logger = structlog.get_logger()
 
@@ -25,7 +29,7 @@ class ChatArchiveFeature:
     """Celery 聊天归档功能注册标记（不直接实例化，仅用于功能注册）。"""
 
 
-def _build_services() -> tuple[Any, Any]:
+def _build_services() -> tuple[ArchiveService, Settings]:
     """延迟构建归档服务所需的引擎和 session factory。"""
     from src.core.config import get_settings
     from src.core.db.engine import create_engine, create_session_factory

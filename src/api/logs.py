@@ -6,9 +6,12 @@ import asyncio
 import json
 import logging
 import re
-from typing import Any
+from typing import TYPE_CHECKING
 
 from fastapi import APIRouter, Query
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncGenerator
 from starlette.responses import StreamingResponse
 
 from src.core.utils import SHANGHAI_TZ
@@ -81,7 +84,7 @@ def install_log_broadcast() -> None:
 # ── SSE 端点 ──
 
 
-async def _event_stream(level: int) -> Any:
+async def _event_stream(level: int) -> AsyncGenerator[str]:
     """生成 SSE 数据流。"""
     q: asyncio.Queue[str] = asyncio.Queue(maxsize=512)
     _subscribers.add(q)
@@ -96,7 +99,7 @@ async def _event_stream(level: int) -> Any:
                 if isinstance(log_level, int) and log_level < level:
                     continue
             except Exception:
-                pass
+                pass  # JSON 解析失败时跳过级别过滤，继续发送该行
             yield f"data: {line}\n\n"
     except asyncio.CancelledError:
         pass

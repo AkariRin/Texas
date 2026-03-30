@@ -1,5 +1,7 @@
 """用户管理 ORM 模型 —— User, Group, GroupMembership。"""
 
+from __future__ import annotations
+
 import uuid
 from datetime import datetime
 

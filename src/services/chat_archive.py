@@ -115,8 +115,12 @@ class ArchiveService:
         """发现可归档的分区（超过保留月数且未归档）。"""
         retention = self._settings.CHAT_ARCHIVE_RETENTION_MONTHS
 
+        # 计算截止年月字符串，格式与分区名后缀一致（如 2024_01）
+        cutoff = datetime.now(SHANGHAI_TZ) - timedelta(days=retention * 30)
+        cutoff_suffix = cutoff.strftime("%Y_%m")
+
         async with self._chat_sf() as chat_session:
-            # 查询所有子分区
+            # 直接在 SQL 中过滤超过保留期的分区，避免全量加载到内存
             result = await chat_session.execute(
                 text("""
                     SELECT c.relname AS partition_name
@@ -124,22 +128,14 @@ class ArchiveService:
                     JOIN pg_class c ON c.oid = i.inhrelid
                     JOIN pg_class p ON p.oid = i.inhparent
                     JOIN pg_namespace n ON n.oid = p.relnamespace
-                    WHERE n.nspname = 'chat' AND p.relname = 'chat_history'
+                    WHERE n.nspname = 'chat'
+                      AND p.relname = 'chat_history'
+                      AND replace(c.relname, 'chat_history_', '') < :cutoff_suffix
                     ORDER BY c.relname
-                """)
+                """),
+                {"cutoff_suffix": cutoff_suffix},
             )
-            all_partitions = [row[0] for row in result.all()]
-
-        # 过滤出超过保留期的分区
-        cutoff = datetime.now(SHANGHAI_TZ) - timedelta(days=retention * 30)
-        cutoff_str = cutoff.strftime("%Y_%m")
-
-        archivable = []
-        for part in all_partitions:
-            # 从分区名中提取年月，如 chat_history_2024_01
-            suffix = part.replace("chat_history_", "")
-            if suffix < cutoff_str:
-                archivable.append(part)
+            archivable = [row[0] for row in result.all()]
 
         # 排除已归档的分区
         if archivable:
