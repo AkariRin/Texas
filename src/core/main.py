@@ -56,6 +56,7 @@ if TYPE_CHECKING:
     from src.core.config import Settings
     from src.services.chat import ChatHistoryService
     from src.services.chat_archive import ArchiveService
+    from src.services.feedback import FeedbackService
     from src.services.llm import LLMService
     from src.services.permission import FeaturePermissionService
     from src.services.personnel import PersonnelService
@@ -158,6 +159,21 @@ def _startup_llm(
     from src.services.llm import LLMService
 
     return LLMService(session_factory=session_factory, cache=cache_client)
+
+
+def _startup_feedback(
+    session_factory: async_sessionmaker[AsyncSession],
+    cache_client: CacheClient,
+    bot_api: BotAPI,
+) -> FeedbackService:
+    """反馈模块初始化，返回 FeedbackService。"""
+    from src.services.feedback import FeedbackService
+
+    return FeedbackService(
+        session_factory=session_factory,
+        cache=cache_client,
+        bot_api=bot_api,
+    )
 
 
 async def _startup_permission(
@@ -326,6 +342,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
         session_factory, cache_client, settings, bot_api=bot_api, conn_mgr=conn_mgr
     )
     llm_service = _startup_llm(session_factory, cache_client)
+    feedback_service = _startup_feedback(session_factory, cache_client, bot_api)
     chat_service, archive_service = await _startup_chat(chat_engine, session_factory, settings)
 
     # 框架
@@ -356,6 +373,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     app.state.cache_client = cache_client
     app.state.scanner = scanner
     app.state.llm_service = llm_service
+    app.state.feedback_service = feedback_service
     app.state.chat_service = chat_service
     app.state.archive_service = archive_service
     app.state.personnel_service = personnel_service

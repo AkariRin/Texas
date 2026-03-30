@@ -170,6 +170,17 @@ const router = createRouter({
         group: '权限管理',
       },
     },
+    {
+      path: '/feedback',
+      name: 'feedback',
+      component: () => import('@/views/feedback/FeedbackView.vue'),
+      meta: {
+        title: '用户反馈',
+        icon: 'mdi-message-alert',
+        subtitle: '管理用户反馈和建议',
+        group: '系统管理',
+      },
+    },
   ],
 })
 

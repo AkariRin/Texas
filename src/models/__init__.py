@@ -6,8 +6,9 @@
 新增模型后在此导出即可。
 """
 
-# ── 主库模型（Base.metadata） ──
-# ── 聊天库模型（ChatBase.metadata） ──
+# 导入顺序由 ruff 自动排序（字母顺序）
+# 主库模型: feedback, llm, permission, personnel
+# 聊天库模型: chat, chat_archive
 from src.models.chat import ChatMessage
 from src.models.chat_archive import ChatArchiveLog
 from src.models.feedback import Feedback, FeedbackSource, FeedbackStatus, FeedbackType

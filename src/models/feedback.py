@@ -5,6 +5,7 @@ from __future__ import annotations
 import enum
 import uuid
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy import BigInteger, CheckConstraint, DateTime, Enum, ForeignKey, Text
 from sqlalchemy.dialects.postgresql import UUID
@@ -12,7 +13,9 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
 from src.core.db.base import Base
-from src.models.personnel import User
+
+if TYPE_CHECKING:
+    from src.models.personnel import User
 
 
 class FeedbackType(enum.StrEnum):
@@ -45,10 +48,15 @@ class Feedback(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID, primary_key=True, default=uuid.uuid4)
     user_id: Mapped[int] = mapped_column(
-        ForeignKey("users.qq"), index=True, comment="提交反馈的用户 QQ 号"
+        ForeignKey("users.qq", ondelete="CASCADE"),
+        index=True,
+        comment="提交反馈的用户 QQ 号",
     )
     feedback_type: Mapped[FeedbackType | None] = mapped_column(
-        Enum(FeedbackType, name="feedback_type_enum"), nullable=True, comment="反馈类型"
+        Enum(FeedbackType, name="feedback_type_enum"),
+        nullable=True,
+        index=True,
+        comment="反馈类型",
     )
     content: Mapped[str] = mapped_column(Text, comment="反馈内容")
     status: Mapped[FeedbackStatus] = mapped_column(
@@ -62,7 +70,11 @@ class Feedback(Base):
         Enum(FeedbackSource, name="feedback_source_enum"), comment="反馈来源"
     )
     group_id: Mapped[int | None] = mapped_column(
-        BigInteger, nullable=True, index=True, comment="群号（仅群聊反馈）"
+        BigInteger,
+        ForeignKey("groups.group_id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+        comment="群号（仅群聊反馈）",
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), comment="创建时间"
@@ -86,4 +98,4 @@ class Feedback(Base):
     )
 
     # 关联
-    user: Mapped[User] = relationship(lazy="selectin")
+    user: Mapped["User"] = relationship(lazy="selectin")

@@ -21,6 +21,7 @@ if TYPE_CHECKING:
     from src.core.ws.heartbeat import HeartbeatMonitor
     from src.services.chat import ChatHistoryService
     from src.services.chat_archive import ArchiveService
+    from src.services.feedback import FeedbackService
     from src.services.llm import LLMService
     from src.services.permission import FeaturePermissionService
     from src.services.personnel import PersonnelService
@@ -45,6 +46,7 @@ class AppState:
     personnel_service: PersonnelService
     personnel_query_service: PersonnelQueryService
     sync_coordinator: SyncCoordinator
+    feedback_service: FeedbackService
     event_dispatch_callback: Callable[[Any], Coroutine[Any, Any, None]] | None
 
 
@@ -113,6 +115,11 @@ def get_scanner_controllers(request: Request) -> list[dict[str, Any]]:
 def get_sync_coordinator(request: Request) -> SyncCoordinator:
     """获取用户数据同步协调器。"""
     return _state(request).sync_coordinator
+
+
+def get_feedback_service(request: Request) -> FeedbackService:
+    """获取用户反馈服务。"""
+    return _state(request).feedback_service
 
 
 # ── WebSocket 端点辅助函数 ──
