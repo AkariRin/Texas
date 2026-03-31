@@ -6,6 +6,7 @@ declare module 'vue-router' {
     icon?: string
     subtitle?: string
     group?: string
+    parentPage?: string // 子路由归属的父页面 route.name；group 在子路由中复用为 L2 分节标题
   }
 }
 

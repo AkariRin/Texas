@@ -1,7 +1,7 @@
 <template>
   <v-app>
     <v-app-bar app color="red" prominent>
-      <v-app-bar-nav-icon @click="rail = !rail"></v-app-bar-nav-icon>
+      <v-app-bar-nav-icon @click="menuOpen = !menuOpen"></v-app-bar-nav-icon>
       <v-app-bar-title>Texas</v-app-bar-title>
       <v-spacer></v-spacer>
       <v-tooltip text="主题偏好" location="bottom">
@@ -69,38 +69,9 @@
         </v-card>
       </v-menu>
     </v-app-bar>
-    <v-navigation-drawer :rail="rail" permanent class="nav-drawer">
-      <!-- 无分组路由（仪表盘等） -->
-      <v-list density="compact" nav class="nav-list">
-        <v-list-item
-          v-for="route in ungroupedRoutes"
-          :key="String(route.name)"
-          :prepend-icon="route.meta.icon"
-          :title="route.meta.title"
-          :value="String(route.name)"
-          :to="route.path"
-          rounded="lg"
-          class="nav-item"
-        ></v-list-item>
-      </v-list>
 
-      <!-- 分组路由 -->
-      <template v-for="[group, routes] in groupedRoutes" :key="group">
-        <v-list density="compact" nav class="nav-list">
-          <v-list-subheader v-if="!rail" class="nav-subheader">{{ group }}</v-list-subheader>
-          <v-list-item
-            v-for="route in routes"
-            :key="String(route.name)"
-            :prepend-icon="route.meta.icon"
-            :title="route.meta.title"
-            :value="String(route.name)"
-            :to="route.path"
-            rounded="lg"
-            class="nav-item"
-          ></v-list-item>
-        </v-list>
-      </template>
-    </v-navigation-drawer>
+    <AppMegaMenu :open="menuOpen" @close="menuOpen = false" />
+
     <v-main>
       <v-dialog v-model="dialogDark" max-width="300">
         <v-card>
@@ -128,36 +99,17 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useTheme } from 'vuetify'
-import { useRouter } from 'vue-router'
 import { useThemeStore } from './stores/theme'
 import { useBotStore } from './stores/bot'
 import type { ThemePreference } from './stores/theme'
+import AppMegaMenu from './components/AppMegaMenu.vue'
 
 const vuetifyTheme = useTheme()
-const router = useRouter()
 const themeStore = useThemeStore()
 const botStore = useBotStore()
 
 const dialogDark = ref(false)
-const rail = ref(false)
-
-// 路由在应用启动时注册完毕后不再变动，无需放入 computed 中重复调用
-const navRoutes = router.getRoutes().filter((r) => r.meta.icon && r.meta.title && !r.redirect)
-
-/** 无分组路由（仪表盘等顶层页面） */
-const ungroupedRoutes = navRoutes.filter((r) => !r.meta.group)
-
-/** 按 group 分组，保持路由定义中的出现顺序 */
-const groupedRoutes = (() => {
-  const map = new Map<string, typeof navRoutes>()
-  for (const route of navRoutes) {
-    const group = route.meta.group
-    if (!group) continue
-    if (!map.has(group)) map.set(group, [])
-    map.get(group)!.push(route)
-  }
-  return map
-})()
+const menuOpen = ref(false)
 
 const themePreference = computed({
   get(): ThemePreference {
@@ -177,129 +129,3 @@ onUnmounted(() => {
   botStore.stopPolling()
 })
 </script>
-
-<style scoped>
-/* Navigation drawer depth */
-:deep(.nav-drawer) {
-  border-right: 1px solid rgba(0, 0, 0, 0.08) !important;
-  box-shadow:
-    2px 0 12px rgba(0, 0, 0, 0.1),
-    4px 0 24px rgba(0, 0, 0, 0.06) !important;
-  background: linear-gradient(180deg, #fafafa 0%, #f5f5f5 100%) !important;
-}
-
-/* Dark mode drawer */
-:deep(.v-theme--dark .nav-drawer) {
-  background: linear-gradient(180deg, #1e1e2e 0%, #181825 100%) !important;
-  box-shadow:
-    2px 0 12px rgba(0, 0, 0, 0.4),
-    4px 0 24px rgba(0, 0, 0, 0.25) !important;
-  border-right: 1px solid rgba(255, 255, 255, 0.06) !important;
-}
-
-/* Brand area */
-.nav-brand {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 18px 16px 12px;
-}
-
-.nav-brand-text {
-  font-size: 18px;
-  font-weight: 700;
-  letter-spacing: 0.5px;
-  background: linear-gradient(135deg, #e53935, #ef9a9a);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-/* Subheader */
-:deep(.nav-subheader) {
-  font-size: 10px !important;
-  font-weight: 700 !important;
-  letter-spacing: 1.2px !important;
-  text-transform: uppercase;
-  color: rgba(0, 0, 0, 0.38) !important;
-  padding-left: 12px !important;
-}
-
-:deep(.v-theme--dark .nav-subheader) {
-  color: rgba(255, 255, 255, 0.3) !important;
-}
-
-/* Nav list padding */
-.nav-list {
-  padding: 4px 8px !important;
-}
-
-/* Nav items with 3D depth effect */
-:deep(.nav-item) {
-  margin-bottom: 4px !important;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
-  border: 1px solid transparent !important;
-}
-
-:deep(.nav-item:hover) {
-  background: rgba(229, 57, 53, 0.08) !important;
-  border-color: rgba(229, 57, 53, 0.15) !important;
-  box-shadow:
-    0 2px 8px rgba(229, 57, 53, 0.12),
-    0 1px 3px rgba(0, 0, 0, 0.08) !important;
-  transform: translateX(2px);
-}
-
-:deep(.nav-item.v-list-item--active) {
-  background: linear-gradient(135deg, rgba(229, 57, 53, 0.15), rgba(229, 57, 53, 0.08)) !important;
-  border-color: rgba(229, 57, 53, 0.3) !important;
-  box-shadow:
-    0 3px 10px rgba(229, 57, 53, 0.2),
-    0 1px 4px rgba(0, 0, 0, 0.1),
-    inset 0 1px 0 rgba(255, 255, 255, 0.3) !important;
-  transform: translateX(3px);
-}
-
-:deep(.v-theme--dark .nav-item:hover) {
-  background: rgba(239, 154, 154, 0.1) !important;
-  border-color: rgba(239, 154, 154, 0.2) !important;
-  box-shadow:
-    0 2px 8px rgba(0, 0, 0, 0.3),
-    0 1px 3px rgba(0, 0, 0, 0.2) !important;
-}
-
-:deep(.v-theme--dark .nav-item.v-list-item--active) {
-  background: linear-gradient(
-    135deg,
-    rgba(239, 154, 154, 0.18),
-    rgba(239, 154, 154, 0.08)
-  ) !important;
-  border-color: rgba(239, 154, 154, 0.3) !important;
-  box-shadow:
-    0 3px 10px rgba(0, 0, 0, 0.35),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
-}
-
-/* Active icon color */
-:deep(.nav-item.v-list-item--active .v-icon) {
-  color: #e53935 !important;
-  filter: drop-shadow(0 0 4px rgba(229, 57, 53, 0.4));
-}
-
-/* Footer */
-.nav-footer {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 10px 16px;
-}
-
-.nav-footer-text {
-  font-size: 11px;
-  color: rgba(0, 0, 0, 0.38);
-}
-
-:deep(.v-theme--dark) .nav-footer-text {
-  color: rgba(255, 255, 255, 0.3);
-}
-</style>
