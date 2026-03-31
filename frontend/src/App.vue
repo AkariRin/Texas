@@ -19,55 +19,27 @@
           ></v-btn>
         </template>
       </v-tooltip>
-      <v-menu offset-y>
+      <v-tooltip text="Bot 信息" location="bottom">
         <template #activator="{ props }">
-          <v-btn icon v-bind="props" class="ml-1">
-            <v-avatar size="32">
-              <v-img
-                v-if="botStore.avatarUrl"
-                :src="botStore.avatarUrl"
-                :alt="botStore.nickname ?? 'Bot'"
-              ></v-img>
-              <v-icon v-else icon="mdi-robot"></v-icon>
-            </v-avatar>
+          <v-btn icon class="ml-1" v-bind="props" @click="router.push({ name: 'bot-profile' })">
+            <v-badge
+              class="status-badge"
+              :color="botStore.online ? 'success' : 'grey-darken-1'"
+              dot
+              location="bottom end"
+            >
+              <v-avatar size="32">
+                <v-img
+                  v-if="botStore.avatarUrl"
+                  :src="botStore.avatarUrl"
+                  :alt="botStore.nickname ?? 'Bot'"
+                ></v-img>
+                <v-icon v-else icon="mdi-robot"></v-icon>
+              </v-avatar>
+            </v-badge>
           </v-btn>
         </template>
-        <v-card min-width="200">
-          <v-card-text class="text-center pa-4">
-            <v-avatar size="64" class="mb-2">
-              <v-img
-                v-if="botStore.avatarUrl"
-                :src="botStore.avatarUrl"
-                :alt="botStore.nickname ?? 'Bot'"
-              ></v-img>
-              <v-icon v-else icon="mdi-robot" size="40"></v-icon>
-            </v-avatar>
-            <div class="text-subtitle-1 font-weight-bold">{{ botStore.nickname ?? '未连接' }}</div>
-            <div class="text-caption text-medium-emphasis">{{ botStore.userId ?? '-' }}</div>
-            <v-chip
-              :color="botStore.online ? 'success' : 'grey'"
-              variant="elevated"
-              size="small"
-              class="mt-2"
-            >
-              <v-icon
-                start
-                :icon="botStore.online ? 'mdi-circle' : 'mdi-circle-outline'"
-                size="x-small"
-              ></v-icon>
-              {{ botStore.online ? '在线' : '离线' }}
-            </v-chip>
-          </v-card-text>
-          <v-divider></v-divider>
-          <v-list density="compact">
-            <v-list-item
-              prepend-icon="mdi-refresh"
-              title="刷新状态"
-              @click="botStore.fetchStatus()"
-            ></v-list-item>
-          </v-list>
-        </v-card>
-      </v-menu>
+      </v-tooltip>
     </v-app-bar>
 
     <AppMegaMenu :open="menuOpen" @close="menuOpen = false" />
@@ -99,12 +71,14 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useTheme } from 'vuetify'
+import { useRouter } from 'vue-router'
 import { useThemeStore } from './stores/theme'
 import { useBotStore } from './stores/bot'
 import type { ThemePreference } from './stores/theme'
 import AppMegaMenu from './components/AppMegaMenu.vue'
 
 const vuetifyTheme = useTheme()
+const router = useRouter()
 const themeStore = useThemeStore()
 const botStore = useBotStore()
 
@@ -129,3 +103,14 @@ onUnmounted(() => {
   botStore.stopPolling()
 })
 </script>
+
+<style scoped>
+/* 放大在线状态 dot，去除白色描边 */
+:deep(.status-badge .v-badge__badge) {
+  width: 12px;
+  height: 12px;
+  min-width: 12px;
+  border: none !important;
+  box-shadow: none !important;
+}
+</style>

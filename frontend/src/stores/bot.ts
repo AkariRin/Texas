@@ -1,16 +1,11 @@
 import { ref } from 'vue'
 import { defineStore } from 'pinia'
 import http from '@/apis/client'
+import { getBotInfo } from '@/apis/bot'
 
 export interface HealthStatus {
   status: string
   ws_connected: boolean
-}
-
-export interface BotInfo {
-  nickname: string | null
-  user_id: number | null
-  avatar_url: string | null
 }
 
 export const useBotStore = defineStore(
@@ -36,7 +31,7 @@ export const useBotStore = defineStore(
 
     async function fetchBotInfo() {
       try {
-        const { data } = await http.get<{ code: number; data: BotInfo }>('/api/bot/info')
+        const { data } = await getBotInfo()
         if (data.code === 0) {
           nickname.value = data.data.nickname
           userId.value = data.data.user_id
