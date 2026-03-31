@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import { installGuards } from './guards'
 
 declare module 'vue-router' {
   interface RouteMeta {
@@ -8,12 +9,35 @@ declare module 'vue-router' {
     group?: string
     parentPage?: string // 子路由归属的父页面 route.name；group 在子路由中复用为 L2 分节标题
     hideInMenu?: boolean // 设为 true 则不出现在大菜单导航中
+    requiresAuth?: boolean // false 表示不需要鉴权（默认需要）
   }
 }
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
+    {
+      path: '/login',
+      name: 'login',
+      component: () => import('@/views/LoginView.vue'),
+      meta: {
+        title: '登录',
+        hideInMenu: true,
+        requiresAuth: false,
+      },
+    },
+    {
+      path: '/settings/security',
+      name: 'settings-security',
+      component: () => import('@/views/AuthSettingsView.vue'),
+      meta: {
+        title: '安全设置',
+        icon: 'mdi-shield-key',
+        subtitle: '管理登录方式与会话安全',
+        group: '系统',
+        hideInMenu: true,
+      },
+    },
     {
       path: '/',
       name: 'dashboard',
@@ -196,6 +220,8 @@ const router = createRouter({
     },
   ],
 })
+
+installGuards(router)
 
 router.afterEach((to) => {
   const pageTitle = to.meta?.title as string | undefined

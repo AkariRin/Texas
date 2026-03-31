@@ -9,6 +9,7 @@
 # 导入顺序由 ruff 自动排序（字母顺序）
 # 主库模型: feedback, llm, permission, personnel
 # 聊天库模型: chat, chat_archive
+from src.models.auth import AdminCredential, WebAuthnCredential
 from src.models.chat import ChatMessage
 from src.models.chat_archive import ChatArchiveLog
 from src.models.enums import FeedbackSource, FeedbackStatus, FeedbackType
@@ -19,6 +20,8 @@ from src.models.personnel import Group, GroupMembership, User
 
 __all__: list[str] = [
     # 主库
+    "AdminCredential",
+    "WebAuthnCredential",
     "Group",
     "GroupMembership",
     "User",
