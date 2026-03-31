@@ -154,6 +154,9 @@ class ArchiveService:
 
     async def _archive_partition(self, partition_name: str) -> dict[str, Any]:
         """归档单个分区的完整流程。"""
+        # 纵深防御：无论来源（用户输入或系统目录查询），均强制校验分区名格式
+        if not _PARTITION_NAME_RE.match(partition_name):
+            raise ValueError(f"非法分区名: {partition_name!r}，格式须为 chat_history_YYYY_MM")
         # 解析年月
         suffix = partition_name.replace("chat_history_", "")
         parts = suffix.split("_")

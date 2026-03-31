@@ -11,6 +11,7 @@
 from __future__ import annotations
 
 import importlib
+import re
 import sys
 from typing import TYPE_CHECKING, Any
 
@@ -35,6 +36,14 @@ logger = structlog.get_logger()
 
 
 # ─────────────────────── 基础工具 ───────────────────────
+
+_SAFE_IDENTIFIER_RE = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]{0,63}$")
+
+
+def _validate_identifier(name: str, label: str = "标识符") -> None:
+    """校验 SQL 标识符合法性（仅允许字母、数字、下划线，防止注入）。"""
+    if not _SAFE_IDENTIFIER_RE.match(name):
+        raise ValueError(f"非法 SQL {label}: {name!r}")
 
 
 async def _check_connection(engine: AsyncEngine, target_name: str) -> None:
@@ -126,7 +135,11 @@ def _revision_exists(alembic_cfg, rev_id: str) -> bool:  # type: ignore[no-untyp
 async def _force_clear_alembic_version(engine: AsyncEngine, target: MigrationTarget) -> None:
     """直接清空 alembic_version 表，用于处理孤立 revision。"""
     schema = target.version_table_schema
-    table = f"{schema}.alembic_version" if schema else "alembic_version"
+    if schema:
+        _validate_identifier(schema, "schema")
+        table = f"{schema}.alembic_version"
+    else:
+        table = "alembic_version"
     async with engine.begin() as conn:
         await conn.execute(text(f"DELETE FROM {table}"))  # noqa: S608
 
@@ -261,6 +274,7 @@ async def run_startup_migration(
 
     # 确保 schema 存在（如 chat schema）
     if target.schema:
+        _validate_identifier(target.schema, "schema")
         async with engine.begin() as conn:
             await conn.execute(text(f"CREATE SCHEMA IF NOT EXISTS {target.schema}"))
 

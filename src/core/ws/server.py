@@ -76,6 +76,12 @@ async def onebot_ws_endpoint(
         background_tasks.add(_sync_task)
         _sync_task.add_done_callback(_on_task_done)
 
+    # ── 触发每日打卡（由服务内部去重，今日已打卡则跳过） ──
+    _checkin_task = deps.checkin_service.request_checkin(source="ws_connect")
+    if _checkin_task is not None:
+        background_tasks.add(_checkin_task)
+        _checkin_task.add_done_callback(_on_task_done)
+
     # 获取事件分发回调
     event_dispatch_callback = deps.event_dispatch_callback
 

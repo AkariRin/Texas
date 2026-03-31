@@ -22,6 +22,7 @@ if TYPE_CHECKING:
     from src.core.ws.heartbeat import HeartbeatMonitor
     from src.services.chat import ChatHistoryService
     from src.services.chat_archive import ArchiveService
+    from src.services.daily_checkin import DailyCheckinService
     from src.services.feedback import FeedbackService
     from src.services.llm import LLMService
     from src.services.permission import FeaturePermissionService
@@ -47,6 +48,7 @@ class AppState:
     personnel_service: PersonnelService
     personnel_query_service: PersonnelQueryService
     sync_coordinator: SyncCoordinator
+    checkin_service: DailyCheckinService
     feedback_service: FeedbackService
     session_manager: SessionManager
     event_dispatch_callback: Callable[[Any], Coroutine[Any, Any, None]] | None
@@ -137,6 +139,7 @@ class WsDeps:
         "access_token",
         "event_dispatch_callback",
         "sync_coordinator",
+        "checkin_service",
     )
 
     def __init__(self, websocket: WebSocket) -> None:
@@ -149,3 +152,4 @@ class WsDeps:
             state.event_dispatch_callback
         )
         self.sync_coordinator: SyncCoordinator = state.sync_coordinator
+        self.checkin_service: DailyCheckinService = state.checkin_service

@@ -151,10 +151,11 @@ def _parse_pending_tasks(max_count: int = 200) -> list[dict[str, Any]]:
                     if body_raw:
                         try:
                             body = json.loads(base64.b64decode(body_raw))
-                        except Exception:
+                        except ValueError, TypeError:
+                            # body_raw 非 base64 编码，尝试直接解析
                             try:
                                 body = json.loads(body_raw) if isinstance(body_raw, str) else {}
-                            except Exception:
+                            except json.JSONDecodeError:
                                 body = {}
 
                     task_id = headers.get("id") or msg.get("properties", {}).get(
@@ -180,7 +181,12 @@ def _parse_pending_tasks(max_count: int = 200) -> list[dict[str, Any]]:
                             "kwargs": str(task_kwargs) if task_kwargs else None,
                         }
                     )
-                except Exception:
+                except Exception as exc:
+                    logger.debug(
+                        "跳过格式异常的队列消息",
+                        error=str(exc),
+                        event_type="queue.malformed_message",
+                    )
                     continue
     except Exception as exc:
         logger.warning("获取等待任务失败", error=str(exc), event_type="queue.broker_error")

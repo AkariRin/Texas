@@ -98,8 +98,8 @@ async def _event_stream(level: int) -> AsyncGenerator[str]:
                 log_level = logging.getLevelName(parsed.get("level", "INFO"))
                 if isinstance(log_level, int) and log_level < level:
                     continue
-            except Exception:
-                pass  # JSON 解析失败时跳过级别过滤，继续发送该行
+            except json.JSONDecodeError, KeyError, TypeError:
+                pass  # 非 JSON 格式日志行，跳过级别过滤，直接透传
             yield f"data: {line}\n\n"
     except asyncio.CancelledError:
         pass

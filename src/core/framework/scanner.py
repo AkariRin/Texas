@@ -165,9 +165,17 @@ class ComponentScanner:
             ):
                 try:
                     mod = importlib.import_module(module_name)
-                    self._discover_in_module(mod)
                 except Exception:
-                    pass
+                    continue  # 导入失败已在上方循环记录日志，此处跳过
+                try:
+                    self._discover_in_module(mod)
+                except Exception as exc:
+                    logger.warning(
+                        "控制器发现失败",
+                        module=module_name,
+                        error=str(exc),
+                        event_type="scanner.discover_error",
+                    )
 
     def _discover_in_module(self, module: Any) -> None:
         """查找模块中所有被 @controller 或 @feature 装饰的类。"""

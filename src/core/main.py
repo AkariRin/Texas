@@ -58,6 +58,7 @@ if TYPE_CHECKING:
     from src.core.config import Settings
     from src.services.chat import ChatHistoryService
     from src.services.chat_archive import ArchiveService
+    from src.services.daily_checkin import DailyCheckinService
     from src.services.feedback import FeedbackService
     from src.services.llm import LLMService
     from src.services.permission import FeaturePermissionService
@@ -173,6 +174,26 @@ def _startup_feedback(
     return FeedbackService(
         session_factory=session_factory,
         bot_api=bot_api,
+    )
+
+
+def _startup_checkin(
+    session_factory: async_sessionmaker[AsyncSession],
+    cache_client: CacheClient,
+    *,
+    bot_api: BotAPI,
+    conn_mgr: ConnectionManager,
+    permission_service: FeaturePermissionService,
+) -> DailyCheckinService:
+    """每日打卡服务初始化，返回 DailyCheckinService。"""
+    from src.services.daily_checkin import DailyCheckinService
+
+    return DailyCheckinService(
+        bot_api=bot_api,
+        conn_mgr=conn_mgr,
+        cache=cache_client,
+        permission_service=permission_service,
+        session_factory=session_factory,
     )
 
 
@@ -368,6 +389,15 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
         session_factory, cache_client, personnel_service, scanner=scanner, dispatcher=dispatcher
     )
 
+    # 打卡服务（依赖 permission_service 已就绪）
+    checkin_service = _startup_checkin(
+        session_factory,
+        cache_client,
+        bot_api=bot_api,
+        conn_mgr=conn_mgr,
+        permission_service=permission_service,
+    )
+
     # 将服务注册到 Dispatcher（供 Controller 通过 ctx.get_service() 获取）
     _register_services_to_dispatcher(
         dispatcher,
@@ -396,11 +426,14 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     app.state.personnel_service = personnel_service
     app.state.personnel_query_service = personnel_query_service
     app.state.sync_coordinator = sync_coordinator
+    app.state.checkin_service = checkin_service
     app.state.session_manager = session_manager
     app.state.event_dispatch_callback = event_dispatch_callback
 
     # 启动用户同步定时调度
     sync_coordinator.start_scheduler()
+    # 启动每日打卡定时调度
+    checkin_service.start_scheduler()
 
     # 路由调试
     all_routes = list(app.routes)
@@ -422,6 +455,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     yield
 
     # ── 关闭 ──
+    checkin_service.stop_scheduler()
     sync_coordinator.stop_scheduler()
     await session_manager.close()
     await llm_service.close()
