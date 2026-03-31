@@ -5,7 +5,15 @@
       <v-col cols="12" md="4">
         <v-card flat>
           <v-card-title class="text-subtitle-1">功能列表</v-card-title>
-          <v-list density="compact" nav>
+
+          <!-- 骨架屏：初次加载 -->
+          <v-skeleton-loader
+            v-if="permStore.loading && !permStore.controllerFeatures.length"
+            type="list-item-two-line, list-item-two-line, list-item-two-line, list-item-two-line"
+            class="pa-2"
+          />
+
+          <v-list v-else density="compact" nav>
             <template v-for="feat in permStore.controllerFeatures" :key="feat.name">
               <v-list-group :value="feat.name">
                 <template #activator="{ props }">

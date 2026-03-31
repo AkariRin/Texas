@@ -41,7 +41,13 @@
         </v-btn>
       </v-card-title>
 
+      <v-skeleton-loader
+        v-if="store.usersLoading && !store.users.items.length"
+        type="table"
+        class="pa-2"
+      />
       <v-data-table-server
+        v-else
         :headers="headers"
         :items="store.users.items"
         :items-length="store.users.total"

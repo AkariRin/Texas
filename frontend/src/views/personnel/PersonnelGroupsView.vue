@@ -29,7 +29,13 @@
         </v-btn>
       </v-card-title>
 
+      <v-skeleton-loader
+        v-if="store.groupsLoading && !store.groups.items.length"
+        type="table"
+        class="pa-2"
+      />
       <v-data-table-server
+        v-else
         :headers="headers"
         :items="store.groups.items"
         :items-length="store.groups.total"

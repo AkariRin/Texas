@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any
 
 import structlog
 from fastapi import APIRouter, Depends
@@ -57,16 +57,14 @@ async def bot_profile(
     conn_mgr: ConnectionManager = Depends(get_conn_mgr),
     bot_api: BotAPI = Depends(get_bot_api),
 ) -> dict[str, Any]:
-    """获取 Bot 完整信息（昵称、QQ 号、头像、在线状态、版本、在线设备）。"""
+    """获取 Bot 完整信息（昵称、QQ 号、头像、在线状态、版本）。"""
     nickname = None
     user_id = None
     avatar_url = None
     online = conn_mgr.connected
     version: dict[str, Any] = {}
-    online_clients: list[Any] = []
 
     if conn_mgr.connected:
-        # 并发获取多项信息
         try:
             login_resp = await bot_api.get_login_info()
             if login_resp.ok and isinstance(login_resp.data, dict):
@@ -88,15 +86,6 @@ async def bot_profile(
         except Exception as exc:
             logger.warning("获取版本信息失败", error=str(exc), event_type="bot.version_info_error")
 
-        try:
-            clients_resp = await bot_api.get_online_clients()
-            if clients_resp.ok and isinstance(clients_resp.data, dict):
-                online_clients = cast("list[Any]", clients_resp.data.get("clients") or [])
-        except Exception as exc:
-            logger.warning(
-                "获取在线设备失败", error=str(exc), event_type="bot.online_clients_error"
-            )
-
     return ok(
         {
             "nickname": nickname,
@@ -104,7 +93,6 @@ async def bot_profile(
             "avatar_url": avatar_url,
             "online": online,
             "version": version,
-            "online_clients": online_clients,
         }
     )
 

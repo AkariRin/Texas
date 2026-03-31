@@ -15,7 +15,18 @@
       <v-btn color="red" prepend-icon="mdi-plus" class="ml-2" @click="openCreate"> 添加模型 </v-btn>
     </template>
     <v-card flat>
-      <v-data-table :headers="headers" :items="store.models" :loading="store.modelsLoading" hover>
+      <v-skeleton-loader
+        v-if="store.modelsLoading && !store.models.length"
+        type="table"
+        class="pa-2"
+      />
+      <v-data-table
+        v-else
+        :headers="headers"
+        :items="store.models"
+        :loading="store.modelsLoading"
+        hover
+      >
         <!-- 模型名称列 -->
         <template #[`item.model_name`]="{ item }">
           <div>

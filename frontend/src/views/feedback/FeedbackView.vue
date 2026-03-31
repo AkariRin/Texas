@@ -59,7 +59,9 @@
         </v-btn>
       </v-card-title>
 
+      <v-skeleton-loader v-if="loading && !items.length" type="table" class="pa-2" />
       <v-data-table
+        v-else
         v-model="selected"
         :headers="headers"
         :items="items"

@@ -1,6 +1,6 @@
 <template>
   <v-app>
-    <v-app-bar app color="red" prominent>
+    <v-app-bar app color="primary" prominent>
       <v-app-bar-nav-icon @click="menuOpen = !menuOpen"></v-app-bar-nav-icon>
       <v-app-bar-title>Texas</v-app-bar-title>
       <v-spacer></v-spacer>
@@ -107,9 +107,9 @@ onUnmounted(() => {
 <style scoped>
 /* 放大在线状态 dot，去除白色描边 */
 :deep(.status-badge .v-badge__badge) {
-  width: 12px;
-  height: 12px;
-  min-width: 12px;
+  width: 10px;
+  height: 10px;
+  min-width: 10px;
   border: none !important;
   box-shadow: none !important;
 }

@@ -7,6 +7,7 @@ declare module 'vue-router' {
     subtitle?: string
     group?: string
     parentPage?: string // 子路由归属的父页面 route.name；group 在子路由中复用为 L2 分节标题
+    hideInMenu?: boolean // 设为 true 则不出现在大菜单导航中
   }
 }
 
@@ -185,12 +186,12 @@ const router = createRouter({
     {
       path: '/bot',
       name: 'bot-profile',
-      component: () => import('@/views/bot/BotProfileView.vue'),
+      component: () => import('@/views/bot/BotView.vue'),
       meta: {
         title: 'Bot 信息',
         icon: 'mdi-robot',
         subtitle: '查看和管理 Bot 账号信息',
-        // 不设置 group，不出现在导航菜单中
+        hideInMenu: true,
       },
     },
   ],

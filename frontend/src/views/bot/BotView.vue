@@ -6,7 +6,17 @@
       </v-btn>
     </template>
 
-    <v-row>
+    <!-- 骨架屏：初次加载 -->
+    <v-row v-if="loading && !profile.user_id">
+      <v-col cols="12" md="5" lg="4">
+        <v-skeleton-loader type="card" rounded="lg" />
+      </v-col>
+      <v-col cols="12" md="7" lg="8">
+        <v-skeleton-loader type="card" rounded="lg" />
+      </v-col>
+    </v-row>
+
+    <v-row v-else>
       <!-- 头像与基本信息卡片 -->
       <v-col cols="12" md="5" lg="4">
         <v-card rounded="lg">
@@ -136,38 +146,6 @@
             </v-list>
           </v-card-text>
         </v-card>
-
-        <!-- 在线设备卡片 -->
-        <v-card rounded="lg">
-          <v-card-title class="pa-4 pb-2 text-body-1 font-weight-bold">
-            <v-icon start size="20">mdi-devices</v-icon>
-            在线设备
-            <v-chip size="x-small" variant="tonal" class="ml-2">
-              {{ profile.online_clients?.length ?? 0 }}
-            </v-chip>
-          </v-card-title>
-          <v-card-text class="pa-0">
-            <template v-if="profile.online_clients && profile.online_clients.length > 0">
-              <v-list density="compact">
-                <v-list-item
-                  v-for="client in profile.online_clients"
-                  :key="client.app_id"
-                  :prepend-icon="deviceIcon(client.device_kind)"
-                >
-                  <v-list-item-title class="text-body-2">
-                    {{ client.device_name || client.app_name || `设备 ${client.app_id}` }}
-                  </v-list-item-title>
-                  <v-list-item-subtitle class="text-caption">
-                    {{ client.device_kind || client.app_name }}
-                  </v-list-item-subtitle>
-                </v-list-item>
-              </v-list>
-            </template>
-            <div v-else class="pa-4 text-center text-medium-emphasis text-body-2">
-              {{ profile.online ? '暂无在线设备信息' : '离线状态' }}
-            </div>
-          </v-card-text>
-        </v-card>
       </v-col>
     </v-row>
 
@@ -194,7 +172,6 @@ const profile = reactive<BotProfile>({
   avatar_url: null,
   online: false,
   version: { app_name: '', app_version: '', protocol_version: '' },
-  online_clients: [],
 })
 
 const editForm = reactive({
@@ -264,25 +241,6 @@ async function saveProfile() {
   } finally {
     saving.value = false
   }
-}
-
-function deviceIcon(deviceKind: string): string {
-  const kind = (deviceKind ?? '').toLowerCase()
-  if (
-    kind.includes('phone') ||
-    kind.includes('mobile') ||
-    kind.includes('android') ||
-    kind.includes('iphone')
-  ) {
-    return 'mdi-cellphone'
-  }
-  if (kind.includes('pad') || kind.includes('tablet') || kind.includes('ipad')) {
-    return 'mdi-tablet'
-  }
-  if (kind.includes('watch')) {
-    return 'mdi-watch'
-  }
-  return 'mdi-monitor'
 }
 
 onMounted(() => {

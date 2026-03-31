@@ -35,7 +35,13 @@
 
     <!-- 归档列表 -->
     <v-card rounded="lg" elevation="2">
+      <v-skeleton-loader
+        v-if="store.archivesLoading && !store.archives.items.length"
+        type="table"
+        class="pa-2"
+      />
       <v-data-table
+        v-else
         :headers="headers"
         :items="store.archives.items"
         :loading="store.archivesLoading"

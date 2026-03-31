@@ -12,20 +12,12 @@ export interface BotVersionInfo {
   protocol_version: string
 }
 
-export interface OnlineClient {
-  app_id: number
-  app_name: string
-  device_name: string
-  device_kind: string
-}
-
 export interface BotProfile {
   nickname: string | null
   user_id: number | null
   avatar_url: string | null
   online: boolean
   version: BotVersionInfo
-  online_clients: OnlineClient[]
 }
 
 export interface BotProfileUpdate {

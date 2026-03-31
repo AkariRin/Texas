@@ -1,11 +1,15 @@
 <template>
   <PageLayout>
+    <!-- 骨架屏：初次加载 -->
+    <v-skeleton-loader v-if="permStore.loading && !permStore.matrix" type="table" class="pa-2" />
+
     <!-- 数据表格 -->
     <v-data-table
+      v-else
       :headers="headers"
       :items="filteredGroups"
       :search="groupSearch"
-      :loading="permStore.loading && !permStore.matrix"
+      :loading="permStore.loading"
       :item-value="(item: PermissionMatrixGroup) => String(item.group_id)"
       show-expand
       v-model:expanded="expandedRows"

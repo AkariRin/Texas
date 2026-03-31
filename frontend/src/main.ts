@@ -21,6 +21,18 @@ createApp(App)
       },
       theme: {
         defaultTheme: 'light',
+        themes: {
+          light: {
+            colors: {
+              primary: '#455A64',
+            },
+          },
+          dark: {
+            colors: {
+              primary: '#455A64',
+            },
+          },
+        },
       },
       locale: {
         locale: 'zhHans',

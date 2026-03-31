@@ -8,7 +8,7 @@
     <!-- 面板滑入 -->
     <Transition name="panel">
       <div v-if="open" class="mega-menu-panel">
-        <!-- L1 左列：所有页面按分组标题分隔 -->
+        <!-- L1 左列：无分组直接项 + 分组名列表 -->
         <div class="mega-menu-l1">
           <!-- 顶层无分组页面（仪表盘）：点击直接导航 -->
           <div
@@ -22,66 +22,44 @@
             <span class="l1-item__label">{{ r.meta.title }}</span>
           </div>
 
-          <!-- 分组页面 -->
-          <template v-for="[group, routes] in groupedRoutes" :key="group">
-            <div class="l1-group-header">{{ group }}</div>
-            <div
-              v-for="r in routes"
-              :key="String(r.name)"
-              class="l1-item"
-              :class="{ 'l1-item--active': activePage?.name === r.name }"
-              @mouseenter="onPageMouseEnter(r)"
-              @mouseleave="onPageMouseLeave"
-              @click="onPageClick(r)"
-            >
-              <v-icon size="16" class="l1-item__icon">{{ r.meta.icon }}</v-icon>
-              <span class="l1-item__label">{{ r.meta.title }}</span>
-            </div>
-          </template>
+          <!-- 分组名列表（L1 = 分组） -->
+          <div
+            v-for="[group] in groupedRoutes"
+            :key="group"
+            class="l1-item"
+            :class="{ 'l1-item--active': activeGroup === group }"
+            @mouseenter="onGroupMouseEnter(group)"
+            @mouseleave="onGroupMouseLeave"
+            @click="onGroupClick(group)"
+          >
+            <span class="l1-item__label">{{ group }}</span>
+            <v-icon size="14" class="l1-item__arrow">mdi-chevron-right</v-icon>
+          </div>
         </div>
 
-        <!-- L2 右区：选中页面的子路由卡片 -->
+        <!-- L2 右区：选中分组下的页面卡片 -->
         <div class="mega-menu-l2">
-          <!-- 未选中任何 L1 页面时 -->
-          <div v-if="!activePage" class="l2-empty">
-            <span>← 选择左侧页面</span>
+          <!-- 未选中任何分组时 -->
+          <div v-if="!activeGroup" class="l2-empty">
+            <span>← 选择左侧分组</span>
           </div>
 
-          <!-- 有子路由：分节卡片网格 -->
-          <template v-else-if="subRoutes.length > 0">
-            <div class="l2-title">
-              <v-icon size="18" class="mr-2">{{ activePage.meta.icon }}</v-icon>
-              {{ activePage.meta.title }}
-            </div>
-            <template v-for="[section, routes] in groupedSubRoutes" :key="section ?? '__default__'">
-              <div v-if="section" class="l2-section-header">{{ section }}</div>
-              <div class="l2-card-grid">
-                <div
-                  v-for="r in routes"
-                  :key="String(r.name)"
-                  class="l2-card"
-                  :class="{ 'l2-card--active': route.name === r.name }"
-                  @click="navigateTo(r.path)"
-                >
-                  <div class="l2-card__title">{{ r.meta.title }}</div>
-                  <div v-if="r.meta.subtitle" class="l2-card__subtitle">{{ r.meta.subtitle }}</div>
-                </div>
-              </div>
-            </template>
-          </template>
-
-          <!-- 无子路由：单张大卡片 -->
+          <!-- 分组内页面卡片网格 -->
           <template v-else>
-            <div class="l2-solo-card" @click="navigateTo(activePage.path)">
-              <v-icon size="32" class="l2-solo-card__icon">{{ activePage.meta.icon }}</v-icon>
-              <div class="l2-solo-card__title">{{ activePage.meta.title }}</div>
-              <div v-if="activePage.meta.subtitle" class="l2-solo-card__subtitle">
-                {{ activePage.meta.subtitle }}
-              </div>
-              <div class="l2-solo-card__action">
-                <v-btn variant="tonal" color="primary" size="small" append-icon="mdi-arrow-right">
-                  前往页面
-                </v-btn>
+            <div class="l2-title">{{ activeGroup }}</div>
+            <div class="l2-card-grid">
+              <div
+                v-for="r in activeGroupRoutes"
+                :key="String(r.name)"
+                class="l2-card"
+                :class="{ 'l2-card--active': route.name === r.name }"
+                @click="navigateTo(r.path)"
+              >
+                <div class="l2-card__header">
+                  <v-icon size="16" class="l2-card__icon">{{ r.meta.icon }}</v-icon>
+                  <div class="l2-card__title">{{ r.meta.title }}</div>
+                </div>
+                <div v-if="r.meta.subtitle" class="l2-card__subtitle">{{ r.meta.subtitle }}</div>
               </div>
             </div>
           </template>
@@ -102,20 +80,17 @@ const emit = defineEmits<{ close: [] }>()
 const router = useRouter()
 const route = useRoute()
 
-/** 所有可见页面路由：有 title + icon、非 redirect、非子路由 */
+/** 所有可见路由：有 title、非 redirect、未设 hideInMenu */
 const navRoutes = computed(() =>
   router
     .getRoutes()
-    .filter(
-      (r): r is RouteRecordNormalized =>
-        !!r.meta.title && !!r.meta.icon && !r.redirect && !r.meta.parentPage,
-    ),
+    .filter((r): r is RouteRecordNormalized => !!r.meta.title && !r.redirect && !r.meta.hideInMenu),
 )
 
 /** 无分组的顶层页面（仪表盘等），点击直接导航 */
 const ungroupedRoutes = computed(() => navRoutes.value.filter((r) => !r.meta.group))
 
-/** 按 group 分组，保持路由定义顺序 */
+/** 按 group 分组，保持路由定义顺序；L1 展示分组名 */
 const groupedRoutes = computed(() => {
   const map = new Map<string, RouteRecordNormalized[]>()
   for (const r of navRoutes.value) {
@@ -127,63 +102,47 @@ const groupedRoutes = computed(() => {
   return map
 })
 
-/** 当前激活的 L1 页面 */
-const activePage = ref<RouteRecordNormalized | null>(null)
+/** 当前激活的 L1 分组名 */
+const activeGroup = ref<string | null>(null)
 
-/** 菜单打开时自动定位到当前路由所属页面；无分组页面则留空 */
+/** 激活分组下的路由，在 L2 展示为卡片 */
+const activeGroupRoutes = computed(() =>
+  activeGroup.value ? (groupedRoutes.value.get(activeGroup.value) ?? []) : [],
+)
+
+/** 菜单打开时自动定位到当前路由所属分组 */
 watch(
   () => props.open,
   (isOpen) => {
     if (!isOpen) return
-    const matched = navRoutes.value.find((r) => r.name === route.name)
-    activePage.value = matched ?? null
+    const currentNav = navRoutes.value.find((r) => r.name === route.name)
+    activeGroup.value = (currentNav?.meta.group as string | undefined) ?? null
   },
 )
 
 let hoverTimer: ReturnType<typeof setTimeout> | null = null
 
-function onPageMouseEnter(page: RouteRecordNormalized): void {
+function onGroupMouseEnter(group: string): void {
   if (hoverTimer) clearTimeout(hoverTimer)
   hoverTimer = setTimeout(() => {
-    activePage.value = page
+    activeGroup.value = group
   }, 200)
 }
 
-function onPageMouseLeave(): void {
+function onGroupMouseLeave(): void {
   if (hoverTimer) clearTimeout(hoverTimer)
-  // 不重置 activePage，防止鼠标滑入 L2 区时内容抖动
+  // 不重置 activeGroup，防止鼠标滑入 L2 区时内容抖动
 }
 
-function onPageClick(page: RouteRecordNormalized): void {
+function onGroupClick(group: string): void {
   if (hoverTimer) clearTimeout(hoverTimer)
-  activePage.value = page
+  activeGroup.value = group
 }
 
 function navigateTo(path: string): void {
   router.push(path)
   emit('close')
 }
-
-/** activePage 对应的所有子路由（parentPage === activePage.name） */
-const subRoutes = computed(() => {
-  if (!activePage.value) return []
-  return router
-    .getRoutes()
-    .filter(
-      (r) => r.meta.parentPage === String(activePage.value!.name) && !!r.meta.title && !r.redirect,
-    )
-})
-
-/** 子路由按 group 字段分节，group 在子路由中用作 L2 小标题 */
-const groupedSubRoutes = computed(() => {
-  const map = new Map<string | undefined, typeof subRoutes.value>()
-  for (const r of subRoutes.value) {
-    const g = r.meta.group
-    if (!map.has(g)) map.set(g, [])
-    map.get(g)!.push(r)
-  }
-  return map
-})
 
 /** ESC 键关闭菜单 */
 function onKeyDown(e: KeyboardEvent): void {
@@ -291,6 +250,17 @@ onUnmounted(() => {
     border-color 0.15s;
 }
 
+.l1-item__arrow {
+  margin-left: auto;
+  opacity: 0.3;
+  flex-shrink: 0;
+}
+
+.l1-item--active .l1-item__arrow {
+  opacity: 0.7;
+  color: rgb(var(--v-theme-primary));
+}
+
 .l1-item:hover {
   background: rgba(var(--v-theme-primary), 0.06);
 }
@@ -394,11 +364,27 @@ onUnmounted(() => {
   border-color: rgba(var(--v-theme-primary), 0.25);
 }
 
+.l2-card__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.l2-card__icon {
+  opacity: 0.6;
+  flex-shrink: 0;
+}
+
+.l2-card--active .l2-card__icon {
+  opacity: 1;
+  color: rgb(var(--v-theme-primary));
+}
+
 .l2-card__title {
   font-size: 12px;
   font-weight: 600;
   color: rgb(var(--v-theme-on-surface));
-  margin-bottom: 3px;
 }
 
 .l2-card--active .l2-card__title {
@@ -409,45 +395,6 @@ onUnmounted(() => {
   font-size: 11px;
   color: rgba(var(--v-theme-on-surface), 0.45);
   line-height: 1.4;
-}
-
-/* 单张大卡片（无子路由时） */
-.l2-solo-card {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 8px;
-  padding: 24px;
-  border-radius: 12px;
-  border: 1px solid rgba(var(--v-theme-primary), 0.2);
-  background: rgba(var(--v-theme-primary), 0.04);
-  cursor: pointer;
-  transition: background 0.15s;
-  max-width: 320px;
-}
-
-.l2-solo-card:hover {
-  background: rgba(var(--v-theme-primary), 0.08);
-}
-
-.l2-solo-card__icon {
-  color: rgb(var(--v-theme-primary));
-  opacity: 0.7;
-}
-
-.l2-solo-card__title {
-  font-size: 16px;
-  font-weight: 700;
-  color: rgb(var(--v-theme-on-surface));
-}
-
-.l2-solo-card__subtitle {
-  font-size: 13px;
-  color: rgba(var(--v-theme-on-surface), 0.5);
-  line-height: 1.5;
-}
-
-.l2-solo-card__action {
-  margin-top: 8px;
+  padding-left: 24px; /* 与标题对齐（icon 16px + gap 8px） */
 }
 </style>
