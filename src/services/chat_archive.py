@@ -17,6 +17,7 @@ from sqlalchemy import select, text, update
 
 from src.core.utils import SHANGHAI_TZ
 from src.models.chat_archive import ChatArchiveLog
+from src.models.enums import ArchiveStatus
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -143,7 +144,7 @@ class ArchiveService:
                 existing = await main_session.execute(
                     select(ChatArchiveLog.partition_name).where(
                         ChatArchiveLog.partition_name.in_(archivable),
-                        ChatArchiveLog.status == "completed",
+                        ChatArchiveLog.status == ArchiveStatus.completed,
                     )
                 )
                 already_archived = {row[0] for row in existing.all()}
@@ -171,7 +172,7 @@ class ArchiveService:
             s3_bucket=self._settings.S3_ARCHIVE_BUCKET,
             s3_key="",
             s3_sha256="",
-            status="pending",
+            status=ArchiveStatus.pending,
         )
         async with self._main_sf() as session:
             session.add(archive_log)
@@ -180,7 +181,7 @@ class ArchiveService:
 
         try:
             # ③ 导出 → status = 'exporting'
-            await self._update_archive_status(archive_id, "exporting")
+            await self._update_archive_status(archive_id, ArchiveStatus.exporting)
 
             with tempfile.NamedTemporaryFile(suffix=".parquet", delete=False) as tmp:
                 tmp_path = tmp.name
@@ -195,12 +196,12 @@ class ArchiveService:
 
                 if total_rows == 0:
                     await self._update_archive_status(
-                        archive_id, "completed", error_message="分区为空，跳过"
+                        archive_id, ArchiveStatus.completed, error_message="分区为空，跳过"
                     )
                     return {"partition": partition_name, "status": "empty", "rows": 0}
 
                 # ④ 上传 S3 → status = 'uploading'
-                await self._update_archive_status(archive_id, "uploading")
+                await self._update_archive_status(archive_id, ArchiveStatus.uploading)
 
                 s3_key = (
                     f"{self._settings.S3_ARCHIVE_PREFIX}"
@@ -236,7 +237,7 @@ class ArchiveService:
                     os.unlink(tmp_path)
 
             # ⑤ 校验 → status = 'uploaded'
-            await self._update_archive_status(archive_id, "uploaded")
+            await self._update_archive_status(archive_id, ArchiveStatus.uploaded)
 
             # 更新归档记录统计
             async with self._main_sf() as session:
@@ -261,14 +262,14 @@ class ArchiveService:
                 await session.execute(text(f"DROP TABLE chat.{partition_name}"))
                 await session.commit()
 
-            await self._update_archive_status(archive_id, "partition_dropped")
+            await self._update_archive_status(archive_id, ArchiveStatus.partition_dropped)
 
             # ⑦ 完成
             async with self._main_sf() as session:
                 await session.execute(
                     update(ChatArchiveLog)
                     .where(ChatArchiveLog.id == archive_id)
-                    .values(status="completed", completed_at=datetime.now(SHANGHAI_TZ))
+                    .values(status=ArchiveStatus.completed, completed_at=datetime.now(SHANGHAI_TZ))
                 )
                 await session.commit()
 
@@ -290,7 +291,9 @@ class ArchiveService:
             }
 
         except Exception as e:
-            await self._update_archive_status(archive_id, "failed", error_message=str(e))
+            await self._update_archive_status(
+                archive_id, ArchiveStatus.failed, error_message=str(e)
+            )
             raise
 
     # ════════════════════════════════════════════
@@ -442,14 +445,14 @@ class ArchiveService:
     async def _update_archive_status(
         self,
         archive_id: Any,
-        status: str,
+        status: ArchiveStatus,
         error_message: str | None = None,
     ) -> None:
         """更新归档记录状态。"""
         values: dict[str, Any] = {"status": status}
         if error_message:
             values["error_message"] = error_message
-        if status == "completed":
+        if status == ArchiveStatus.completed:
             values["completed_at"] = datetime.now(SHANGHAI_TZ)
 
         async with self._main_sf() as session:
@@ -521,7 +524,7 @@ class ArchiveService:
         async with self._main_sf() as session:
             stmt = select(ChatArchiveLog).where(
                 ChatArchiveLog.period_start == target_date,
-                ChatArchiveLog.status == "completed",
+                ChatArchiveLog.status == ArchiveStatus.completed,
             )
             result = await session.execute(stmt)
             archive = result.scalars().first()

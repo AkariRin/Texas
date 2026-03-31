@@ -10,21 +10,73 @@ import enum
 class FeedbackType(enum.StrEnum):
     """反馈类型枚举。"""
 
-    BUG = "bug"
-    SUGGESTION = "suggestion"
-    COMPLAINT = "complaint"
-    OTHER = "other"
+    bug = "bug"
+    suggestion = "suggestion"
+    complaint = "complaint"
+    other = "other"
 
 
 class FeedbackStatus(enum.StrEnum):
     """反馈状态枚举。"""
 
-    PENDING = "pending"
-    PROCESSED = "processed"
+    pending = "pending"
+    done = "done"
 
 
 class FeedbackSource(enum.StrEnum):
     """反馈来源枚举。"""
 
-    GROUP = "group"
-    PRIVATE = "private"
+    group = "group"
+    private = "private"
+
+
+# ── 用户关系 ──
+
+
+class UserRelation(enum.StrEnum):
+    """用户与机器人的关系等级枚举。"""
+
+    stranger = "stranger"
+    group_member = "group_member"
+    friend = "friend"
+    admin = "admin"
+
+
+# ── 群内角色 ──
+
+
+class GroupRole(enum.StrEnum):
+    """群成员角色枚举（owner/admin/member）。"""
+
+    owner = "owner"
+    admin = "admin"
+    member = "member"
+
+
+# ── 聊天归档状态 ──
+
+
+class ArchiveStatus(enum.StrEnum):
+    """聊天记录归档任务状态枚举。
+
+    状态机：pending → exporting → uploading → uploaded → partition_dropped → completed
+    任意阶段 → failed
+    """
+
+    pending = "pending"
+    exporting = "exporting"
+    uploading = "uploading"
+    uploaded = "uploaded"
+    partition_dropped = "partition_dropped"
+    completed = "completed"
+    failed = "failed"
+
+
+# ── 私聊权限模式 ──
+
+
+class PrivateMode(enum.StrEnum):
+    """私聊功能权限模式枚举（黑名单/白名单）。"""
+
+    blacklist = "blacklist"
+    whitelist = "whitelist"

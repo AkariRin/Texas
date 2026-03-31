@@ -21,7 +21,7 @@ EXIT_META = "__exit_meta__"
 def interactive_session(
     cancel_commands: tuple[str, ...] = ("/取消", "/cancel"),
     timeout: TimeoutConfig | int = 300,
-    scope: SessionScope = SessionScope.USER,
+    scope: SessionScope = SessionScope.user,
     display_name: str = "",
     description: str = "",
     **kwargs: Any,
@@ -36,7 +36,7 @@ def interactive_session(
         description: 功能描述。
     """
     if isinstance(timeout, int):
-        timeout = TimeoutConfig(duration=timeout, mode=TimeoutMode.SILENT)
+        timeout = TimeoutConfig(duration=timeout, mode=TimeoutMode.silent)
 
     def decorator(cls: type) -> type:
         setattr(

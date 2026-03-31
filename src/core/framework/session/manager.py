@@ -66,7 +66,7 @@ class SessionManager:
             是否成功启动。
         """
         session_meta: dict[str, Any] = getattr(session_cls, SESSION_META, {})
-        scope = session_meta.get("scope", SessionScope.USER)
+        scope = session_meta.get("scope", SessionScope.user)
         session_key = self._build_session_key(ctx.user_id, ctx.group_id, scope)
 
         # 互斥：内存检查
@@ -162,7 +162,7 @@ class SessionManager:
             # 刷新超时
             session_meta = getattr(type(session), SESSION_META, {})
             timeout_config = _resolve_timeout(session_meta.get("timeout", TimeoutConfig()))
-            if timeout_config.mode != TimeoutMode.NEVER:
+            if timeout_config.mode != TimeoutMode.never:
                 self._refresh_timeout(session_key, session, timeout_config, ctx)
 
             # 持久化更新后的状态
@@ -244,13 +244,13 @@ class SessionManager:
             活跃会话的 key，无则返回 None。
         """
         # 用户级会话
-        user_key = self._build_session_key(user_id, None, SessionScope.USER)
+        user_key = self._build_session_key(user_id, None, SessionScope.user)
         if user_key in self._active_sessions:
             return user_key
 
         # 群级会话
         if group_id is not None:
-            group_key = self._build_session_key(user_id, group_id, SessionScope.GROUP)
+            group_key = self._build_session_key(user_id, group_id, SessionScope.group)
             if group_key in self._active_sessions:
                 return group_key
 
@@ -271,7 +271,7 @@ class SessionManager:
     @staticmethod
     def _build_session_key(user_id: int, group_id: int | None, scope: SessionScope) -> str:
         """构建会话键。"""
-        if scope == SessionScope.GROUP and group_id is not None:
+        if scope == SessionScope.group and group_id is not None:
             return f"group:{group_id}"
         return f"user:{user_id}"
 
@@ -293,11 +293,11 @@ class SessionManager:
     ) -> None:
         """持久化会话状态到 Redis。"""
         timeout_config = _resolve_timeout(session_meta.get("timeout", TimeoutConfig()))
-        ttl = None if timeout_config.mode == TimeoutMode.NEVER else timeout_config.duration + 60
+        ttl = None if timeout_config.mode == TimeoutMode.never else timeout_config.duration + 60
 
         meta_data = {
             "session_type": type(session).__name__,
-            "scope": session_meta.get("scope", SessionScope.USER),
+            "scope": session_meta.get("scope", SessionScope.user),
             "current_state": session.state_machine.current_state,
         }
         data_json = session.data.model_dump(mode="json")
@@ -335,7 +335,7 @@ class SessionManager:
         ctx: Context,
     ) -> None:
         """设置超时定时器。"""
-        if config.mode == TimeoutMode.NEVER:
+        if config.mode == TimeoutMode.never:
             return
 
         async def _timeout_callback() -> None:
@@ -344,7 +344,7 @@ class SessionManager:
                 # 会话仍在活跃
                 if session_key in self._active_sessions:
                     active_session = self._active_sessions[session_key]
-                    if config.mode == TimeoutMode.NOTIFY:
+                    if config.mode == TimeoutMode.notify:
                         with contextlib.suppress(Exception):
                             await ctx.reply(config.timeout_message)
                     with contextlib.suppress(Exception):
@@ -373,7 +373,7 @@ class SessionManager:
                 self._warning_tasks.pop(session_key, None)
 
         self._timeout_tasks[session_key] = asyncio.create_task(_timeout_callback())
-        if config.mode == TimeoutMode.NOTIFY and config.warning_before > 0:
+        if config.mode == TimeoutMode.notify and config.warning_before > 0:
             self._warning_tasks[session_key] = asyncio.create_task(_warning_callback())
 
     def _refresh_timeout(

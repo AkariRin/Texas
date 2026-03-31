@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import uuid
 
-from sqlalchemy import BigInteger, Boolean, ForeignKey, Index, String, UniqueConstraint
+from sqlalchemy import BigInteger, Boolean, Enum, ForeignKey, Index, String, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.core.db.base import Base
+from src.models.enums import PrivateMode
 
 
 class Feature(Base):
@@ -41,8 +42,14 @@ class Feature(Base):
     enabled: Mapped[bool] = mapped_column(Boolean, default=True, comment="全局开关（管理员可修改）")
 
     # 私聊模式：blacklist（黑名单）/ whitelist（白名单）；仅 controller 级有效
-    private_mode: Mapped[str] = mapped_column(
-        String(16), default="blacklist", comment="私聊权限模式: blacklist/whitelist"
+    private_mode: Mapped[PrivateMode] = mapped_column(
+        Enum(
+            PrivateMode,
+            name="private_mode_enum",
+            values_callable=lambda x: [e.value for e in x],
+        ),
+        default=PrivateMode.blacklist,
+        comment="私聊权限模式: blacklist/whitelist",
     )
 
     # 标记功能是否仍然活跃（对应代码中仍存在的 controller/method）

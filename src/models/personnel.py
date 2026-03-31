@@ -5,12 +5,22 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, Integer, String, UniqueConstraint
+from sqlalchemy import (
+    BigInteger,
+    Boolean,
+    DateTime,
+    Enum,
+    ForeignKey,
+    Integer,
+    String,
+    UniqueConstraint,
+)
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
 from src.core.db.base import Base
+from src.models.enums import GroupRole, UserRelation
 
 
 class User(Base):
@@ -22,9 +32,13 @@ class User(Base):
     nickname: Mapped[str] = mapped_column(String(64), default="", comment="QQ 昵称")
 
     # ── 关系等级（唯一标识，不使用额外布尔字段） ──
-    relation: Mapped[str] = mapped_column(
-        String(20),
-        default="stranger",
+    relation: Mapped[UserRelation] = mapped_column(
+        Enum(
+            UserRelation,
+            name="user_relation_enum",
+            values_callable=lambda x: [e.value for e in x],
+        ),
+        default=UserRelation.stranger,
         index=True,
         comment="关系等级: stranger/group_member/friend/admin",
     )
@@ -81,8 +95,14 @@ class GroupMembership(Base):
     )
 
     card: Mapped[str] = mapped_column(String(64), default="", comment="群名片")
-    role: Mapped[str] = mapped_column(
-        String(20), default="member", comment="群内角色: owner/admin/member"
+    role: Mapped[GroupRole] = mapped_column(
+        Enum(
+            GroupRole,
+            name="group_role_enum",
+            values_callable=lambda x: [e.value for e in x],
+        ),
+        default=GroupRole.member,
+        comment="群内角色: owner/admin/member",
     )
     join_time: Mapped[int] = mapped_column(BigInteger, default=0, comment="入群时间戳")
     last_active_time: Mapped[int] = mapped_column(BigInteger, default=0, comment="最后活跃时间戳")

@@ -40,7 +40,7 @@ export interface UpdateStatusRequest {
 
 // ── API 调用 ──
 
-const BASE = '/api/v1/feedbacks'
+const BASE = '/api/feedbacks'
 
 export async function list(params: FeedbackListParams): Promise<PaginatedResult<Feedback>> {
   const query: Record<string, string | number> = {}

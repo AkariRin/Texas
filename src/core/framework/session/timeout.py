@@ -21,7 +21,7 @@ class TimeoutConfig(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     duration: int = 300
-    mode: TimeoutMode = TimeoutMode.SILENT
+    mode: TimeoutMode = TimeoutMode.silent
     warning_before: int = 30
     timeout_message: str = "操作已超时，会话已结束。"
     warning_message: str = "操作即将超时，请在 {remaining} 秒内继续。"

@@ -8,48 +8,48 @@ from pydantic import BaseModel, Field
 
 
 class EventType(StrEnum):
-    MESSAGE = "message"
-    MESSAGE_SENT = "message_sent"
-    NOTICE = "notice"
-    REQUEST = "request"
-    META = "meta_event"
+    message = "message"
+    message_sent = "message_sent"
+    notice = "notice"
+    request = "request"
+    meta_event = "meta_event"
 
 
 class MessageType(StrEnum):
-    PRIVATE = "private"
-    GROUP = "group"
+    private = "private"
+    group = "group"
 
 
 class NoticeType(StrEnum):
-    FRIEND_ADD = "friend_add"
-    FRIEND_RECALL = "friend_recall"
-    GROUP_UPLOAD = "group_upload"
-    GROUP_ADMIN = "group_admin"
-    GROUP_DECREASE = "group_decrease"
-    GROUP_INCREASE = "group_increase"
-    GROUP_BAN = "group_ban"
-    GROUP_RECALL = "group_recall"
-    GROUP_CARD = "group_card"
-    ESSENCE = "essence"
-    GROUP_MSG_EMOJI_LIKE = "group_msg_emoji_like"
-    NOTIFY = "notify"
-    BOT_OFFLINE = "bot_offline"
+    friend_add = "friend_add"
+    friend_recall = "friend_recall"
+    group_upload = "group_upload"
+    group_admin = "group_admin"
+    group_decrease = "group_decrease"
+    group_increase = "group_increase"
+    group_ban = "group_ban"
+    group_recall = "group_recall"
+    group_card = "group_card"
+    essence = "essence"
+    group_msg_emoji_like = "group_msg_emoji_like"
+    notify = "notify"
+    bot_offline = "bot_offline"
 
 
 class RequestType(StrEnum):
-    FRIEND = "friend"
-    GROUP = "group"
+    friend = "friend"
+    group = "group"
 
 
 class MetaEventType(StrEnum):
-    LIFECYCLE = "lifecycle"
-    HEARTBEAT = "heartbeat"
+    lifecycle = "lifecycle"
+    heartbeat = "heartbeat"
 
 
 class Role(StrEnum):
-    OWNER = "owner"
-    ADMIN = "admin"
-    MEMBER = "member"
+    owner = "owner"
+    admin = "admin"
+    member = "member"
 
 
 class OneBotEvent(BaseModel):

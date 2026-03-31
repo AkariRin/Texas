@@ -10,6 +10,7 @@ import structlog
 from sqlalchemy import delete, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
+from src.models.enums import PrivateMode
 from src.models.permission import Feature, GroupFeaturePermission, PrivateFeaturePermission
 from src.models.personnel import Group
 
@@ -235,7 +236,7 @@ class FeaturePermissionService:
             )
             in_list = user_in_list.scalar_one_or_none() is not None
 
-            if private_mode == "whitelist":
+            if private_mode == PrivateMode.whitelist:
                 return in_list  # 白名单：仅列表中的用户可用
             else:
                 return not in_list  # 黑名单：列表中的用户被屏蔽
@@ -288,7 +289,7 @@ class FeaturePermissionService:
         self,
         name: str,
         enabled: bool | None = None,
-        private_mode: str | None = None,
+        private_mode: PrivateMode | None = None,
     ) -> dict[str, Any] | None:
         """更新功能全局设置，返回更新后的记录。"""
         updates: dict[str, Any] = {}

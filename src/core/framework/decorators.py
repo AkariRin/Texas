@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from enum import IntEnum
+from enum import IntEnum, StrEnum
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -18,12 +18,12 @@ class Permission(IntEnum):
     ADMIN = 100  # 超级管理员
 
 
-class MessageScope(str):
+class MessageScope(StrEnum):
     """消息作用域 —— 限制 handler 仅在特定消息类型中触发。"""
 
-    ALL = "all"
-    GROUP = "group"
-    PRIVATE = "private"
+    all = "all"
+    group = "group"
+    private = "private"
 
 
 # ── 存储在被装饰对象上的元数据键 ──
@@ -86,7 +86,7 @@ def _handler_decorator(
     mapping_type: str,
     priority: int | None = None,
     permission: Permission = Permission.ANYONE,
-    message_scope: str = MessageScope.ALL,
+    message_scope: str = MessageScope.all,
     default_enabled: bool | None = None,
     display_name: str = "",
     description: str = "",
@@ -132,7 +132,7 @@ def on_command(
     aliases: set[str] | None = None,
     priority: int | None = None,
     permission: Permission = Permission.ANYONE,
-    message_scope: str = MessageScope.ALL,
+    message_scope: str = MessageScope.all,
     default_enabled: bool | None = None,
     display_name: str = "",
     description: str = "",
@@ -158,7 +158,7 @@ def on_regex(
     flags: int = 0,
     priority: int | None = None,
     permission: Permission = Permission.ANYONE,
-    message_scope: str = MessageScope.ALL,
+    message_scope: str = MessageScope.all,
     default_enabled: bool | None = None,
     display_name: str = "",
     description: str = "",
@@ -184,7 +184,7 @@ def on_keyword(
     keywords: set[str],
     priority: int | None = None,
     permission: Permission = Permission.ANYONE,
-    message_scope: str = MessageScope.ALL,
+    message_scope: str = MessageScope.all,
     default_enabled: bool | None = None,
     display_name: str = "",
     description: str = "",
@@ -208,7 +208,7 @@ def on_startswith(
     prefix: str,
     priority: int | None = None,
     permission: Permission = Permission.ANYONE,
-    message_scope: str = MessageScope.ALL,
+    message_scope: str = MessageScope.all,
     default_enabled: bool | None = None,
     display_name: str = "",
     description: str = "",
@@ -232,7 +232,7 @@ def on_endswith(
     suffix: str,
     priority: int | None = None,
     permission: Permission = Permission.ANYONE,
-    message_scope: str = MessageScope.ALL,
+    message_scope: str = MessageScope.all,
     default_enabled: bool | None = None,
     display_name: str = "",
     description: str = "",
@@ -256,7 +256,7 @@ def on_fullmatch(
     text: str,
     priority: int | None = None,
     permission: Permission = Permission.ANYONE,
-    message_scope: str = MessageScope.ALL,
+    message_scope: str = MessageScope.all,
     default_enabled: bool | None = None,
     display_name: str = "",
     description: str = "",

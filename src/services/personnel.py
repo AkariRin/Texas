@@ -30,6 +30,7 @@ from src.core.monitoring.metrics import (
     personnel_users_total,
 )
 from src.core.utils import SHANGHAI_TZ
+from src.models.enums import GroupRole, UserRelation
 from src.models.personnel import Group, GroupMembership, User
 
 if TYPE_CHECKING:
@@ -43,19 +44,19 @@ logger = structlog.get_logger()
 
 
 def compute_relation(
-    current_relation: str, is_in_friend_list: bool, has_active_membership: bool
-) -> str:
+    current_relation: UserRelation, is_in_friend_list: bool, has_active_membership: bool
+) -> UserRelation:
     """根据同步数据计算关系等级。
 
     当前 relation 为 admin 时直接返回，不做任何变更。
     """
-    if current_relation == "admin":
-        return "admin"
+    if current_relation == UserRelation.admin:
+        return UserRelation.admin
     if is_in_friend_list:
-        return "friend"
+        return UserRelation.friend
     if has_active_membership:
-        return "group_member"
-    return "stranger"
+        return UserRelation.group_member
+    return UserRelation.stranger
 
 
 class PersonnelService:
@@ -77,7 +78,7 @@ class PersonnelService:
         self,
         session: AsyncSession,
         users_data: list[dict[str, Any]],
-        relation: str = "stranger",
+        relation: UserRelation = UserRelation.stranger,
     ) -> int:
         """批量 upsert 用户，返回受影响行数。
 
@@ -110,7 +111,7 @@ class PersonnelService:
                     "nickname": stmt.excluded.nickname,
                     "last_synced": stmt.excluded.last_synced,
                     "relation": case(
-                        (User.__table__.c.relation == "admin", "admin"),
+                        (User.__table__.c.relation == UserRelation.admin, UserRelation.admin),
                         else_=stmt.excluded.relation,
                     ),
                 },
@@ -186,7 +187,7 @@ class PersonnelService:
                     {
                         "qq": int(m.get("user_id", 0)),
                         "nickname": str(m.get("nickname", "")),
-                        "relation": "group_member",
+                        "relation": UserRelation.group_member,
                         "last_synced": datetime.now(SHANGHAI_TZ),
                     }
                 )
@@ -198,8 +199,8 @@ class PersonnelService:
                     "nickname": user_stmt.excluded.nickname,
                     "last_synced": user_stmt.excluded.last_synced,
                     "relation": case(
-                        (User.__table__.c.relation == "admin", "admin"),
-                        (User.__table__.c.relation == "friend", "friend"),
+                        (User.__table__.c.relation == UserRelation.admin, UserRelation.admin),
+                        (User.__table__.c.relation == UserRelation.friend, UserRelation.friend),
                         else_=user_stmt.excluded.relation,
                     ),
                 },
@@ -214,7 +215,7 @@ class PersonnelService:
                         "user_id": int(m.get("user_id", 0)),
                         "group_id": group_id,
                         "card": str(m.get("card", "")),
-                        "role": str(m.get("role", "member")),
+                        "role": GroupRole(m.get("role", "member")),
                         "join_time": int(m.get("join_time", 0)),
                         "last_active_time": int(m.get("last_sent_time", 0)),
                         "title": str(m.get("title", "")),
@@ -284,7 +285,7 @@ class PersonnelService:
     async def recalculate_relations(self, session: AsyncSession, friend_qq_set: set[int]) -> None:
         """重算所有非 admin 用户的 relation 字段（批量查询替代 N+1）。"""
         # 查询所有非 admin 用户
-        result = await session.execute(select(User).where(User.relation != "admin"))
+        result = await session.execute(select(User).where(User.relation != UserRelation.admin))
         users = result.scalars().all()
 
         if not users:
@@ -330,7 +331,9 @@ class PersonnelService:
             # 1. 同步好友
             friend_qq_set: set[int] = set()
             if friends:
-                users_synced += await self.upsert_users(session, friends, relation="friend")
+                users_synced += await self.upsert_users(
+                    session, friends, relation=UserRelation.friend
+                )
                 for f in friends:
                     qq = int(f.get("user_id", f.get("qq", 0)))
                     if qq:
@@ -410,7 +413,7 @@ class PersonnelService:
             stmt = pg_insert(User).values(
                 qq=user_id,
                 nickname="",
-                relation="friend",
+                relation=UserRelation.friend,
                 last_synced=datetime.now(SHANGHAI_TZ),
             )
             stmt = stmt.on_conflict_do_update(
@@ -418,8 +421,8 @@ class PersonnelService:
                 set_={
                     "last_synced": stmt.excluded.last_synced,
                     "relation": case(
-                        (User.__table__.c.relation == "admin", "admin"),
-                        else_="friend",
+                        (User.__table__.c.relation == UserRelation.admin, UserRelation.admin),
+                        else_=UserRelation.friend,
                     ),
                 },
             )
@@ -435,7 +438,7 @@ class PersonnelService:
             user_stmt = pg_insert(User).values(
                 qq=user_id,
                 nickname="",
-                relation="group_member",
+                relation=UserRelation.group_member,
                 last_synced=datetime.now(SHANGHAI_TZ),
             )
             user_stmt = user_stmt.on_conflict_do_update(
@@ -443,9 +446,9 @@ class PersonnelService:
                 set_={
                     "last_synced": user_stmt.excluded.last_synced,
                     "relation": case(
-                        (User.__table__.c.relation == "admin", "admin"),
-                        (User.__table__.c.relation == "friend", "friend"),
-                        else_="group_member",
+                        (User.__table__.c.relation == UserRelation.admin, UserRelation.admin),
+                        (User.__table__.c.relation == UserRelation.friend, UserRelation.friend),
+                        else_=UserRelation.group_member,
                     ),
                 },
             )
@@ -492,7 +495,7 @@ class PersonnelService:
 
             # 重算用户 relation
             user = await session.get(User, user_id)
-            if user and user.relation != "admin":
+            if user and user.relation != UserRelation.admin:
                 mem_result = await session.execute(
                     select(GroupMembership.id)
                     .where(
@@ -502,7 +505,7 @@ class PersonnelService:
                     .limit(1)
                 )
                 has_membership = mem_result.scalar_one_or_none() is not None
-                is_friend = user.relation == "friend"
+                is_friend = user.relation == UserRelation.friend
                 user.relation = compute_relation(user.relation, is_friend, has_membership)
 
         await self._cache.delete(user_relation_key(user_id))
@@ -516,7 +519,7 @@ class PersonnelService:
 
     async def on_group_admin_change(self, group_id: int, user_id: int, sub_type: str) -> None:
         """群管理员变动：更新成员关系的 role 字段。"""
-        new_role = "admin" if sub_type == "set" else "member"
+        new_role = GroupRole.admin if sub_type == "set" else GroupRole.member
         async with self._session_factory() as session, session.begin():
             await session.execute(
                 update(GroupMembership)
@@ -563,7 +566,7 @@ class PersonnelService:
             user = await session.get(User, qq)
             if not user:
                 return False
-            user.relation = "admin"
+            user.relation = UserRelation.admin
 
         await self._cache.delete(user_relation_key(qq))
         await self._cache.delete(admin_set_key())
@@ -574,7 +577,7 @@ class PersonnelService:
         """移除超级管理员，根据当前状态自动降级。返回是否成功。"""
         async with self._session_factory() as session, session.begin():
             user = await session.get(User, qq)
-            if not user or user.relation != "admin":
+            if not user or user.relation != UserRelation.admin:
                 return False
 
             # 检查是否有活跃群关系
@@ -589,7 +592,7 @@ class PersonnelService:
             has_membership = mem_result.scalar_one_or_none() is not None
 
             # 好友状态在下次同步时会自动修正
-            user.relation = "group_member" if has_membership else "stranger"
+            user.relation = UserRelation.group_member if has_membership else UserRelation.stranger
 
         await self._cache.delete(user_relation_key(qq))
         await self._cache.delete(admin_set_key())
@@ -604,7 +607,7 @@ class PersonnelService:
     async def get_admins(self) -> list[dict[str, Any]]:
         """获取所有超级管理员列表。"""
         async with self._session_factory() as session:
-            result = await session.execute(select(User).where(User.relation == "admin"))
+            result = await session.execute(select(User).where(User.relation == UserRelation.admin))
             admins = result.scalars().all()
             return [
                 {
@@ -624,7 +627,9 @@ class PersonnelService:
             return set(cached)
 
         async with self._session_factory() as session:
-            result = await session.execute(select(User.qq).where(User.relation == "admin"))
+            result = await session.execute(
+                select(User.qq).where(User.relation == UserRelation.admin)
+            )
             qq_list = [row[0] for row in result.all()]
 
         await self._cache.set(cache_key, qq_list, ttl=300)
@@ -655,7 +660,7 @@ class PersonnelService:
 
         async with self._session_factory() as session:
             user = await session.get(User, qq)
-            relation: str = str(user.relation) if user else "stranger"
+            relation: str = str(user.relation) if user else UserRelation.stranger
 
         await self._cache.set(cache_key, relation, ttl=300)
         return relation
@@ -674,7 +679,9 @@ class PersonnelService:
                 personnel_friends_total.set(
                     (
                         await session.execute(
-                            select(func.count()).select_from(User).where(User.relation == "friend")
+                            select(func.count())
+                            .select_from(User)
+                            .where(User.relation == UserRelation.friend)
                         )
                     ).scalar()
                     or 0
@@ -683,7 +690,9 @@ class PersonnelService:
                 personnel_admins_total.set(
                     (
                         await session.execute(
-                            select(func.count()).select_from(User).where(User.relation == "admin")
+                            select(func.count())
+                            .select_from(User)
+                            .where(User.relation == UserRelation.admin)
                         )
                     ).scalar()
                     or 0

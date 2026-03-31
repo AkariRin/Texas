@@ -8,13 +8,13 @@ from enum import StrEnum
 class TimeoutMode(StrEnum):
     """会话超时策略。"""
 
-    SILENT = "silent"
-    NOTIFY = "notify"
-    NEVER = "never"
+    silent = "silent"
+    notify = "notify"
+    never = "never"
 
 
 class SessionScope(StrEnum):
     """会话隔离作用域。"""
 
-    USER = "user"
-    GROUP = "group"
+    user = "user"
+    group = "group"

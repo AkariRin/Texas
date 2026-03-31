@@ -11,7 +11,7 @@ from sqlalchemy.orm import selectinload
 
 from src.core.db.utils import escape_like as _escape_like
 from src.core.utils import SHANGHAI_TZ
-from src.models.enums import FeedbackSource, FeedbackStatus, FeedbackType
+from src.models.enums import FeedbackSource, FeedbackStatus, FeedbackType, UserRelation
 from src.models.feedback import Feedback
 from src.models.personnel import User
 
@@ -55,7 +55,7 @@ class FeedbackService:
             source=source,
             group_id=group_id,
             feedback_type=feedback_type,
-            status=FeedbackStatus.PENDING,
+            status=FeedbackStatus.pending,
         )
 
         async with self._session_factory() as session, session.begin():
@@ -147,7 +147,7 @@ class FeedbackService:
         status: FeedbackStatus,
         admin_reply: str | None = None,
     ) -> Feedback | None:
-        """更新反馈状态,若状态变为 processed 则通知用户。"""
+        """更新反馈状态,若状态变为 done 则通知用户。"""
         feedback: Feedback | None = None
         old_status: FeedbackStatus | None = None
 
@@ -160,7 +160,7 @@ class FeedbackService:
             feedback.status = status
             if admin_reply is not None:
                 feedback.admin_reply = admin_reply
-            if status == FeedbackStatus.PROCESSED and old_status != FeedbackStatus.PROCESSED:
+            if status == FeedbackStatus.done and old_status != FeedbackStatus.done:
                 feedback.processed_at = datetime.now(SHANGHAI_TZ)
 
             await session.flush()
@@ -169,8 +169,8 @@ class FeedbackService:
         # 通知用户（异步，不阻塞主流程）
         if (
             feedback is not None
-            and status == FeedbackStatus.PROCESSED
-            and old_status != FeedbackStatus.PROCESSED
+            and status == FeedbackStatus.done
+            and old_status != FeedbackStatus.done
         ):
             try:
                 await self._notify_user(feedback)
@@ -212,7 +212,7 @@ class FeedbackService:
         """通知所有管理员有新反馈（私有方法）。"""
         # 查询所有管理员
         async with self._session_factory() as session:
-            result = await session.execute(select(User).where(User.relation == "admin"))
+            result = await session.execute(select(User).where(User.relation == UserRelation.admin))
             admins = result.scalars().all()
 
         if not admins:
@@ -220,8 +220,8 @@ class FeedbackService:
             return
 
         # 构造通知消息
-        source_text = "群聊" if feedback.source == FeedbackSource.GROUP else "私聊"
-        type_text = feedback.feedback_type.value if feedback.feedback_type else "未分类"
+        source_text = "群聊" if feedback.source == FeedbackSource.group else "私聊"
+        type_text = str(feedback.feedback_type) if feedback.feedback_type else "未分类"
         message = (
             f"【新反馈通知】\n"
             f"来源：{source_text}\n"
@@ -253,7 +253,7 @@ class FeedbackService:
             message += f"管理员回复：{feedback.admin_reply}"
 
         try:
-            if feedback.source == FeedbackSource.GROUP and feedback.group_id:
+            if feedback.source == FeedbackSource.group and feedback.group_id:
                 await self._bot_api.send_group_msg(feedback.group_id, message)
             else:
                 await self._bot_api.send_private_msg(feedback.user_id, message)

@@ -89,4 +89,4 @@ def ensure_chat_partitions() -> dict[str, str]:
             "分区预创建失败",
             event_type="task.partition_ensure_failed",
         )
-        return {"status": "error", "message": "分区预创建失败"}
+        return {"status": "failed", "message": "分区预创建失败"}

@@ -102,6 +102,11 @@
           </div>
         </template>
 
+        <!-- 来源列 -->
+        <template #[`item.source`]="{ item }">
+          <span class="text-caption">{{ sourceLabel(item.source) }}</span>
+        </template>
+
         <!-- 提交时间列 -->
         <template #[`item.created_at`]="{ item }">
           <span class="text-caption text-medium-emphasis">{{ formatTime(item.created_at) }}</span>
@@ -148,7 +153,9 @@
             </v-col>
             <v-col cols="6">
               <div class="text-caption text-medium-emphasis">来源</div>
-              <div class="text-body-2 font-weight-medium">{{ currentFeedback.source }}</div>
+              <div class="text-body-2 font-weight-medium">
+                {{ sourceLabel(currentFeedback.source) }}
+              </div>
             </v-col>
             <v-col cols="6">
               <div class="text-caption text-medium-emphasis">类型</div>
@@ -276,16 +283,14 @@ const exportMode = ref<ExportMode>('full')
 
 const statusOptions = [
   { title: '待处理', value: 'pending' },
-  { title: '处理中', value: 'processing' },
-  { title: '已完成', value: 'completed' },
-  { title: '已拒绝', value: 'rejected' },
+  { title: '已处理', value: 'done' },
 ]
 
 const typeOptions = [
-  { title: 'Bug', value: 'Bug' },
-  { title: '建议', value: '建议' },
-  { title: '投诉', value: '投诉' },
-  { title: '其他', value: '其他' },
+  { title: 'Bug', value: 'bug' },
+  { title: '建议', value: 'suggestion' },
+  { title: '投诉', value: 'complaint' },
+  { title: '其他', value: 'other' },
 ]
 
 const sourceOptions = [
@@ -364,9 +369,7 @@ function doExport() {
 function statusColor(status: string): string {
   const map: Record<string, string> = {
     pending: 'orange',
-    processing: 'blue',
-    completed: 'green',
-    rejected: 'red',
+    done: 'green',
   }
   return map[status] || 'grey'
 }
@@ -374,21 +377,27 @@ function statusColor(status: string): string {
 function statusLabel(status: string): string {
   const map: Record<string, string> = {
     pending: '待处理',
-    processing: '处理中',
-    completed: '已完成',
-    rejected: '已拒绝',
+    done: '已处理',
   }
   return map[status] || status
 }
 
+function sourceLabel(source: string): string {
+  const map: Record<string, string> = {
+    group: '群聊',
+    private: '私聊',
+  }
+  return map[source] || source
+}
+
 function typeColor(type: string | null): string {
   const map: Record<string, string> = {
-    Bug: 'red',
-    建议: 'blue',
-    投诉: 'orange',
-    其他: 'grey',
+    bug: 'red',
+    suggestion: 'blue',
+    complaint: 'orange',
+    other: 'grey',
   }
-  return map[type || '其他'] || 'grey'
+  return map[type || 'other'] || 'grey'
 }
 
 onMounted(() => loadPage(1))

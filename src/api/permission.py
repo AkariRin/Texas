@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
 from src.core.utils.response import ok
+from src.models.enums import PrivateMode  # noqa: TC001 — Pydantic 运行时需要
 
 if TYPE_CHECKING:
     from src.services.permission import FeaturePermissionService
@@ -31,7 +32,7 @@ def get_permission_service(request: Request) -> FeaturePermissionService:
 
 class FeatureUpdateBody(BaseModel):
     enabled: bool | None = None
-    private_mode: Literal["blacklist", "whitelist"] | None = None
+    private_mode: PrivateMode | None = None
 
 
 class FeatureSetItem(BaseModel):

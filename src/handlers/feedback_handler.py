@@ -17,7 +17,7 @@ from src.core.framework.session import (
     on_input,
     state,
 )
-from src.models.enums import FeedbackSource, FeedbackType
+from src.models.enums import FeedbackSource, FeedbackStatus, FeedbackType
 from src.services.feedback import FeedbackService
 
 if TYPE_CHECKING:
@@ -32,7 +32,7 @@ class FeedbackSessionData(BaseModel):
 
     feedback_type: FeedbackType | None = None
     content: str | None = None
-    source: FeedbackSource = FeedbackSource.PRIVATE
+    source: FeedbackSource = FeedbackSource.private
     group_id: int | None = None
 
 
@@ -62,7 +62,7 @@ class FeedbackHandler:
         # 交互式模式：无参数
         if not arg_str:
             initial_data = {
-                "source": FeedbackSource.GROUP if ctx.is_group else FeedbackSource.PRIVATE,
+                "source": FeedbackSource.group if ctx.is_group else FeedbackSource.private,
                 "group_id": ctx.group_id,
             }
             await ctx.start_session(self.FeedbackSession, initial_data=initial_data)
@@ -73,7 +73,7 @@ class FeedbackHandler:
 
         try:
             feedback_service = ctx.get_service(FeedbackService)
-            source = FeedbackSource.GROUP if ctx.is_group else FeedbackSource.PRIVATE
+            source = FeedbackSource.group if ctx.is_group else FeedbackSource.private
             feedback = await feedback_service.create_feedback(
                 user_id=ctx.user_id,
                 content=content,
@@ -116,8 +116,8 @@ class FeedbackHandler:
             lines = ["您的反馈列表："]
             for fb in feedbacks:
                 fb_id = str(fb.id)[:8]
-                fb_type = fb.feedback_type.value if fb.feedback_type else "未分类"
-                fb_status = "已处理" if fb.status.value == "processed" else "待处理"
+                fb_type = str(fb.feedback_type) if fb.feedback_type else "未分类"
+                fb_status = "已处理" if fb.status == FeedbackStatus.done else "待处理"
                 created = fb.created_at.strftime("%Y-%m-%d %H:%M")
 
                 line = f"\n[{fb_id}] {fb_type} | {fb_status} | {created}"
@@ -143,10 +143,10 @@ class FeedbackHandler:
         cancel_commands=("/取消", "/cancel"),
         timeout=TimeoutConfig(
             duration=300,
-            mode=TimeoutMode.NOTIFY,
+            mode=TimeoutMode.notify,
             warning_before=60,
         ),
-        scope=SessionScope.USER,
+        scope=SessionScope.user,
     )
     class FeedbackSession(InteractiveSession[FeedbackSessionData]):
         """反馈收集交互式会话。"""
@@ -222,12 +222,12 @@ class FeedbackHandler:
         """解析快捷反馈参数。"""
         text_lower = args.lower()
         type_keywords: tuple[tuple[str, FeedbackType], ...] = (
-            ("bug", FeedbackType.BUG),
-            ("问题", FeedbackType.BUG),
-            ("建议", FeedbackType.SUGGESTION),
-            ("suggestion", FeedbackType.SUGGESTION),
-            ("投诉", FeedbackType.COMPLAINT),
-            ("complaint", FeedbackType.COMPLAINT),
+            ("bug", FeedbackType.bug),
+            ("问题", FeedbackType.bug),
+            ("建议", FeedbackType.suggestion),
+            ("suggestion", FeedbackType.suggestion),
+            ("投诉", FeedbackType.complaint),
+            ("complaint", FeedbackType.complaint),
         )
         for keyword, ftype in type_keywords:
             if text_lower.startswith(keyword):
@@ -239,9 +239,9 @@ def _parse_type_selection(text: str) -> FeedbackType | None:
     """解析用户在交互式模式中的类型选择。"""
     text = text.strip().lower()
     if text in ("1", "bug", "问题"):
-        return FeedbackType.BUG
+        return FeedbackType.bug
     if text in ("2", "建议", "suggestion"):
-        return FeedbackType.SUGGESTION
+        return FeedbackType.suggestion
     if text in ("3", "投诉", "complaint"):
-        return FeedbackType.COMPLAINT
+        return FeedbackType.complaint
     return None

@@ -5,11 +5,12 @@ from __future__ import annotations
 import uuid
 from datetime import date, datetime
 
-from sqlalchemy import BigInteger, Date, Index, String, Text
+from sqlalchemy import BigInteger, Date, Enum, Index, String, Text
 from sqlalchemy.dialects.postgresql import TIMESTAMP, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.core.db.base import Base
+from src.models.enums import ArchiveStatus
 
 
 class ChatArchiveLog(Base):
@@ -83,10 +84,14 @@ class ChatArchiveLog(Base):
         comment="归档文件 SHA256",
     )
 
-    status: Mapped[str] = mapped_column(
-        String(20),
+    status: Mapped[ArchiveStatus] = mapped_column(
+        Enum(
+            ArchiveStatus,
+            name="archive_status_enum",
+            values_callable=lambda x: [e.value for e in x],
+        ),
         nullable=False,
-        default="pending",
+        default=ArchiveStatus.pending,
         comment="归档状态: pending/exporting/uploading/uploaded/partition_dropped/completed/failed",
     )
     error_message: Mapped[str | None] = mapped_column(

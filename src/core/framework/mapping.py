@@ -67,7 +67,9 @@ class CommandHandlerMapping(HandlerMapping):
         cmd = meta.get("cmd", "")
         aliases: set[str] = meta.get("aliases", set())
         for name in {cmd} | aliases:
-            self._handlers.setdefault(name, []).append(handler_method)
+            # 剥离命令前缀，确保与 resolve() 的查找键一致
+            key = name.removeprefix(self._prefix)
+            self._handlers.setdefault(key, []).append(handler_method)
 
     def resolve(self, event: OneBotEvent) -> list[ResolvedHandler]:
         if not isinstance(event, MessageEvent):

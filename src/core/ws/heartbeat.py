@@ -30,8 +30,9 @@ class HeartbeatMonitor:
         self._last_heartbeat = time.time()
         logger.debug(
             "已收到心跳",
-            status=status,
             event_type="ws.heartbeat",
+            online=status.get("online") if status else None,
+            good=status.get("good") if status else None,
         )
 
     def start(self) -> None:

@@ -30,21 +30,32 @@ class Feedback(Base):
         comment="提交反馈的用户 QQ 号",
     )
     feedback_type: Mapped[FeedbackType | None] = mapped_column(
-        Enum(FeedbackType, name="feedback_type_enum"),
+        Enum(
+            FeedbackType, name="feedback_type_enum", values_callable=lambda x: [e.value for e in x]
+        ),
         nullable=True,
         index=True,
         comment="反馈类型",
     )
     content: Mapped[str] = mapped_column(Text, comment="反馈内容")
     status: Mapped[FeedbackStatus] = mapped_column(
-        Enum(FeedbackStatus, name="feedback_status_enum"),
-        default=FeedbackStatus.PENDING,
+        Enum(
+            FeedbackStatus,
+            name="feedback_status_enum",
+            values_callable=lambda x: [e.value for e in x],
+        ),
+        default=FeedbackStatus.pending,
         index=True,
         comment="处理状态",
     )
     admin_reply: Mapped[str | None] = mapped_column(Text, nullable=True, comment="管理员回复")
     source: Mapped[FeedbackSource] = mapped_column(
-        Enum(FeedbackSource, name="feedback_source_enum"), comment="反馈来源"
+        Enum(
+            FeedbackSource,
+            name="feedback_source_enum",
+            values_callable=lambda x: [e.value for e in x],
+        ),
+        comment="反馈来源",
     )
     group_id: Mapped[int | None] = mapped_column(
         BigInteger,
