@@ -2,10 +2,9 @@
 
 from __future__ import annotations
 
-import warnings
 from typing import TYPE_CHECKING, Any
 
-from src.core.framework.session.enums import SessionScope, TimeoutMode
+from src.core.framework.session.enums import TimeoutMode
 from src.core.framework.session.timeout import TimeoutConfig
 
 if TYPE_CHECKING:
@@ -20,37 +19,17 @@ EXIT_META = "__exit_meta__"
 
 
 def interactive_session(
-    cancel_commands: tuple[str, ...] | None = None,
     timeout: TimeoutConfig | int = 300,
-    scope: SessionScope = SessionScope.user,
     display_name: str = "",
     description: str = "",
-    **kwargs: Any,
 ) -> Callable[[type], type]:
     """标记内部类为交互式会话。
 
     Args:
-        cancel_commands: 已废弃，取消命令现为全局配置，此参数无效。
         timeout: 超时配置，传入 int 时自动构造 TimeoutConfig。
-        scope: 已废弃，会话互斥现统一采用 user+source 粒度，此参数无效。
         display_name: 展示名称。
         description: 功能描述。
     """
-    if cancel_commands is not None:
-        warnings.warn(
-            "cancel_commands 参数已废弃，取消命令现为全局配置（/取消 /cancel），无需逐会话设置。",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-
-    if scope != SessionScope.user:
-        warnings.warn(
-            "scope 参数已废弃，会话互斥现统一采用 user+source 粒度"
-            "（同一用户在同一群/私聊只能有一个会话），此参数不再生效。",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-
     if isinstance(timeout, int):
         timeout = TimeoutConfig(duration=timeout, mode=TimeoutMode.silent)
 
@@ -60,10 +39,8 @@ def interactive_session(
             SESSION_META,
             {
                 "timeout": timeout,
-                "scope": scope,
                 "display_name": display_name,
                 "description": description,
-                **kwargs,
             },
         )
         return cls

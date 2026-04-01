@@ -47,7 +47,7 @@ class SessionInterceptor(HandlerInterceptor):
         if self._session_manager.is_cancel_command(text):
             cancelled = await self._session_manager.cancel_session(session_key, ctx)
             if cancelled:
-                msg = self._session_manager._build_at_reply(
+                msg = self._session_manager.build_reply(
                     "已取消当前操作。", ctx.user_id, ctx.is_group
                 )
                 await ctx.reply(msg)

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import time
 from typing import TYPE_CHECKING
 
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
@@ -16,8 +15,4 @@ class MetricsMiddleware(BaseHTTPMiddleware):
     """收集基本 HTTP 请求指标（第 5 阶段的占位实现）。"""
 
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
-        time.monotonic()
-        response = await call_next(request)
-        # duration = time.monotonic() - start
-        # TODO: 按 path、method、status 记录 prometheus 直方图
-        return response
+        return await call_next(request)

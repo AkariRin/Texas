@@ -16,9 +16,10 @@ from src.core.framework.session.base import InteractiveSession  # noqa: TC001
 from src.core.framework.session.commands import CANCEL_COMMANDS
 from src.core.framework.session.context import SessionContext  # noqa: TC001
 from src.core.framework.session.decorators import SESSION_META
-from src.core.framework.session.enums import SessionScope, TimeoutMode
+from src.core.framework.session.enums import TimeoutMode
 from src.core.framework.session.state_machine import StateMachine  # noqa: TC001
 from src.core.framework.session.timeout import TimeoutConfig
+from src.core.protocol.segment import Seg
 
 if TYPE_CHECKING:
     from src.core.cache.client import CacheClient
@@ -28,7 +29,12 @@ logger = structlog.get_logger()
 
 
 class SessionManager:
-    """全局会话管理器 —— 管理所有交互式会话的生命周期。"""
+    """全局会话管理器 —— 管理所有交互式会话的生命周期。
+
+    Notes:
+        Redis 持久化仅用于设置 TTL 和跨实例互斥感知，**不支持进程重启后的会话恢复**。
+        进程重启时内存中的活跃会话会丢失，Redis 残留记录会在下次同 key 启动时被清除。
+    """
 
     def __init__(self, cache: CacheClient) -> None:
         self._cache = cache
@@ -36,6 +42,8 @@ class SessionManager:
         self._active_sessions: dict[str, InteractiveSession[Any]] = {}  # session_key → 实例
         self._timeout_tasks: dict[str, asyncio.Task[None]] = {}  # session_key → 超时任务
         self._warning_tasks: dict[str, asyncio.Task[None]] = {}  # session_key → 提醒任务
+        # per-key 锁：防止同一用户的并发消息绕过互斥检查
+        self._start_locks: dict[str, asyncio.Lock] = {}
 
     # ── 会话类注册 ──
 
@@ -67,15 +75,30 @@ class SessionManager:
             是否成功启动。
         """
         session_meta: dict[str, Any] = getattr(session_cls, SESSION_META, {})
-        scope = session_meta.get("scope", SessionScope.user)
-        session_key = self._build_session_key(ctx.user_id, ctx.group_id, scope)
+        session_key = self._build_session_key(ctx.user_id, ctx.group_id)
 
-        # 互斥：内存检查
+        # per-key 锁：防止同一用户的并发消息在 await 间隙绕过互斥检查
+        lock = self._start_locks.setdefault(session_key, asyncio.Lock())
+        async with lock:
+            return await self._start_session_locked(
+                session_cls, session_meta, session_key, ctx, initial_data
+            )
+
+    async def _start_session_locked(
+        self,
+        session_cls: type[InteractiveSession[Any]],
+        session_meta: dict[str, Any],
+        session_key: str,
+        ctx: Context,
+        initial_data: dict[str, Any] | None,
+    ) -> bool:
+        """在持有 per-key 锁的情况下执行会话启动逻辑。"""
+        # 互斥：内存检查（此时已持有锁，检查与写入之间不会有其他协程介入）
         existing = self._active_sessions.get(session_key)
         if existing is not None:
             cancel_hint = next(iter(CANCEL_COMMANDS))
             await ctx.reply(
-                self._build_at_reply(
+                self.build_reply(
                     f"您有一个进行中的操作，请先完成或发送 {cancel_hint}",
                     ctx.user_id,
                     ctx.is_group,
@@ -89,6 +112,7 @@ class SessionManager:
                 self._cache.delete(cache_keys.session_key(session_key)),
                 self._cache.delete(cache_keys.session_data_key(session_key)),
                 self._cache.delete(cache_keys.session_fsm_key(session_key)),
+                return_exceptions=True,
             )
 
         session = session_cls()
@@ -101,8 +125,11 @@ class SessionManager:
 
         states = await session.build_states()
         if states is not None:
-            initial_state = states[0].name if states else None
-            session.state_machine = StateMachine(states, initial_state=initial_state)
+            if not states:
+                raise ValueError(
+                    f"{session_cls.__name__}.build_states() 返回了空列表，无法确定初始状态"
+                )
+            session.state_machine = StateMachine(states, initial_state=states[0].name)
         else:
             state_list, initial_state = session_cls._build_states_from_decorators()
             session.state_machine = StateMachine(state_list, initial_state=initial_state)
@@ -131,7 +158,8 @@ class SessionManager:
                 exc_info=True,
             )
             await self._cleanup_session(session_key)
-            await session.on_error(session_ctx, exc)
+            with contextlib.suppress(Exception):
+                await session.on_error(session_ctx, exc)
             return False
 
         logger.info(
@@ -162,6 +190,7 @@ class SessionManager:
             return False
 
         user_input = ctx.get_plaintext().strip()
+        assert session.state_machine is not None  # start_session 保证赋值
         current_state = session.state_machine.current_state or ""
         session_ctx = SessionContext(ctx, session, current_state, user_input)
 
@@ -197,13 +226,16 @@ class SessionManager:
                 event_type="session.dispatch_error",
                 exc_info=True,
             )
-            await session.on_error(session_ctx, exc)
+            # 先清理会话，确保无论后续钩子是否抛出，内存和 Redis 都能被释放
             await self._cleanup_session(session_key)
-            await ctx.reply(
-                self._build_at_reply(
-                    "操作过程中发生错误，会话已结束。", session._creator_user_id, ctx.is_group
+            with contextlib.suppress(Exception):
+                await session.on_error(session_ctx, exc)
+            with contextlib.suppress(Exception):
+                await ctx.reply(
+                    self.build_reply(
+                        "操作过程中发生错误，会话已结束。", session._creator_user_id, ctx.is_group
+                    )
                 )
-            )
 
         return True
 
@@ -226,6 +258,7 @@ class SessionManager:
             return False
 
         if ctx is not None:
+            assert session.state_machine is not None  # start_session 保证赋值
             current_state = session.state_machine.current_state or ""
             session_ctx = SessionContext(ctx, session, current_state, None)
             try:
@@ -248,6 +281,26 @@ class SessionManager:
 
     # ── 查询方法 ──
 
+    def get_active_session_count(self) -> int:
+        """返回当前内存中活跃会话的数量（可用于监控和运维巡检）。"""
+        return len(self._active_sessions)
+
+    async def cancel_all_sessions(self) -> int:
+        """取消所有活跃会话（维护模式 / 优雅关闭前使用）。
+
+        Returns:
+            被取消的会话数量。
+        """
+        keys = list(self._active_sessions)
+        if keys:
+            await asyncio.gather(*(self.cancel_session(k) for k in keys))
+            logger.info(
+                "批量取消所有活跃会话",
+                count=len(keys),
+                event_type="session.cancel_all",
+            )
+        return len(keys)
+
     def get_active_session_key(self, user_id: int, group_id: int | None = None) -> str | None:
         """查询用户在当前来源是否有活跃会话。
 
@@ -260,21 +313,18 @@ class SessionManager:
         return key if key in self._active_sessions else None
 
     @staticmethod
-    def is_cancel_command(text: str, _session_key: str | None = None) -> bool:
+    def is_cancel_command(text: str) -> bool:
         """检查文本是否为全局取消命令。
 
         Args:
             text: 用户输入文本。
-            _session_key: 已废弃，保留仅用于向后兼容。
         """
         return text.strip() in CANCEL_COMMANDS
 
     # ── 内部方法 ──
 
     @staticmethod
-    def _build_session_key(
-        user_id: int, group_id: int | None, scope: SessionScope = SessionScope.user
-    ) -> str:
+    def _build_session_key(user_id: int, group_id: int | None) -> str:
         """构建会话键。
 
         统一采用 user+source 粒度：同一用户在不同来源（群/私聊）的会话互不干扰，
@@ -283,7 +333,6 @@ class SessionManager:
         Args:
             user_id: 会话创建者 QQ 号。
             group_id: 群号（私聊为 None）。
-            scope: 已废弃，保留仅用于向后兼容，不再影响 key 格式。
 
         Returns:
             会话键，格式为 ``user:{user_id}:source:{group_id|private}``。
@@ -293,6 +342,7 @@ class SessionManager:
 
     def _bind_state_handlers(self, session: InteractiveSession[Any]) -> None:
         """将状态机中的未绑定函数绑定到会话实例。"""
+        assert session.state_machine is not None  # start_session 保证赋值
         for s in session.state_machine.iter_states():
             if s.on_enter is not None:
                 s.on_enter = _bind_method(s.on_enter, session)
@@ -309,21 +359,36 @@ class SessionManager:
     ) -> None:
         """持久化会话状态到 Redis。"""
         timeout_config = _resolve_timeout(session_meta.get("timeout", TimeoutConfig()))
-        ttl = None if timeout_config.mode == TimeoutMode.never else timeout_config.duration + 60
+        # CacheClient.set 约定：ttl=None 时使用客户端默认 TTL；ttl=0（falsy）时不设过期。
+        # TimeoutMode.never 的会话不应受客户端默认 TTL 影响，故显式传 0 表示"永不过期"。
+        redis_ttl: int = (
+            0  # 永不过期
+            if timeout_config.mode == TimeoutMode.never
+            else timeout_config.duration + 60  # 比超时时间多 60s 的安全余量
+        )
 
+        assert session.state_machine is not None  # start_session 保证赋值
         meta_data = {
             "session_type": type(session).__name__,
-            "scope": session_meta.get("scope", SessionScope.user),
             "current_state": session.state_machine.current_state,
         }
         data_json = session.data.model_dump(mode="json")
         fsm_data = session.state_machine.serialize()
 
-        await asyncio.gather(
-            self._cache.set(cache_keys.session_key(session_key), meta_data, ttl=ttl or 0),
-            self._cache.set(cache_keys.session_data_key(session_key), data_json, ttl=ttl or 0),
-            self._cache.set(cache_keys.session_fsm_key(session_key), fsm_data, ttl=ttl or 0),
+        results = await asyncio.gather(
+            self._cache.set(cache_keys.session_key(session_key), meta_data, ttl=redis_ttl),
+            self._cache.set(cache_keys.session_data_key(session_key), data_json, ttl=redis_ttl),
+            self._cache.set(cache_keys.session_fsm_key(session_key), fsm_data, ttl=redis_ttl),
+            return_exceptions=True,
         )
+        for result in results:
+            if isinstance(result, Exception):
+                logger.warning(
+                    "会话持久化 Redis 写入失败",
+                    session_key=session_key,
+                    error=str(result),
+                    event_type="session.persist_error",
+                )
 
     async def _cleanup_session(self, session_key: str) -> None:
         """清理会话（内存 + Redis + 定时任务）。"""
@@ -337,11 +402,20 @@ class SessionManager:
         if warning_task is not None and not warning_task.done():
             warning_task.cancel()
 
-        await asyncio.gather(
+        results = await asyncio.gather(
             self._cache.delete(cache_keys.session_key(session_key)),
             self._cache.delete(cache_keys.session_data_key(session_key)),
             self._cache.delete(cache_keys.session_fsm_key(session_key)),
+            return_exceptions=True,
         )
+        for result in results:
+            if isinstance(result, Exception):
+                logger.warning(
+                    "会话清理 Redis 删除失败",
+                    session_key=session_key,
+                    error=str(result),
+                    event_type="session.cleanup_error",
+                )
 
     def _setup_timeout(
         self,
@@ -363,7 +437,7 @@ class SessionManager:
                     if config.mode == TimeoutMode.notify:
                         with contextlib.suppress(Exception):
                             await ctx.reply(
-                                self._build_at_reply(
+                                self.build_reply(
                                     config.timeout_message,
                                     active_session._creator_user_id,
                                     ctx.is_group,
@@ -390,7 +464,7 @@ class SessionManager:
                         msg_text = config.warning_message.format(remaining=config.warning_before)
                         with contextlib.suppress(Exception):
                             await ctx.reply(
-                                self._build_at_reply(
+                                self.build_reply(
                                     msg_text,
                                     active_session._creator_user_id,
                                     ctx.is_group,
@@ -432,7 +506,7 @@ class SessionManager:
     # ── 消息构建辅助 ──
 
     @staticmethod
-    def _build_at_reply(
+    def build_reply(
         text: str,
         user_id: int,
         is_group: bool,
@@ -449,8 +523,6 @@ class SessionManager:
         """
         if not is_group:
             return text
-        from src.core.protocol.segment import Seg
-
         return [Seg.at(user_id), Seg.text(f" {text}")]
 
 

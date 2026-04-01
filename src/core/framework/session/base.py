@@ -35,10 +35,11 @@ class InteractiveSession(Generic[TData]):  # noqa: UP046
 
     def __init__(self) -> None:
         self.data: Any = None  # 由 SessionManager 初始化为 TData 实例
-        # 以下字段由 SessionManager.start_session() 在使用前赋值
-        self.state_machine: StateMachine = None  # type: ignore[assignment]
-        self.manager: SessionManager = None  # type: ignore[assignment]
-        self.controller: Any = None
+        # 以下字段均为"协议初始化"字段：SessionManager.start_session() 在首次使用前保证赋值。
+        # 声明为 Optional 以正确反映构造时的实际状态；业务代码无需处理 None 分支，
+        # 若在 start_session() 外部直接构造并使用则属于误用。
+        self.state_machine: StateMachine | None = None
+        self.manager: SessionManager | None = None
         self._session_key: str = ""
         # 会话创建者 QQ 号，由 SessionManager.start_session() 赋值
         self._creator_user_id: int = 0
@@ -98,11 +99,18 @@ class InteractiveSession(Generic[TData]):  # noqa: UP046
         initial_state: str | None = None
 
         # 扫描类方法上的装饰器元数据
-        for attr_name in dir(cls):
-            attr = getattr(cls, attr_name, None)
-            if attr is None or not callable(attr):
-                continue
+        # 使用 MRO __dict__ 按定义顺序扫描，避免 dir() 返回字母序导致初始状态错乱
+        seen_names: set[str] = set()
+        ordered_attrs: list[tuple[str, Any]] = []
+        for klass in reversed(cls.__mro__):
+            for attr_name, attr_val in klass.__dict__.items():
+                if attr_name not in seen_names and callable(attr_val):
+                    seen_names.add(attr_name)
+                    resolved = getattr(cls, attr_name, None)
+                    if resolved is not None:
+                        ordered_attrs.append((attr_name, resolved))
 
+        for _attr_name, attr in ordered_attrs:
             # @state 装饰器
             smeta = getattr(attr, STATE_META, None)
             if smeta is not None:

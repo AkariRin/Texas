@@ -78,7 +78,9 @@ class SessionContext:
     async def reply(self, message: str | list[MessageSegment]) -> None:
         """向当前会话发送回复。
 
-        群聊时自动在消息头部插入 @创建者，以区分同一群内多个用户的并发会话。
+        群聊时自动在消息头部插入 @创建者（session._creator_user_id），
+        以区分同一群内多个用户的并发会话。注意：始终 @ 会话创建者，
+        而非当前消息的发送者（二者在一般情况下相同，但特殊流程中可能不同）。
         """
         from src.core.protocol.segment import Seg
 
@@ -103,6 +105,16 @@ class SessionContext:
     def get_plaintext(self) -> str:
         """获取消息纯文本。"""
         return self._ctx.get_plaintext()
+
+    def pop_confirm_config(self) -> dict[str, Any] | None:
+        """取出并清空待注入的确认状态配置（供框架内部使用）。
+
+        Returns:
+            确认配置字典，若未设置则返回 None。
+        """
+        config = self.session._confirm_config
+        self.session._confirm_config = None
+        return config
 
     def confirm_transition(self, prompt: str, on_confirm: str) -> str:
         """请求用户二次确认后再转换到目标状态。

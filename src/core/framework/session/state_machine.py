@@ -140,9 +140,9 @@ class StateMachine:
         """动态注入确认等待状态。
 
         由 transition_to 在目标状态为确认状态时自动调用。
-        从 session._confirm_config 读取配置后构建状态并注册。
+        通过 ctx.pop_confirm_config() 读取配置（取出后自动清空，防止重复注入）。
         """
-        config = ctx.session._confirm_config
+        config = ctx.pop_confirm_config()
         if config is None:
             return
 
@@ -161,8 +161,6 @@ class StateMachine:
             return None
 
         self.add_state(State(name=state_name, on_enter=_on_enter, on_input=_on_input))
-        # 清除配置，防止重复注入
-        ctx.session._confirm_config = None
 
     async def _enter_state(self, state_name: str, ctx: SessionContext) -> None:
         """进入指定状态。"""
