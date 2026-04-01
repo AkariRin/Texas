@@ -15,8 +15,6 @@ logger = structlog.get_logger()
 
 router = APIRouter(prefix="/checkin", tags=["checkin"])
 
-settings = get_settings()
-
 
 def _verify_internal_token(request: Request) -> bool:
     """校验内部回调令牌（使用 NAPCAT_ACCESS_TOKEN 复用已有密钥）。"""
@@ -24,7 +22,7 @@ def _verify_internal_token(request: Request) -> bool:
     if not auth_header.startswith("Bearer "):
         return False
     token = auth_header.removeprefix("Bearer ")
-    expected = settings.NAPCAT_ACCESS_TOKEN.get_secret_value()
+    expected = get_settings().NAPCAT_ACCESS_TOKEN.get_secret_value()
     # 防止时序攻击
     return secrets.compare_digest(token, expected)
 

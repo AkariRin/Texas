@@ -93,6 +93,7 @@ export const usePersonnelStore = defineStore('personnel', () => {
       page_size?: number
       role?: string | null
       nickname?: string | null
+      qq?: number | null
     },
   ) {
     membersLoading.value = true
@@ -100,6 +101,23 @@ export const usePersonnelStore = defineStore('personnel', () => {
       groupMembers.value = await api.fetchGroupMembers(groupId, params)
     } finally {
       membersLoading.value = false
+    }
+  }
+
+  // ── 会话选择器专用列表（不影响人员管理页面的分页状态） ──
+  const sessionGroups = ref<GroupItem[]>([])
+  const sessionUsers = ref<UserItem[]>([])
+
+  async function loadSessionData() {
+    try {
+      const [groupResult, userResult] = await Promise.all([
+        api.fetchGroups({ page: 1, page_size: 100 }),
+        api.fetchUsers({ page: 1, page_size: 100, relation: 'friend' }),
+      ])
+      sessionGroups.value = groupResult.items
+      sessionUsers.value = userResult.items
+    } catch {
+      // 静默失败，列表保持空状态
     }
   }
 
@@ -163,6 +181,10 @@ export const usePersonnelStore = defineStore('personnel', () => {
     groupMembers,
     membersLoading,
     loadGroupMembers,
+    // 会话选择器
+    sessionGroups,
+    sessionUsers,
+    loadSessionData,
     // 同步
     syncStatus,
     syncLoading,

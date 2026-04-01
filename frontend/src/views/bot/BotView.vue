@@ -1,13 +1,18 @@
 <template>
   <PageLayout>
     <template #actions>
-      <v-btn variant="tonal" prepend-icon="mdi-refresh" :loading="loading" @click="refresh">
+      <v-btn
+        variant="tonal"
+        prepend-icon="mdi-refresh"
+        :loading="botStore.profileLoading"
+        @click="refresh"
+      >
         刷新
       </v-btn>
     </template>
 
     <!-- 骨架屏：初次加载 -->
-    <v-row v-if="loading && !profile.user_id">
+    <v-row v-if="botStore.profileLoading && !botStore.profile.user_id">
       <v-col cols="12" md="5" lg="4">
         <v-skeleton-loader type="card" rounded="lg" />
       </v-col>
@@ -23,32 +28,32 @@
           <v-card-text class="d-flex flex-column align-center pa-6">
             <v-avatar size="96" class="mb-4">
               <v-img
-                v-if="profile.avatar_url"
-                :src="profile.avatar_url"
-                :alt="profile.nickname ?? 'Bot'"
+                v-if="botStore.profile.avatar_url"
+                :src="botStore.profile.avatar_url"
+                :alt="botStore.profile.nickname ?? 'Bot'"
               ></v-img>
               <v-icon v-else icon="mdi-robot" size="56"></v-icon>
             </v-avatar>
 
             <v-chip
-              :color="profile.online ? 'success' : 'grey'"
+              :color="botStore.profile.online ? 'success' : 'grey'"
               variant="tonal"
               size="small"
               class="mb-4"
             >
               <v-icon
                 start
-                :icon="profile.online ? 'mdi-circle' : 'mdi-circle-outline'"
+                :icon="botStore.profile.online ? 'mdi-circle' : 'mdi-circle-outline'"
                 size="x-small"
               ></v-icon>
-              {{ profile.online ? '在线' : '离线' }}
+              {{ botStore.profile.online ? '在线' : '离线' }}
             </v-chip>
 
             <div class="text-h6 font-weight-bold text-center mb-1">
-              {{ profile.nickname ?? '未连接' }}
+              {{ botStore.profile.nickname ?? '未连接' }}
             </div>
             <div class="text-body-2 text-medium-emphasis">
-              {{ profile.user_id ? `QQ: ${profile.user_id}` : '-' }}
+              {{ botStore.profile.user_id ? `QQ: ${botStore.profile.user_id}` : '-' }}
             </div>
           </v-card-text>
 
@@ -62,8 +67,8 @@
               label="昵称"
               density="compact"
               variant="outlined"
-              :disabled="!profile.online || saving"
-              :hint="profile.online ? '' : '离线时无法编辑'"
+              :disabled="!botStore.profile.online || botStore.profileSaving"
+              :hint="botStore.profile.online ? '' : '离线时无法编辑'"
               persistent-hint
               class="mb-2"
             ></v-text-field>
@@ -72,15 +77,15 @@
               label="个性签名"
               density="compact"
               variant="outlined"
-              :disabled="!profile.online || saving"
+              :disabled="!botStore.profile.online || botStore.profileSaving"
               class="mb-3"
             ></v-text-field>
             <v-btn
               color="primary"
               variant="tonal"
               block
-              :disabled="!profile.online || !hasChanges"
-              :loading="saving"
+              :disabled="!botStore.profile.online || !hasChanges"
+              :loading="botStore.profileSaving"
               @click="saveProfile"
             >
               保存修改
@@ -106,7 +111,7 @@
                   >协议版本</v-list-item-title
                 >
                 <v-list-item-subtitle class="text-body-1">
-                  {{ profile.version?.protocol_version || '-' }}
+                  {{ botStore.profile.version?.protocol_version || '-' }}
                 </v-list-item-subtitle>
               </v-list-item>
               <v-list-item>
@@ -117,12 +122,12 @@
                   >客户端</v-list-item-title
                 >
                 <v-list-item-subtitle class="text-body-1">
-                  {{ profile.version?.app_name || '-' }}
+                  {{ botStore.profile.version?.app_name || '-' }}
                   <span
-                    v-if="profile.version?.app_version"
+                    v-if="botStore.profile.version?.app_version"
                     class="text-medium-emphasis text-body-2"
                   >
-                    v{{ profile.version.app_version }}
+                    v{{ botStore.profile.version.app_version }}
                   </span>
                 </v-list-item-subtitle>
               </v-list-item>
@@ -135,11 +140,11 @@
                 >
                 <v-list-item-subtitle>
                   <v-chip
-                    :color="profile.online ? 'success' : 'error'"
+                    :color="botStore.profile.online ? 'success' : 'error'"
                     variant="tonal"
                     size="x-small"
                   >
-                    {{ profile.online ? '已连接' : '未连接' }}
+                    {{ botStore.profile.online ? '已连接' : '未连接' }}
                   </v-chip>
                 </v-list-item-subtitle>
               </v-list-item>
@@ -157,22 +162,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue'
+import { reactive, computed, onMounted } from 'vue'
 import PageLayout from '@/components/PageLayout.vue'
-import { getBotProfile, updateBotProfile } from '@/apis/bot'
-import type { BotProfile } from '@/apis/bot'
+import { useBotStore } from '@/stores/bot'
 
-// 页面状态
-const loading = ref(false)
-const saving = ref(false)
-
-const profile = reactive<BotProfile>({
-  nickname: null,
-  user_id: null,
-  avatar_url: null,
-  online: false,
-  version: { app_name: '', app_version: '', protocol_version: '' },
-})
+const botStore = useBotStore()
 
 const editForm = reactive({
   nickname: '',
@@ -188,58 +182,44 @@ const snackbar = reactive({
 // 是否有待保存的改动
 const hasChanges = computed(() => {
   return (
-    editForm.nickname.trim() !== (profile.nickname ?? '') || editForm.personal_note.trim() !== ''
+    editForm.nickname.trim() !== (botStore.profile.nickname ?? '') ||
+    editForm.personal_note.trim() !== ''
   )
 })
 
 async function refresh() {
-  loading.value = true
   try {
-    const { data } = await getBotProfile()
-    if (data.code === 0) {
-      Object.assign(profile, data.data)
-      // 同步编辑表单初始值
-      editForm.nickname = data.data.nickname ?? ''
-      editForm.personal_note = ''
-    }
+    await botStore.fetchProfile()
+    editForm.nickname = botStore.profile.nickname ?? ''
+    editForm.personal_note = ''
   } catch {
     // 静默处理
-  } finally {
-    loading.value = false
   }
 }
 
 async function saveProfile() {
-  saving.value = true
-  try {
-    const payload: Record<string, string> = {}
-    const trimmedNickname = editForm.nickname.trim()
-    const trimmedNote = editForm.personal_note.trim()
+  const payload: Record<string, string> = {}
+  const trimmedNickname = editForm.nickname.trim()
+  const trimmedNote = editForm.personal_note.trim()
 
-    if (trimmedNickname && trimmedNickname !== (profile.nickname ?? '')) {
-      payload.nickname = trimmedNickname
-    }
-    if (trimmedNote) {
-      payload.personal_note = trimmedNote
-    }
+  if (trimmedNickname && trimmedNickname !== (botStore.profile.nickname ?? '')) {
+    payload.nickname = trimmedNickname
+  }
+  if (trimmedNote) {
+    payload.personal_note = trimmedNote
+  }
 
-    const { data } = await updateBotProfile(payload)
-    if (data.code === 0) {
-      snackbar.message = '修改成功'
-      snackbar.color = 'success'
-      snackbar.show = true
-      await refresh()
-    } else {
-      snackbar.message = (data as unknown as { message: string }).message || '修改失败'
-      snackbar.color = 'error'
-      snackbar.show = true
-    }
-  } catch {
-    snackbar.message = '请求失败，请重试'
+  const success = await botStore.saveProfile(payload)
+  if (success) {
+    snackbar.message = '修改成功'
+    snackbar.color = 'success'
+    snackbar.show = true
+    editForm.nickname = botStore.profile.nickname ?? ''
+    editForm.personal_note = ''
+  } else {
+    snackbar.message = '修改失败，请重试'
     snackbar.color = 'error'
     snackbar.show = true
-  } finally {
-    saving.value = false
   }
 }
 

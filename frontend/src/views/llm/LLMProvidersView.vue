@@ -77,99 +77,6 @@
         </v-col>
       </v-row>
 
-      <!-- 创建/编辑对话框 -->
-      <v-dialog :model-value="formDialog" max-width="520" @update:model-value="formDialog = $event">
-        <v-card>
-          <v-card-title>
-            {{ isEdit ? '编辑提供商' : '添加提供商' }}
-          </v-card-title>
-
-          <v-card-text>
-            <v-form ref="formRef" @submit.prevent="submitForm">
-              <v-text-field
-                v-model="form.name"
-                label="提供商名称"
-                :rules="[rules.required]"
-                variant="solo-filled"
-                density="compact"
-                class="mb-3"
-                placeholder="如 OpenAI、DeepSeek"
-              />
-              <v-text-field
-                v-model="form.api_base"
-                label="API 基础地址"
-                :rules="[rules.required]"
-                variant="solo-filled"
-                density="compact"
-                class="mb-3"
-                placeholder="https://api.openai.com/v1"
-              />
-              <v-text-field
-                v-model="form.api_key"
-                :label="isEdit ? 'API Key (留空则不修改)' : 'API Key'"
-                :rules="isEdit ? [] : [rules.required]"
-                variant="solo-filled"
-                density="compact"
-                class="mb-3"
-                :type="showKey ? 'text' : 'password'"
-                :append-inner-icon="showKey ? 'mdi-eye-off' : 'mdi-eye'"
-                @click:append-inner="showKey = !showKey"
-                placeholder="sk-..."
-              />
-              <v-row dense class="mb-3">
-                <v-col cols="4">
-                  <v-text-field
-                    v-model.number="form.max_retries"
-                    label="最大重试"
-                    type="number"
-                    variant="solo-filled"
-                    density="compact"
-                    :rules="[rules.nonNegativeInt]"
-                    suffix="次"
-                    min="0"
-                    max="10"
-                  />
-                </v-col>
-                <v-col cols="4">
-                  <v-text-field
-                    v-model.number="form.timeout"
-                    label="超时"
-                    type="number"
-                    variant="solo-filled"
-                    density="compact"
-                    :rules="[rules.positiveInt]"
-                    suffix="秒"
-                    min="1"
-                    max="600"
-                  />
-                </v-col>
-                <v-col cols="4">
-                  <v-text-field
-                    v-model.number="form.retry_interval"
-                    label="重试间隔"
-                    type="number"
-                    variant="solo-filled"
-                    density="compact"
-                    :rules="[rules.nonNegativeInt]"
-                    suffix="秒"
-                    min="0"
-                    max="60"
-                  />
-                </v-col>
-              </v-row>
-            </v-form>
-          </v-card-text>
-
-          <v-card-actions>
-            <v-spacer />
-            <v-btn @click="formDialog = false">取消</v-btn>
-            <v-btn color="red" :loading="saving" @click="submitForm">
-              {{ isEdit ? '保存' : '创建' }}
-            </v-btn>
-          </v-card-actions>
-        </v-card>
-      </v-dialog>
-
       <!-- 删除确认 -->
       <v-dialog v-model="deleteDialog" max-width="400">
         <v-card>
@@ -186,19 +93,27 @@
         </v-card>
       </v-dialog>
 
-      <!-- 测试结果 -->
+      <!-- 测试 / 操作结果 -->
       <v-snackbar v-model="snackbar" :color="snackbarColor" :timeout="4000" location="bottom">
         {{ snackbarText }}
       </v-snackbar>
     </v-card>
+
+    <ProviderFormDialog
+      v-model="formDialog"
+      :provider="editingProvider"
+      @saved="store.loadProviders()"
+      @error="(msg) => showSnackbar(msg, 'error')"
+    />
   </PageLayout>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useLLMStore } from '@/stores/llm'
 import type { ProviderItem } from '@/apis/llm'
 import PageLayout from '@/components/PageLayout.vue'
+import ProviderFormDialog from './ProviderFormDialog.vue'
 
 const store = useLLMStore()
 
@@ -212,55 +127,6 @@ const deleteLoading = ref(false)
 const snackbar = ref(false)
 const snackbarText = ref('')
 const snackbarColor = ref('success')
-
-// ── 表单状态 ──
-
-const isEdit = computed(() => !!editingProvider.value)
-const showKey = ref(false)
-const saving = ref(false)
-const formRef = ref()
-
-const form = ref({
-  name: '',
-  api_base: '',
-  api_key: '',
-  max_retries: 2,
-  timeout: 60,
-  retry_interval: 1,
-})
-
-const rules = {
-  required: (v: string) => !!v || '此字段不能为空',
-  nonNegativeInt: (v: number) => (Number.isInteger(v) && v >= 0) || '请输入非负整数',
-  positiveInt: (v: number) => (Number.isInteger(v) && v >= 1) || '请输入正整数',
-}
-
-watch(formDialog, (open) => {
-  if (open) {
-    if (editingProvider.value) {
-      form.value = {
-        name: editingProvider.value.name,
-        api_base: editingProvider.value.api_base,
-        api_key: '',
-        max_retries: editingProvider.value.max_retries,
-        timeout: editingProvider.value.timeout,
-        retry_interval: editingProvider.value.retry_interval,
-      }
-    } else {
-      form.value = {
-        name: '',
-        api_base: '',
-        api_key: '',
-        max_retries: 2,
-        timeout: 60,
-        retry_interval: 1,
-      }
-    }
-    showKey.value = false
-  }
-})
-
-// ── 操作 ──
 
 function openCreate() {
   editingProvider.value = null
@@ -302,44 +168,6 @@ async function doTest(provider: ProviderItem) {
     }
   } catch {
     showSnackbar('测试请求失败', 'error')
-  }
-}
-
-async function submitForm() {
-  const result = await formRef.value?.validate()
-  const valid = result?.valid
-  if (!valid) return
-
-  saving.value = true
-  try {
-    if (isEdit.value && editingProvider.value) {
-      const payload: Record<string, unknown> = {}
-      if (form.value.name !== editingProvider.value.name) payload.name = form.value.name
-      if (form.value.api_base !== editingProvider.value.api_base)
-        payload.api_base = form.value.api_base
-      if (form.value.api_key) payload.api_key = form.value.api_key
-      if (form.value.max_retries !== editingProvider.value.max_retries)
-        payload.max_retries = form.value.max_retries
-      if (form.value.timeout !== editingProvider.value.timeout) payload.timeout = form.value.timeout
-      if (form.value.retry_interval !== editingProvider.value.retry_interval)
-        payload.retry_interval = form.value.retry_interval
-      await store.updateProvider(editingProvider.value.id, payload)
-    } else {
-      await store.createProvider({
-        name: form.value.name,
-        api_base: form.value.api_base,
-        api_key: form.value.api_key,
-        max_retries: form.value.max_retries,
-        timeout: form.value.timeout,
-        retry_interval: form.value.retry_interval,
-      })
-    }
-    store.loadProviders()
-    formDialog.value = false
-  } catch {
-    showSnackbar('保存失败，请重试', 'error')
-  } finally {
-    saving.value = false
   }
 }
 

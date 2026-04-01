@@ -15,6 +15,11 @@ import {
   removePrivateUser,
 } from '@/apis/permission'
 import type { FeatureItem, PermissionMatrix } from '@/apis/permission'
+import {
+  updateFeatureInTree,
+  applyGroupFeaturePermissions,
+  applyGroupSwitch as applyGroupSwitchUtil,
+} from '@/utils/tree'
 
 export const usePermissionStore = defineStore('permission', () => {
   // ── 状态 ──
@@ -81,17 +86,7 @@ export const usePermissionStore = defineStore('permission', () => {
     if (enabled !== undefined) payload.enabled = enabled
     if (privateMode !== undefined) payload.private_mode = privateMode
     await updateFeature(name, payload)
-    // 更新本地状态
-    const update = (list: FeatureItem[]) => {
-      for (const f of list) {
-        if (f.name === name) {
-          if (enabled !== undefined) f.enabled = enabled
-          if (privateMode !== undefined) f.private_mode = privateMode as 'blacklist' | 'whitelist'
-        }
-        if (f.children?.length) update(f.children)
-      }
-    }
-    update(features.value)
+    updateFeatureInTree(features.value, name, enabled, privateMode)
   }
 
   async function saveGroupFeatures(
@@ -99,26 +94,12 @@ export const usePermissionStore = defineStore('permission', () => {
     items: { feature_name: string; enabled: boolean }[],
   ) {
     await setGroupFeatures(groupId, { features: items })
-    // 更新矩阵本地状态
-    if (matrix.value) {
-      const group = matrix.value.groups.find((g) => g.group_id === groupId)
-      if (group) {
-        for (const item of items) {
-          group.permissions[item.feature_name] = item.enabled
-        }
-      }
-    }
+    if (matrix.value) applyGroupFeaturePermissions(matrix.value.groups, groupId, items)
   }
 
   async function toggleGroupSwitch(groupId: number, enabled: boolean) {
     await setGroupSwitch(groupId, enabled)
-    // 更新矩阵本地状态
-    if (matrix.value) {
-      const group = matrix.value.groups.find((g) => g.group_id === groupId)
-      if (group) {
-        group.bot_enabled = enabled
-      }
-    }
+    if (matrix.value) applyGroupSwitchUtil(matrix.value.groups, groupId, enabled)
   }
 
   async function loadPrivateUsers(featureName: string) {

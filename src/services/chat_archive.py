@@ -1,24 +1,21 @@
-"""聊天记录归档服务 —— 冷数据导出为 Parquet 并上传至 S3。"""
+"""聊天记录归档服务 —— 编排冷数据归档流程（发现分区 → 导出 → 上传 S3 → 清理）。"""
 
 from __future__ import annotations
 
-import asyncio
-import hashlib
-import json
 import os
 import re
 import tempfile
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
-import pyarrow as pa
-import pyarrow.parquet as pq
 import structlog
-from sqlalchemy import select, text, update
+from sqlalchemy import func, select, text, update
 
 from src.core.utils import SHANGHAI_TZ
 from src.models.chat_archive import ChatArchiveLog
 from src.models.enums import ArchiveStatus
+from src.services.archive_exporter import ParquetExporter
+from src.services.archive_s3 import S3Uploader
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -30,29 +27,9 @@ logger = structlog.get_logger()
 # 分区名白名单：只允许 chat_history_YYYY_MM 格式
 _PARTITION_NAME_RE = re.compile(r"^chat_history_\d{4}_\d{2}$")
 
-# ── Parquet Schema 定义 ──
-
-CHAT_HISTORY_SCHEMA = pa.schema(
-    [
-        pa.field("id", pa.int64(), nullable=False),
-        pa.field("message_id", pa.int64(), nullable=False),
-        pa.field("message_type", pa.int16(), nullable=False),
-        pa.field("group_id", pa.int64(), nullable=True),
-        pa.field("user_id", pa.int64(), nullable=False),
-        pa.field("self_id", pa.int64(), nullable=False),
-        pa.field("raw_message", pa.utf8(), nullable=False),
-        pa.field("segments", pa.utf8(), nullable=False),  # JSON string
-        pa.field("sender_nickname", pa.utf8(), nullable=False),
-        pa.field("sender_card", pa.utf8(), nullable=True),
-        pa.field("sender_role", pa.utf8(), nullable=True),
-        pa.field("created_at", pa.timestamp("us", tz="Asia/Shanghai"), nullable=False),
-        pa.field("stored_at", pa.timestamp("us", tz="Asia/Shanghai"), nullable=False),
-    ]
-)
-
 
 class ArchiveService:
-    """聊天记录归档服务。"""
+    """聊天记录归档编排服务 —— 协调分区发现、导出、上传和状态更新。"""
 
     def __init__(
         self,
@@ -63,6 +40,8 @@ class ArchiveService:
         self._chat_sf = chat_session_factory
         self._main_sf = main_session_factory
         self._settings = settings
+        self._exporter = ParquetExporter(chat_session_factory, settings)
+        self._uploader = S3Uploader(settings)
 
     # ════════════════════════════════════════════
     #  分区管理
@@ -155,7 +134,7 @@ class ArchiveService:
 
     async def _archive_partition(self, partition_name: str) -> dict[str, Any]:
         """归档单个分区的完整流程。"""
-        # 纵深防御：无论来源（用户输入或系统目录查询），均强制校验分区名格式
+        # 纵深防御：无论来源均强制校验分区名格式
         if not _PARTITION_NAME_RE.match(partition_name):
             raise ValueError(f"非法分区名: {partition_name!r}，格式须为 chat_history_YYYY_MM")
         # 解析年月
@@ -196,7 +175,7 @@ class ArchiveService:
                     original_bytes,
                     compressed_bytes,
                     sha256_hex,
-                ) = await self._export_partition_to_parquet(partition_name, tmp_path)
+                ) = await self._exporter.export_partition(partition_name, tmp_path)
 
                 if total_rows == 0:
                     await self._update_archive_status(
@@ -211,7 +190,7 @@ class ArchiveService:
                     f"{self._settings.S3_ARCHIVE_PREFIX}"
                     f"/{year:04d}/{month:02d}/{partition_name}.parquet"
                 )
-                await self._upload_to_s3(
+                await self._uploader.upload_file(
                     tmp_path,
                     s3_key,
                     {
@@ -224,7 +203,7 @@ class ArchiveService:
                 )
 
                 # 上传 manifest
-                manifest = self._build_manifest(
+                manifest = S3Uploader.build_manifest(
                     partition_name,
                     period_start,
                     period_end,
@@ -234,7 +213,7 @@ class ArchiveService:
                     sha256_hex,
                 )
                 manifest_key = s3_key.replace(".parquet", ".manifest.json")
-                await self._upload_manifest(manifest, manifest_key)
+                await self._uploader.upload_manifest(manifest, manifest_key)
 
             finally:
                 if os.path.exists(tmp_path):
@@ -299,156 +278,6 @@ class ArchiveService:
                 archive_id, ArchiveStatus.failed, error_message=str(e)
             )
             raise
-
-    # ════════════════════════════════════════════
-    #  数据导出
-    # ════════════════════════════════════════════
-
-    async def _export_partition_to_parquet(
-        self,
-        partition_name: str,
-        output_path: str,
-    ) -> tuple[int, int, int, str]:
-        """流式导出分区数据到 Parquet 文件（内置 Zstd 压缩）。
-
-        Returns:
-            (total_rows, original_bytes, compressed_bytes, sha256_hex)
-        """
-        # 防御性校验：分区名必须符合白名单格式，防止 SQL 注入
-        if not _PARTITION_NAME_RE.match(partition_name):
-            raise ValueError(f"非法的分区名: {partition_name!r}")
-
-        batch_size = self._settings.CHAT_ARCHIVE_BATCH_SIZE
-        compression = self._settings.CHAT_ARCHIVE_COMPRESSION
-
-        total_rows = 0
-        original_bytes = 0
-        batch_rows: list[dict[str, Any]] = []
-
-        writer = pq.ParquetWriter(
-            output_path,
-            schema=CHAT_HISTORY_SCHEMA,
-            compression=compression,
-        )
-
-        try:
-            async with self._chat_sf() as session:
-                result = await session.stream(
-                    text(f"SELECT * FROM chat.{partition_name} ORDER BY created_at")
-                )
-                async for row in result:
-                    row_dict = dict(row._mapping)
-                    # segments (JSONB) → JSON string for Parquet storage
-                    row_dict["segments"] = json.dumps(
-                        row_dict["segments"], default=str, ensure_ascii=False
-                    )
-                    original_bytes += len(json.dumps(row_dict, default=str).encode("utf-8"))
-                    batch_rows.append(row_dict)
-                    total_rows += 1
-
-                    if len(batch_rows) >= batch_size:
-                        table = pa.Table.from_pylist(batch_rows, schema=CHAT_HISTORY_SCHEMA)
-                        writer.write_table(table)
-                        batch_rows.clear()
-
-                # 写入剩余数据
-                if batch_rows:
-                    table = pa.Table.from_pylist(batch_rows, schema=CHAT_HISTORY_SCHEMA)
-                    writer.write_table(table)
-        finally:
-            writer.close()
-
-        # 计算压缩文件 SHA256（同步 IO 卸载到线程池，不阻塞 EventLoop）
-        compressed_bytes = os.path.getsize(output_path)
-
-        def _compute_sha256(path: str) -> str:
-            hasher = hashlib.sha256()
-            with open(path, "rb") as f_in:
-                for chunk in iter(lambda: f_in.read(8192), b""):
-                    hasher.update(chunk)
-            return hasher.hexdigest()
-
-        sha256_hex = await asyncio.to_thread(_compute_sha256, output_path)
-        return total_rows, original_bytes, compressed_bytes, sha256_hex
-
-    # ════════════════════════════════════════════
-    #  S3 操作
-    # ════════════════════════════════════════════
-
-    def _get_s3_client(self) -> Any:
-        """创建 S3 客户端。"""
-        import boto3
-
-        kwargs: dict[str, Any] = {
-            "region_name": self._settings.S3_REGION,
-        }
-        if self._settings.S3_ACCESS_KEY_ID:
-            kwargs["aws_access_key_id"] = self._settings.S3_ACCESS_KEY_ID
-            kwargs["aws_secret_access_key"] = self._settings.S3_SECRET_ACCESS_KEY.get_secret_value()
-        if self._settings.S3_ENDPOINT_URL:
-            kwargs["endpoint_url"] = self._settings.S3_ENDPOINT_URL
-
-        return boto3.client("s3", **kwargs)
-
-    async def _upload_to_s3(self, file_path: str, s3_key: str, metadata: dict[str, str]) -> None:
-        """上传文件到 S3。"""
-        s3 = self._get_s3_client()
-        s3.upload_file(
-            file_path,
-            self._settings.S3_ARCHIVE_BUCKET,
-            s3_key,
-            ExtraArgs={"Metadata": metadata},
-        )
-        logger.info(
-            "文件已上传至 S3",
-            bucket=self._settings.S3_ARCHIVE_BUCKET,
-            key=s3_key,
-            event_type="archive.s3_uploaded",
-        )
-
-    async def _upload_manifest(self, manifest: dict[str, Any], s3_key: str) -> None:
-        """上传 manifest.json 到 S3。"""
-        s3 = self._get_s3_client()
-        s3.put_object(
-            Bucket=self._settings.S3_ARCHIVE_BUCKET,
-            Key=s3_key,
-            Body=json.dumps(manifest, indent=2, default=str, ensure_ascii=False).encode("utf-8"),
-            ContentType="application/json",
-        )
-
-    @staticmethod
-    def _build_manifest(
-        partition_name: str,
-        period_start: Any,
-        period_end: Any,
-        total_rows: int,
-        original_bytes: int,
-        compressed_bytes: int,
-        sha256_hex: str,
-    ) -> dict[str, Any]:
-        """构建归档清单。"""
-        ratio = round(original_bytes / compressed_bytes, 2) if compressed_bytes > 0 else 0
-        return {
-            "version": 1,
-            "partition": partition_name,
-            "period": {
-                "start": str(period_start),
-                "end": str(period_end),
-            },
-            "stats": {
-                "total_rows": total_rows,
-            },
-            "archive": {
-                "format": "parquet",
-                "compression": "zstd (built-in)",
-                "original_size_bytes": original_bytes,
-                "compressed_size_bytes": compressed_bytes,
-                "compression_ratio": ratio,
-                "sha256": sha256_hex,
-            },
-            "archived_at": datetime.now(SHANGHAI_TZ).isoformat(),
-            "archived_by": "texas-celery-worker",
-        }
 
     # ════════════════════════════════════════════
     #  状态更新
@@ -526,10 +355,11 @@ class ArchiveService:
         limit: int = 100,
     ) -> list[dict[str, Any]]:
         """从 S3 归档中查询历史消息。"""
-        # 查找归档记录
+        import json
         from datetime import date as date_type
 
         import pyarrow.fs as pafs
+        import pyarrow.parquet as pq
 
         target_date = date_type.fromisoformat(period_start)
 
@@ -600,7 +430,3 @@ class ArchiveService:
                 event_type="archive.query_error",
             )
             return []
-
-
-# 为了 get_archive_logs 中的 func.count
-from sqlalchemy import func  # noqa: E402

@@ -23,6 +23,7 @@ _ANSI_RE = re.compile(r"\x1b\[[0-9;]*[A-Za-z]|\x1b][^\x07]*\x07|\x1b[()][AB012]"
 
 # ── 广播机制：每个 SSE 客户端对应一个 asyncio.Queue ──
 _subscribers: set[asyncio.Queue[str]] = set()
+_subscribers_lock: asyncio.Lock = asyncio.Lock()
 
 
 def _strip_ansi(text: str) -> str:
@@ -52,8 +53,10 @@ class _BroadcastHandler(logging.Handler):
             entry.update(record.positional_fields)
 
         line = json.dumps(entry, ensure_ascii=False)
+        # 在同步上下文中使用快照副本，避免迭代时集合被并发修改
+        snapshot = list(_subscribers)
         dead: list[asyncio.Queue[str]] = []
-        for q in _subscribers:
+        for q in snapshot:
             try:
                 q.put_nowait(line)
             except asyncio.QueueFull:
@@ -87,7 +90,8 @@ def install_log_broadcast() -> None:
 async def _event_stream(level: int) -> AsyncGenerator[str]:
     """生成 SSE 数据流。"""
     q: asyncio.Queue[str] = asyncio.Queue(maxsize=512)
-    _subscribers.add(q)
+    async with _subscribers_lock:
+        _subscribers.add(q)
     try:
         yield "event: connected\ndata: {}\n\n"
         while True:
@@ -104,7 +108,8 @@ async def _event_stream(level: int) -> AsyncGenerator[str]:
     except asyncio.CancelledError:
         pass
     finally:
-        _subscribers.discard(q)
+        async with _subscribers_lock:
+            _subscribers.discard(q)
 
 
 @router.get("/logs")

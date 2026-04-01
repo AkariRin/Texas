@@ -1,7 +1,8 @@
-import { ref } from 'vue'
+import { ref, reactive } from 'vue'
 import { defineStore } from 'pinia'
 import http from '@/apis/client'
-import { getBotInfo } from '@/apis/bot'
+import { getBotInfo, getBotProfile, updateBotProfile } from '@/apis/bot'
+import type { BotProfile, BotProfileUpdate, BotVersionInfo } from '@/apis/bot'
 
 export interface HealthStatus {
   status: string
@@ -16,6 +17,17 @@ export const useBotStore = defineStore(
     const userId = ref<number | null>(null)
     const avatarUrl = ref<string | null>(null)
     const loading = ref(false)
+
+    // 完整 profile（含版本信息），用于 BotView
+    const profile = reactive<BotProfile>({
+      nickname: null,
+      user_id: null,
+      avatar_url: null,
+      online: false,
+      version: { app_name: '', app_version: '', protocol_version: '' } as BotVersionInfo,
+    })
+    const profileLoading = ref(false)
+    const profileSaving = ref(false)
 
     // 非响应式变量：仅用于逻辑比较，无需触发视图更新，不持久化
     let prevOnline = false
@@ -59,6 +71,39 @@ export const useBotStore = defineStore(
       }
     }
 
+    /** 获取完整 profile（含版本信息） */
+    async function fetchProfile() {
+      profileLoading.value = true
+      try {
+        const { data } = await getBotProfile()
+        if (data.code === 0) {
+          Object.assign(profile, data.data)
+          // 同步基础缓存字段
+          nickname.value = data.data.nickname
+          userId.value = data.data.user_id
+          avatarUrl.value = data.data.avatar_url
+          online.value = data.data.online
+        }
+      } finally {
+        profileLoading.value = false
+      }
+    }
+
+    /** 保存 profile 修改 */
+    async function saveProfile(payload: BotProfileUpdate): Promise<boolean> {
+      profileSaving.value = true
+      try {
+        const { data } = await updateBotProfile(payload)
+        if (data.code === 0) {
+          await fetchProfile()
+          return true
+        }
+        return false
+      } finally {
+        profileSaving.value = false
+      }
+    }
+
     /** 启动定时轮询 */
     let timer: ReturnType<typeof setInterval> | null = null
 
@@ -75,7 +120,21 @@ export const useBotStore = defineStore(
       }
     }
 
-    return { online, nickname, userId, avatarUrl, loading, fetchStatus, startPolling, stopPolling }
+    return {
+      online,
+      nickname,
+      userId,
+      avatarUrl,
+      loading,
+      profile,
+      profileLoading,
+      profileSaving,
+      fetchStatus,
+      fetchProfile,
+      saveProfile,
+      startPolling,
+      stopPolling,
+    }
   },
   {
     persist: {

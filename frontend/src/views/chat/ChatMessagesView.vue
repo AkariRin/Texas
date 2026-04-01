@@ -6,6 +6,8 @@
         <SessionSelector
           :active-type="currentSession?.type ?? null"
           :active-id="currentSession?.id ?? null"
+          :groups="personnelStore.sessionGroups"
+          :users="personnelStore.sessionUsers"
           @select="onSessionSelect"
         />
       </v-col>
@@ -151,9 +153,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, nextTick } from 'vue'
+import { ref, computed, nextTick, onMounted } from 'vue'
 import { useChatStore } from '@/stores/chat'
-import { fetchGroupMembers } from '@/apis/personnel'
+import { usePersonnelStore } from '@/stores/personnel'
 import type { GroupMemberItem } from '@/apis/personnel'
 import type { ChatMessage } from '@/apis/chat'
 import SessionSelector from './components/SessionSelector.vue'
@@ -163,6 +165,7 @@ import MemberDetailDialog from './components/MemberDetailDialog.vue'
 import ImagePreviewDialog from './components/ImagePreviewDialog.vue'
 
 const store = useChatStore()
+const personnelStore = usePersonnelStore()
 
 const reversedMessages = computed(() => [...store.messages].reverse())
 
@@ -216,12 +219,12 @@ async function onAtChipClick(qq: unknown) {
   memberDetailDialog.value = true
 
   try {
-    const result = await fetchGroupMembers(currentSession.value.id, {
+    await personnelStore.loadGroupMembers(currentSession.value.id, {
       page: 1,
       page_size: 1,
       qq: qqNum,
     })
-    memberDetail.value = result.items[0] ?? null
+    memberDetail.value = personnelStore.groupMembers.items[0] ?? null
   } catch {
     memberDetail.value = null
   } finally {
@@ -311,4 +314,8 @@ function onScroll() {
     loadMore()
   }
 }
+
+onMounted(() => {
+  personnelStore.loadSessionData()
+})
 </script>

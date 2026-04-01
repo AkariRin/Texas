@@ -63,6 +63,7 @@ if TYPE_CHECKING:
     from src.services.llm import LLMService
     from src.services.permission import FeaturePermissionService
     from src.services.personnel import PersonnelService
+    from src.services.personnel_events import PersonnelEventService
     from src.services.personnel_query import PersonnelQueryService
     from src.services.personnel_sync import SyncCoordinator
 
@@ -127,9 +128,13 @@ def _startup_personnel(
     *,
     bot_api: BotAPI,
     conn_mgr: ConnectionManager,
-) -> tuple[PersonnelService, PersonnelQueryService, SyncCoordinator]:
-    """用户管理模块初始化，返回 (personnel_service, query_service, sync_coordinator)。"""
+) -> tuple[PersonnelService, PersonnelEventService, PersonnelQueryService, SyncCoordinator]:
+    """用户管理模块初始化。
+
+    返回 (personnel_service, event_service, query_service, sync_coordinator)。
+    """
     from src.services.personnel import PersonnelService
+    from src.services.personnel_events import PersonnelEventService
     from src.services.personnel_query import PersonnelQueryService
     from src.services.personnel_sync import SyncCoordinator
 
@@ -137,6 +142,11 @@ def _startup_personnel(
         session_factory=session_factory,
         cache=cache_client,
         settings=settings,
+    )
+    # 增量事件处理服务（与写入服务共享 session_factory / cache）
+    personnel_event_service = PersonnelEventService(
+        session_factory=session_factory,
+        cache=cache_client,
     )
     # 只读查询服务（共享同一 session_factory / cache）
     personnel_query_service = PersonnelQueryService(
@@ -151,7 +161,7 @@ def _startup_personnel(
         personnel_service=personnel_service,
         settings=settings,
     )
-    return personnel_service, personnel_query_service, sync_coordinator
+    return personnel_service, personnel_event_service, personnel_query_service, sync_coordinator
 
 
 def _startup_llm(
@@ -284,6 +294,7 @@ def _register_services_to_dispatcher(
     dispatcher_instance: EventDispatcher,
     *,
     personnel_service: PersonnelService | None = None,
+    personnel_event_service: PersonnelEventService | None = None,
     llm_service: LLMService | None = None,
     cache_client: CacheClient | None = None,
     session_manager: SessionManager | None = None,
@@ -297,9 +308,12 @@ def _register_services_to_dispatcher(
     from src.services.feedback import FeedbackService as FeedbackServiceClass
     from src.services.llm import LLMService as LLMServiceClass
     from src.services.personnel import PersonnelService as PersonnelServiceClass
+    from src.services.personnel_events import PersonnelEventService as PersonnelEventServiceClass
 
     if personnel_service is not None:
         dispatcher_instance.services[PersonnelServiceClass] = personnel_service
+    if personnel_event_service is not None:
+        dispatcher_instance.services[PersonnelEventServiceClass] = personnel_event_service
     if llm_service is not None:
         dispatcher_instance.services[LLMServiceClass] = llm_service
     if cache_client is not None:
@@ -382,7 +396,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     app.state.auth_service = auth_service
 
     # 业务模块（依赖 schema 已就绪）
-    personnel_service, personnel_query_service, sync_coordinator = _startup_personnel(
+    (
+        personnel_service,
+        personnel_event_service,
+        personnel_query_service,
+        sync_coordinator,
+    ) = _startup_personnel(
         session_factory, cache_client, settings, bot_api=bot_api, conn_mgr=conn_mgr
     )
     llm_service = _startup_llm(session_factory, cache_client)
@@ -413,6 +432,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     _register_services_to_dispatcher(
         dispatcher,
         personnel_service=personnel_service,
+        personnel_event_service=personnel_event_service,
         llm_service=llm_service,
         cache_client=cache_client,
         session_manager=session_manager,

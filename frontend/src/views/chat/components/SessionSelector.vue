@@ -94,13 +94,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
-import { fetchGroups, fetchUsers } from '@/apis/personnel'
+import { ref, computed } from 'vue'
 import type { GroupItem, UserItem } from '@/apis/personnel'
 
-defineProps<{
+const props = defineProps<{
   activeType: 'group' | 'private' | null
   activeId: number | null
+  groups: GroupItem[]
+  users: UserItem[]
 }>()
 
 const emit = defineEmits<{
@@ -109,37 +110,20 @@ const emit = defineEmits<{
 
 const searchQuery = ref('')
 const tab = ref('groups')
-const groups = ref<GroupItem[]>([])
-const users = ref<UserItem[]>([])
 
 const filteredGroups = computed(() => {
-  if (!searchQuery.value) return groups.value
+  if (!searchQuery.value) return props.groups
   const q = searchQuery.value.toLowerCase()
-  return groups.value.filter(
+  return props.groups.filter(
     (g) => g.group_name.toLowerCase().includes(q) || String(g.group_id).includes(q),
   )
 })
 
 const filteredUsers = computed(() => {
-  if (!searchQuery.value) return users.value
+  if (!searchQuery.value) return props.users
   const q = searchQuery.value.toLowerCase()
-  return users.value.filter((u) => u.nickname.toLowerCase().includes(q) || String(u.qq).includes(q))
+  return props.users.filter((u) => u.nickname.toLowerCase().includes(q) || String(u.qq).includes(q))
 })
-
-async function loadData() {
-  try {
-    const [groupResult, userResult] = await Promise.all([
-      fetchGroups({ page: 1, page_size: 100 }),
-      fetchUsers({ page: 1, page_size: 100, relation: 'friend' }),
-    ])
-    groups.value = groupResult.items
-    users.value = userResult.items
-  } catch {
-    // 静默失败
-  }
-}
-
-onMounted(loadData)
 </script>
 
 <style scoped>
