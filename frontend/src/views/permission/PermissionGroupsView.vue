@@ -104,7 +104,11 @@
                   </template>
 
                   <!-- Method 子节点 -->
-                  <v-list-item v-for="child in ctrl.children" :key="child.name" class="method-item">
+                  <v-list-item
+                    v-for="child in ctrl.children"
+                    :key="child.name"
+                    class="method-item ps-12"
+                  >
                     <template #prepend>
                       <v-tooltip location="top">
                         <template #activator="{ props: tp }">
@@ -205,9 +209,5 @@ onMounted(async () => {
 <style scoped>
 .ctrl-item {
   background-color: rgba(var(--v-theme-surface-variant), 0.3);
-}
-
-.method-item {
-  padding-left: 48px;
 }
 </style>

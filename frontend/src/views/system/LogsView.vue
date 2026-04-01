@@ -1,5 +1,5 @@
 <template>
-  <PageLayout class="logs-container">
+  <PageLayout class="logs-container d-flex flex-column overflow-hidden">
     <template #actions>
       <div class="d-flex align-center ga-2">
         <v-chip :color="connected ? 'success' : 'error'" variant="elevated" size="small">
@@ -45,7 +45,7 @@
       </div>
     </template>
 
-    <v-card class="log-card" variant="elevated">
+    <v-card class="log-card flex-grow-1 d-flex flex-column overflow-hidden" variant="elevated">
       <div class="log-search-bar px-3 pt-2 pb-1">
         <v-text-field
           v-model="searchQuery"
@@ -58,15 +58,15 @@
           class="log-search-input"
         ></v-text-field>
       </div>
-      <div ref="logContainer" class="log-viewport" @scroll="onScroll">
-        <div v-if="logs.length === 0" class="text-center pa-8" style="color: #ffffff">
+      <div ref="logContainer" class="log-viewport flex-grow-1 overflow-y-auto" @scroll="onScroll">
+        <div v-if="logs.length === 0" class="text-center pa-8 text-white">
           <v-icon size="48" class="mb-2" color="white">mdi-text-box-search-outline</v-icon>
           <div>等待日志...</div>
         </div>
         <div
           v-for="(entry, idx) in filteredLogs"
           :key="idx"
-          class="log-line"
+          class="log-line d-flex ga-3"
           :class="`log-level-${entry.level.toLowerCase()}`"
         >
           <span class="log-time">{{ formatTime(entry.timestamp) }}</span>
@@ -212,26 +212,19 @@ onUnmounted(() => {
 <style scoped>
 .logs-container {
   height: calc(100vh - 64px);
-  display: flex;
-  flex-direction: column;
   padding: 16px !important;
-  overflow: hidden;
 }
 
 .log-card {
-  flex: 1;
   min-height: 0;
   background: #0d1117 !important;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.08);
   border-radius: 8px;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
 }
 
 .log-search-bar {
   flex-shrink: 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid rgba(var(--v-theme-on-surface), 0.08);
 }
 
 :deep(.log-search-input .v-field) {
@@ -252,8 +245,6 @@ onUnmounted(() => {
 }
 
 .log-viewport {
-  flex: 1;
-  overflow-y: auto;
   padding: 12px 16px;
   font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospace;
   font-size: 12.5px;
@@ -268,7 +259,7 @@ onUnmounted(() => {
   background: transparent;
 }
 .log-viewport::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(var(--v-theme-on-surface), 0.15);
   border-radius: 3px;
 }
 
@@ -276,8 +267,6 @@ onUnmounted(() => {
   white-space: pre-wrap;
   word-break: break-all;
   padding: 1px 0;
-  display: flex;
-  gap: 12px;
 }
 
 .log-time {
@@ -326,7 +315,7 @@ onUnmounted(() => {
 
 /* 行悬停高亮 */
 .log-line:hover {
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(var(--v-theme-on-surface), 0.04);
 }
 
 /* 级别行背景 */

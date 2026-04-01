@@ -21,7 +21,7 @@
       <v-card-text class="pa-0">
         <!-- 加载中 -->
         <div v-if="loading">
-          <div class="d-flex align-center pa-4" style="gap: 16px">
+          <div class="d-flex align-center ga-4 pa-4">
             <v-skeleton-loader
               type="avatar"
               style="width: 64px; height: 64px"
@@ -51,7 +51,7 @@
         </div>
         <!-- 成员信息 -->
         <template v-else>
-          <div class="d-flex align-center pa-4" style="gap: 16px">
+          <div class="d-flex align-center ga-4 pa-4">
             <v-avatar size="64">
               <v-img :src="`https://q1.qlogo.cn/g?b=qq&nk=${member.qq}&s=100`">
                 <template #error>

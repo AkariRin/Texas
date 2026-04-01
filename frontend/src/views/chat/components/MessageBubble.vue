@@ -1,5 +1,5 @@
 <template>
-  <div class="message-bubble d-flex align-start mb-3">
+  <div class="message-bubble px-1 d-flex align-start mb-3">
     <!-- 头像 -->
     <v-avatar size="36" class="flex-shrink-0 mr-2">
       <v-img :src="`https://q1.qlogo.cn/g?b=qq&nk=${msg.user_id}&s=100`" :alt="msg.sender_nickname">
@@ -35,7 +35,7 @@
         color="red-lighten-5"
         variant="elevated"
       >
-        <div class="d-flex align-center py-2 px-3" style="gap: 8px">
+        <div class="d-flex align-center ga-2 py-2 px-3">
           <v-icon size="small" color="red-darken-1">mdi-alert-circle-outline</v-icon>
           <span class="text-body-2 text-red-darken-1">消息无法解析</span>
         </div>
@@ -49,7 +49,7 @@
         class="message-body"
         :color="isSelf ? 'blue-lighten-4' : undefined"
       >
-        <div class="d-flex align-center flex-wrap py-2 px-3" style="gap: 8px">
+        <div class="d-flex align-center flex-wrap ga-2 py-2 px-3">
           <template v-for="seg in msg.segments" :key="seg">
             <span
               v-if="seg.type === 'text'"
@@ -137,7 +137,7 @@
               class="pa-2"
               max-width="240"
             >
-              <div class="d-flex align-center" style="gap: 8px">
+              <div class="d-flex align-center ga-2">
                 <v-icon color="blue">mdi-video-outline</v-icon>
                 <div>
                   <div class="text-body-2">{{ seg.data?.name || '视频' }}</div>
@@ -163,7 +163,7 @@
               class="pa-2"
               max-width="260"
             >
-              <div class="d-flex align-center" style="gap: 8px">
+              <div class="d-flex align-center ga-2">
                 <v-icon color="green">mdi-microphone</v-icon>
                 <span class="text-body-2">语音消息</span>
               </div>
@@ -327,10 +327,6 @@ function escapeHtml(text: string): string {
 </script>
 
 <style scoped>
-.message-bubble {
-  padding: 0 4px;
-}
-
 .message-body {
   text-align: left;
   max-width: 100%;

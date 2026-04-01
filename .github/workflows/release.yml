@@ -98,4 +98,4 @@ jobs:
         run: helm package helm/texas -d .helm-out
 
       - name: Push Helm chart to GHCR (OCI)
-        run: helm push .helm-out/*.tgz oci://ghcr.io/akaririn/texas
+        run: helm push .helm-out/*.tgz oci://ghcr.io/akaririn

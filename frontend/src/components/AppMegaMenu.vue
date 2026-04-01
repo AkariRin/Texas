@@ -241,7 +241,7 @@ onUnmounted(() => {
 .l1-item {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   padding: 10px 16px;
   cursor: pointer;
   border-right: 3px solid transparent;
