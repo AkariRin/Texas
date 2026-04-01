@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import base64
 from datetime import datetime, timedelta
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import structlog
 import webauthn
@@ -73,7 +73,7 @@ def _clear_session_cookie(response: Response) -> None:
 
 
 @router.post("/login")
-async def login(body: TokenLoginRequest, request: Request) -> Any:
+async def login(body: TokenLoginRequest, request: Request) -> JSONResponse:
     """静态令牌登录，成功后设置 session_id cookie。"""
     auth = _get_auth_service(request)
     ip = _get_client_ip(request)
@@ -102,7 +102,7 @@ async def login(body: TokenLoginRequest, request: Request) -> Any:
 
 
 @router.post("/logout")
-async def logout(request: Request, session_id: str | None = Cookie(default=None)) -> Any:
+async def logout(request: Request, session_id: str | None = Cookie(default=None)) -> JSONResponse:
     """撤销当前 Session（不存在时静默忽略），清除 cookie。"""
     auth = _get_auth_service(request)
     if session_id:
@@ -116,7 +116,7 @@ async def logout(request: Request, session_id: str | None = Cookie(default=None)
 
 
 @router.post("/totp/verify")
-async def totp_verify(body: TOTPVerifyRequest, request: Request) -> Any:
+async def totp_verify(body: TOTPVerifyRequest, request: Request) -> JSONResponse:
     """TOTP 码登录，成功后设置 session_id cookie。"""
     auth = _get_auth_service(request)
     ip = _get_client_ip(request)
@@ -152,7 +152,9 @@ async def totp_verify(body: TOTPVerifyRequest, request: Request) -> Any:
 
 
 @router.get("/session")
-async def session_info(request: Request, session_id: str | None = Cookie(default=None)) -> Any:
+async def session_info(
+    request: Request, session_id: str | None = Cookie(default=None)
+) -> JSONResponse:
     """返回当前 Session 信息。"""
     if not session_id:
         return JSONResponse(status_code=401, content=fail("未登录"))
@@ -180,7 +182,9 @@ async def session_info(request: Request, session_id: str | None = Cookie(default
 
 
 @router.get("/totp/setup")
-async def totp_setup_get(request: Request, session_id: str | None = Cookie(default=None)) -> Any:
+async def totp_setup_get(
+    request: Request, session_id: str | None = Cookie(default=None)
+) -> JSONResponse:
     """获取 TOTP 设置 URI（需已登录）。"""
     if not session_id:
         return JSONResponse(status_code=401, content=fail("未登录"))
@@ -194,7 +198,7 @@ async def totp_setup_post(
     body: TOTPSetupConfirmRequest,
     request: Request,
     session_id: str | None = Cookie(default=None),
-) -> Any:
+) -> JSONResponse:
     """确认绑定 TOTP（需已登录）。"""
     if not session_id:
         return JSONResponse(status_code=401, content=fail("未登录"))
@@ -212,7 +216,7 @@ async def totp_setup_post(
 
 
 @router.get("/webauthn/login/begin")
-async def webauthn_login_begin(request: Request) -> Any:
+async def webauthn_login_begin(request: Request) -> JSONResponse:
     """返回 WebAuthn 认证 challenge（公开端点，白名单内）。"""
     auth = _get_auth_service(request)
     credentials = await auth.get_webauthn_credentials()
@@ -244,7 +248,7 @@ async def webauthn_login_begin(request: Request) -> Any:
 
 
 @router.post("/webauthn/login/finish")
-async def webauthn_login_finish(body: WebAuthnLoginFinishRequest, request: Request) -> Any:
+async def webauthn_login_finish(body: WebAuthnLoginFinishRequest, request: Request) -> JSONResponse:
     """完成 WebAuthn 认证，成功后设置 session_id cookie。"""
     auth = _get_auth_service(request)
     settings = get_settings()
@@ -258,7 +262,13 @@ async def webauthn_login_finish(body: WebAuthnLoginFinishRequest, request: Reque
     padded = raw_id_b64 + "=" * (4 - remainder) if remainder != 0 else raw_id_b64
     try:
         credential_id_bytes = base64.urlsafe_b64decode(padded)
-    except Exception:
+    except Exception as exc:
+        logger.warning(
+            "WebAuthn 登录 credential_id 解码失败",
+            raw_id=raw_id_b64,
+            error=str(exc),
+            event_type="auth.webauthn_bad_credential_id",
+        )
         return JSONResponse(status_code=400, content=fail("无效的 credential_id"))
 
     cred = await auth.get_webauthn_credential_by_id(credential_id_bytes)
@@ -291,7 +301,7 @@ async def webauthn_login_finish(body: WebAuthnLoginFinishRequest, request: Reque
 
 
 @router.get("/webauthn/register/begin")
-async def webauthn_register_begin(request: Request) -> Any:
+async def webauthn_register_begin(request: Request) -> JSONResponse:
     """返回 WebAuthn 注册 challenge（需已登录）。"""
     auth = _get_auth_service(request)
     settings = get_settings()
@@ -318,7 +328,9 @@ async def webauthn_register_begin(request: Request) -> Any:
 
 
 @router.post("/webauthn/register/finish")
-async def webauthn_register_finish(body: WebAuthnRegisterFinishRequest, request: Request) -> Any:
+async def webauthn_register_finish(
+    body: WebAuthnRegisterFinishRequest, request: Request
+) -> JSONResponse:
     """完成 WebAuthn 注册，保存 Passkey 凭据（需已登录）。"""
     auth = _get_auth_service(request)
     settings = get_settings()
@@ -340,7 +352,7 @@ async def webauthn_register_finish(body: WebAuthnRegisterFinishRequest, request:
         logger.warning(
             "WebAuthn 注册失败", error=str(exc), event_type="auth.webauthn_register_failed"
         )
-        return JSONResponse(status_code=400, content=fail(f"Passkey 注册失败：{exc}"))
+        return JSONResponse(status_code=400, content=fail("Passkey 注册失败，请重试"))
 
     await auth.save_webauthn_credential(
         credential_id=registration_verification.credential_id,
@@ -355,7 +367,7 @@ async def webauthn_register_finish(body: WebAuthnRegisterFinishRequest, request:
 
 
 @router.get("/webauthn/credentials")
-async def webauthn_credentials(request: Request) -> Any:
+async def webauthn_credentials(request: Request) -> JSONResponse:
     """列出所有已注册的 Passkey 设备。"""
     auth = _get_auth_service(request)
     creds = await auth.get_webauthn_credentials()
@@ -375,7 +387,7 @@ async def webauthn_credentials(request: Request) -> Any:
 
 
 @router.delete("/webauthn/{credential_id}")
-async def webauthn_delete_credential(credential_id: str, request: Request) -> Any:
+async def webauthn_delete_credential(credential_id: str, request: Request) -> JSONResponse:
     """删除指定 Passkey 设备（credential_id 为 base64url 编码）。"""
     auth = _get_auth_service(request)
     try:

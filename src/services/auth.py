@@ -8,9 +8,9 @@ import uuid
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
+import bcrypt as _bcrypt_lib
 import pyotp
 import structlog
-from passlib.context import CryptContext  # type: ignore[import-untyped]
 from sqlalchemy import select
 
 from src.models.auth import AdminCredential, WebAuthnCredential
@@ -53,15 +53,15 @@ _FAIL_TTL = 900  # 15 分钟
 _CHALLENGE_TTL = 300  # 5 分钟
 _TOTP_PENDING_TTL = 600  # 10 分钟
 
-_pwd_context: CryptContext | None = None
+
+def _hash_secret(raw: str, rounds: int) -> str:
+    """bcrypt 哈希字符串，返回 UTF-8 解码的哈希值。"""
+    return _bcrypt_lib.hashpw(raw.encode()[:72], _bcrypt_lib.gensalt(rounds=rounds)).decode()
 
 
-def _get_pwd_context(rounds: int) -> CryptContext:
-    """懒加载 CryptContext（bcrypt work factor 运行时可配置）。"""
-    global _pwd_context  # noqa: PLW0603
-    if _pwd_context is None:
-        _pwd_context = CryptContext(schemes=["bcrypt"], bcrypt__rounds=rounds)
-    return _pwd_context
+def _verify_secret(raw: str, hashed: str) -> bool:
+    """bcrypt 验证字符串与哈希值是否匹配。"""
+    return _bcrypt_lib.checkpw(raw.encode()[:72], hashed.encode())
 
 
 class AuthService:
@@ -79,21 +79,42 @@ class AuthService:
 
     # ── 启动引导 ──
 
-    async def bootstrap_token(self) -> None:
-        """检查 admin_credentials 表，为空时生成令牌并以 WARNING 级别打印。"""
+    async def bootstrap_token(self, token_file_path: str = "INITIAL_TOKEN") -> None:
+        """检查 admin_credentials 表，为空时生成令牌并写入项目根目录的 INITIAL_TOKEN 文件。
+
+        令牌不经过日志系统，避免被日志聚合平台采集和持久化。
+        """
         if await self.has_credential():
             return
         raw_token = secrets.token_urlsafe(32)
-        ctx = _get_pwd_context(self._settings.AUTH_BCRYPT_ROUNDS)
-        token_hash = ctx.hash(raw_token)
+        token_hash = _hash_secret(raw_token, self._settings.AUTH_BCRYPT_ROUNDS)
         async with self._session_factory() as session:
             session.add(AdminCredential(token_hash=token_hash))
             await session.commit()
-        logger.warning(
-            "首次启动：已生成管理员静态令牌，请妥善保存（此消息仅出现一次）",
-            token=raw_token,
-            event_type="auth.bootstrap_token",
-        )
+        # 令牌写入文件，不通过 structlog 管道，避免进入日志聚合系统
+        try:
+            with open(token_file_path, "w", encoding="utf-8") as f:
+                f.write(raw_token + "\n")
+            logger.warning(
+                "首次启动：已生成管理员初始令牌，令牌已写入文件（此消息仅出现一次）",
+                token_file=token_file_path,
+                event_type="auth.bootstrap_token",
+            )
+        except OSError as exc:
+            # 文件写入失败时退回到 stderr，确保令牌不丢失
+            import sys
+
+            print(  # noqa: T201
+                f"[BOOTSTRAP] 管理员初始令牌（文件写入失败，请立即复制）: {raw_token}",
+                file=sys.stderr,
+                flush=True,
+            )
+            logger.error(
+                "初始令牌文件写入失败",
+                token_file=token_file_path,
+                error=str(exc),
+                event_type="auth.bootstrap_token_file_error",
+            )
 
     async def has_credential(self) -> bool:
         """返回 admin_credentials 表是否有记录。"""
@@ -110,8 +131,7 @@ class AuthService:
             cred = result.scalar_one_or_none()
         if cred is None:
             return False
-        ctx = _get_pwd_context(self._settings.AUTH_BCRYPT_ROUNDS)
-        return bool(ctx.verify(raw_token, cred.token_hash))
+        return _verify_secret(raw_token, cred.token_hash)
 
     # ── Session 管理 ──
 
@@ -130,6 +150,11 @@ class AuthService:
         """验证 Session 是否存在于 Redis。"""
         key = f"{_SESSION_KEY_PREFIX}{session_id}"
         return await self._cache.exists(key)
+
+    async def renew_session(self, session_id: str) -> None:
+        """每次请求时滑动续期 Session TTL，保持活跃用户不被强制下线。"""
+        key = f"{_SESSION_KEY_PREFIX}{session_id}"
+        await self._cache.expire(key, self._settings.AUTH_SESSION_TTL)
 
     async def get_session_data(self, session_id: str) -> dict[str, Any] | None:
         """获取 Session 数据，不存在返回 None。"""

@@ -71,4 +71,7 @@ class SessionAuthMiddleware(BaseHTTPMiddleware):
                 content=fail("Session 无效或已过期，请重新登录", code=401),
             )
 
+        # 滑动续期：每次合法请求延长 Session TTL，保持活跃用户在线
+        await auth_service.renew_session(session_id)
+
         return await call_next(request)
