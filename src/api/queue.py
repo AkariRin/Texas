@@ -27,6 +27,7 @@ router = APIRouter(prefix="/queue", tags=["queue"])
 TASK_DISPLAY_NAMES: dict[str, str] = {
     "src.core.tasks.chat_archive.archive_chat_history": "聊天记录归档",
     "src.core.tasks.chat_archive.ensure_chat_partitions": "分区预创建",
+    "src.core.tasks.daily_checkin.trigger_daily_checkin": "每日打卡",
 }
 
 

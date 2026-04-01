@@ -34,6 +34,16 @@ def setup_periodic_tasks() -> None:
     )
     partition_entry.save()
 
+    # ── 每日打卡（每天零点 Asia/Shanghai） ──
+    checkin_entry = RedBeatSchedulerEntry(
+        name="schedule-daily-checkin",
+        task="src.core.tasks.daily_checkin.trigger_daily_checkin",
+        schedule=crontab(hour=0, minute=0),
+        app=celery_app,
+        options={"expires": 3600},
+    )
+    checkin_entry.save()
+
 
 # 模块加载时自动注册
 setup_periodic_tasks()

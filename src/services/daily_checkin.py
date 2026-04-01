@@ -1,13 +1,13 @@
-"""每日打卡服务 —— 定时在已启用群执行 NapCat 签到。
+"""每日打卡服务 —— 在已启用群执行 NapCat 签到。
 
-每天零点（Asia/Shanghai）及 WS 连接建立时触发，
-通过 Redis 日期键去重，防止重启后重复打卡。
+由 Celery Beat 每天零点触发（通过 /api/checkin/trigger 回调），
+同时在 WS 连接建立时触发，通过 Redis 日期键去重防止重复打卡。
 """
 
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import TYPE_CHECKING, Final, Literal
 
 import structlog
@@ -37,13 +37,6 @@ FEATURE_NAME: Final[str] = "daily_checkin"
 CheckinSource = Literal["ws_connect", "scheduled"]
 
 
-def _seconds_until_next_midnight() -> float:
-    """计算距下一个 Asia/Shanghai 零点的秒数。"""
-    now = datetime.now(SHANGHAI_TZ)
-    tomorrow = (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
-    return (tomorrow - now).total_seconds()
-
-
 @feature(
     name=FEATURE_NAME,
     display_name="每日打卡",
@@ -55,7 +48,8 @@ def _seconds_until_next_midnight() -> float:
 class DailyCheckinService:
     """每日自动打卡协调器。
 
-    调度模式与 ``SyncCoordinator`` 一致：asyncio 内进程调度 + 任务去重。
+    由 Celery Beat 每天零点通过 HTTP 回调触发，WS 连接建立时亦可触发，
+    均通过 Redis 日期键去重防止重复执行。
     打卡 API 使用 NapCat ``send_group_sign``，不发送文本消息。
     """
 
@@ -66,7 +60,6 @@ class DailyCheckinService:
         "_permission_service",
         "_session_factory",
         "_current_task",
-        "_scheduler_task",
     )
 
     def __init__(
@@ -84,7 +77,6 @@ class DailyCheckinService:
         self._permission_service = permission_service
         self._session_factory = session_factory
         self._current_task: asyncio.Task[None] | None = None
-        self._scheduler_task: asyncio.Task[None] | None = None
 
     # ── 公共接口 ──
 
@@ -116,38 +108,7 @@ class DailyCheckinService:
         logger.info("打卡任务已创建", source=source, event_type="checkin.requested")
         return self._current_task
 
-    def start_scheduler(self) -> None:
-        """启动零点定时调度。"""
-        if self._scheduler_task is not None and not self._scheduler_task.done():
-            return
-        self._scheduler_task = asyncio.create_task(
-            self._scheduler_loop(), name="daily-checkin-scheduler"
-        )
-        logger.info("每日打卡定时调度已启动", event_type="checkin.scheduler_started")
-
-    def stop_scheduler(self) -> None:
-        """停止定时调度。"""
-        if self._scheduler_task is not None and not self._scheduler_task.done():
-            self._scheduler_task.cancel()
-            logger.info("每日打卡定时调度已停止", event_type="checkin.scheduler_stopped")
-        self._scheduler_task = None
-
     # ── 内部实现 ──
-
-    async def _scheduler_loop(self) -> None:
-        """asyncio 定时循环：每天零点（Asia/Shanghai）触发打卡。"""
-        try:
-            while True:
-                wait_secs = _seconds_until_next_midnight()
-                logger.debug(
-                    "等待下次零点打卡",
-                    wait_seconds=round(wait_secs),
-                    event_type="checkin.scheduler_wait",
-                )
-                await asyncio.sleep(wait_secs)
-                self.request_checkin(source="scheduled")
-        except asyncio.CancelledError:
-            return
 
     async def _run_checkin(self) -> None:
         """遍历所有符合条件的群，执行打卡。"""
@@ -187,6 +148,7 @@ class DailyCheckinService:
                     "权限查询失败，跳过该群",
                     group_id=group_id,
                     event_type="checkin.perm_error",
+                    exc_info=True,
                 )
                 skipped += 1
                 continue

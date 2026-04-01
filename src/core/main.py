@@ -443,8 +443,6 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
 
     # 启动用户同步定时调度
     sync_coordinator.start_scheduler()
-    # 启动每日打卡定时调度
-    checkin_service.start_scheduler()
 
     # 路由调试
     all_routes = list(app.routes)
@@ -466,7 +464,6 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     yield
 
     # ── 关闭 ──
-    checkin_service.stop_scheduler()
     sync_coordinator.stop_scheduler()
     await session_manager.close()
     await llm_service.close()

@@ -24,16 +24,17 @@ class Settings(BaseSettings):
     NAPCAT_ACCESS_TOKEN: SecretStr = SecretStr("")
     NAPCAT_MESSAGE_POST_FORMAT: Literal["array", "string"] = "array"
     NAPCAT_REPORT_SELF_MESSAGE: bool = False
-    NAPCAT_HEART_INTERVAL: int = Field(default=30000, ge=1000)
-    NAPCAT_RECONNECT_INTERVAL: int = Field(default=5000, ge=1000)
+    NAPCAT_HEART_INTERVAL: int = Field(default=30000, ge=1000)  # 心跳间隔（ms），默认 30s
+    NAPCAT_RECONNECT_INTERVAL: int = Field(default=5000, ge=1000)  # 断线重连间隔（ms），默认 5s
 
     # NapCat 资源
-    IMAGE_URL_TTL: int = Field(default=7200, ge=1)
+    IMAGE_URL_TTL: int = Field(default=7200, ge=1)  # 图片 URL 缓存时间（秒），默认 2h
     ENABLE_RKEY_REFRESH: bool = True
 
     # PostgreSQL
     DATABASE_URL: str = "postgresql+asyncpg://texas:texas@localhost:5432/texas"
-    DB_POOL_SIZE: int = Field(default=10, ge=1)
+    DB_POOL_SIZE: int = Field(default=10, ge=1)  # 连接池基础连接数
+    # 连接池最大溢出连接数（总上限 = pool_size + max_overflow）
     DB_MAX_OVERFLOW: int = Field(default=20, ge=0)
 
     # Redis - Celery Broker
@@ -42,9 +43,12 @@ class Settings(BaseSettings):
     # Redis - Celery Beat（RedBeat 调度器存储）
     CELERY_REDBEAT_URL: str = "redis://localhost:6379/2"
 
+    # 内部服务回调地址（供 Celery Worker 回调主进程）
+    INTERNAL_API_BASE_URL: str = "http://localhost:8000"
+
     # Redis - 缓存
     CACHE_REDIS_URL: str = "redis://localhost:6379/1"
-    CACHE_DEFAULT_TTL: int = Field(default=300, ge=1)
+    CACHE_DEFAULT_TTL: int = Field(default=300, ge=1)  # 缓存默认 TTL（秒），默认 5min
 
     # Prometheus
     METRICS_ENABLED: bool = True
@@ -64,14 +68,18 @@ class Settings(BaseSettings):
     PORT: int = Field(default=8000, ge=1, le=65535)
 
     # ── 用户管理 (Personnel) ──
-    PERSONNEL_SYNC_INTERVAL: int = Field(default=300, ge=10)
+    PERSONNEL_SYNC_INTERVAL: int = Field(default=300, ge=10)  # 定时同步间隔（秒），默认 5min
+    # 首次同步启动延迟（秒），等待 WS 稳定
     PERSONNEL_SYNC_INITIAL_DELAY: int = Field(default=3, ge=0)
-    PERSONNEL_SYNC_BATCH_SIZE: int = Field(default=500, ge=1)
+    PERSONNEL_SYNC_BATCH_SIZE: int = Field(default=500, ge=1)  # 批量写入每批条数
+    # 逐群拉成员时的 API 间隔（秒），避免限速
     PERSONNEL_SYNC_API_DELAY: float = Field(default=0.5, ge=0.0)
+    # 同步分布式锁 TTL（秒），默认 10min
     PERSONNEL_SYNC_LOCK_TTL: int = Field(default=600, ge=10)
 
     # ── 聊天记录数据库 ──
     CHAT_DATABASE_URL: str = "postgresql+asyncpg://texas:texas@localhost:5432/chat_history"
+    # 聊天库连接池（写入频率低于主库，池大小相应缩小）
     CHAT_DB_POOL_SIZE: int = Field(default=5, ge=1)
     CHAT_DB_MAX_OVERFLOW: int = Field(default=10, ge=0)
 
@@ -84,7 +92,9 @@ class Settings(BaseSettings):
     S3_ARCHIVE_PREFIX: str = "v1"
 
     # ── 聊天归档策略 ──
+    # 热数据保留月数，超期分区移至 S3
     CHAT_ARCHIVE_RETENTION_MONTHS: int = Field(default=12, ge=1)
+    # 导出 Parquet 时每批行数（行组大小）
     CHAT_ARCHIVE_BATCH_SIZE: int = Field(default=5000, ge=100)
     CHAT_ARCHIVE_COMPRESSION: Literal["zstd", "gzip", "none"] = "zstd"
 
