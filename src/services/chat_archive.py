@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 import os
@@ -313,6 +314,10 @@ class ArchiveService:
         Returns:
             (total_rows, original_bytes, compressed_bytes, sha256_hex)
         """
+        # 防御性校验：分区名必须符合白名单格式，防止 SQL 注入
+        if not _PARTITION_NAME_RE.match(partition_name):
+            raise ValueError(f"非法的分区名: {partition_name!r}")
+
         batch_size = self._settings.CHAT_ARCHIVE_BATCH_SIZE
         compression = self._settings.CHAT_ARCHIVE_COMPRESSION
 
@@ -353,14 +358,18 @@ class ArchiveService:
         finally:
             writer.close()
 
-        # 计算压缩文件 SHA256
+        # 计算压缩文件 SHA256（同步 IO 卸载到线程池，不阻塞 EventLoop）
         compressed_bytes = os.path.getsize(output_path)
-        hasher = hashlib.sha256()
-        with open(output_path, "rb") as f_in:
-            for chunk in iter(lambda: f_in.read(8192), b""):
-                hasher.update(chunk)
 
-        return total_rows, original_bytes, compressed_bytes, hasher.hexdigest()
+        def _compute_sha256(path: str) -> str:
+            hasher = hashlib.sha256()
+            with open(path, "rb") as f_in:
+                for chunk in iter(lambda: f_in.read(8192), b""):
+                    hasher.update(chunk)
+            return hasher.hexdigest()
+
+        sha256_hex = await asyncio.to_thread(_compute_sha256, output_path)
+        return total_rows, original_bytes, compressed_bytes, sha256_hex
 
     # ════════════════════════════════════════════
     #  S3 操作

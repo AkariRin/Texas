@@ -35,7 +35,10 @@ class CacheClient:
 
     async def set(self, key: str, value: Any, ttl: int | None = None) -> None:
         ttl = ttl if ttl is not None else self._default_ttl
-        if isinstance(value, (dict, list)):
+        # bool 是 int 子类但 redis-py 不接受，先转为 0/1
+        if isinstance(value, bool):
+            value = int(value)
+        elif isinstance(value, (dict, list)):
             value = json.dumps(value, ensure_ascii=False)
         await self._redis.set(key, value, ex=ttl if ttl else None)
 

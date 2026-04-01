@@ -65,10 +65,13 @@ async def list_feedbacks(
     """分页查询反馈列表。"""
     from src.models.enums import FeedbackSource, FeedbackStatus, FeedbackType
 
-    # 转换字符串参数为枚举
-    status_enum = FeedbackStatus(status) if status else None
-    feedback_type_enum = FeedbackType(feedback_type) if feedback_type else None
-    source_enum = FeedbackSource(source) if source else None
+    # 转换字符串参数为枚举（无效值返回 400）
+    try:
+        status_enum = FeedbackStatus(status) if status else None
+        feedback_type_enum = FeedbackType(feedback_type) if feedback_type else None
+        source_enum = FeedbackSource(source) if source else None
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=f"无效的筛选参数值: {exc}") from exc
 
     feedbacks, total = await service.list_feedbacks(
         page=page,
@@ -116,7 +119,12 @@ async def get_feedback(
     """获取单个反馈详情。"""
     from uuid import UUID
 
-    feedback = await service.get_feedback(UUID(feedback_id))
+    try:
+        fid = UUID(feedback_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="无效的 feedback_id 格式") from exc
+
+    feedback = await service.get_feedback(fid)
     if not feedback:
         raise HTTPException(status_code=404, detail="Feedback not found")
 
@@ -147,8 +155,17 @@ async def update_feedback_status(
 
     from src.models.enums import FeedbackStatus
 
-    status_enum = FeedbackStatus(body.status)
-    feedback = await service.update_status(UUID(feedback_id), status_enum, body.admin_reply)
+    try:
+        fid = UUID(feedback_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="无效的 feedback_id 格式") from exc
+
+    try:
+        status_enum = FeedbackStatus(body.status)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=f"无效的状态值: {body.status}") from exc
+
+    feedback = await service.update_status(fid, status_enum, body.admin_reply)
     if not feedback:
         raise HTTPException(status_code=404, detail="Feedback not found")
     return ok(None, message="Status updated successfully")
