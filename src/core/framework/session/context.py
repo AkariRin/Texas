@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, TypeVar
 
+from src.core.framework.session.commands import CONFIRM_STATE_PREFIX
+
 if TYPE_CHECKING:
     from src.core.framework.context import Context
     from src.core.framework.session.base import InteractiveSession
@@ -74,12 +76,21 @@ class SessionContext:
     # ── 代理 Context 方法 ──
 
     async def reply(self, message: str | list[MessageSegment]) -> None:
-        """向当前会话发送回复。"""
+        """向当前会话发送回复。
+
+        群聊时自动在消息头部插入 @创建者，以区分同一群内多个用户的并发会话。
+        """
+        from src.core.protocol.segment import Seg
+
+        if isinstance(message, str):
+            message = [Seg.text(message)]
+        if self.is_group:
+            message = [Seg.at(self.session._creator_user_id), Seg.text(" "), *message]
         await self._ctx.reply(message)
 
     async def send(self, message: str | list[MessageSegment]) -> None:
-        """reply 的别名。"""
-        await self._ctx.send(message)
+        """reply 的别名（含 @创建者 行为一致）。"""
+        await self.reply(message)
 
     def get_service(self, service_type: type[_T]) -> _T:
         """从上下文获取服务实例（类型安全）。"""
@@ -92,3 +103,34 @@ class SessionContext:
     def get_plaintext(self) -> str:
         """获取消息纯文本。"""
         return self._ctx.get_plaintext()
+
+    def confirm_transition(self, prompt: str, on_confirm: str) -> str:
+        """请求用户二次确认后再转换到目标状态。
+
+        在 on_input 处理方法中调用并直接返回其结果，框架会自动注入
+        确认等待状态，向用户展示提示并等待 /确认 或 /取消 输入。
+
+        Args:
+            prompt: 展示给用户的确认提示文本（通常包含操作摘要）。
+            on_confirm: 用户发送 /确认 后转换到的目标状态名。
+
+        Returns:
+            内部确认状态名，可直接作为 on_input 方法的返回值使用。
+
+        示例::
+
+            @on_input("input_content")
+            async def process_content(self, ctx: SessionContext) -> str | None:
+                ctx.data.content = ctx.input
+                return ctx.confirm_transition(
+                    prompt=f"确认提交？内容：{ctx.data.content}\\n发送 /确认 继续，/取消 放弃",
+                    on_confirm="submit",
+                )
+        """
+        confirm_state_name = f"{CONFIRM_STATE_PREFIX}_{on_confirm}"
+        self.session._confirm_config = {
+            "prompt": prompt,
+            "on_confirm": on_confirm,
+            "state_name": confirm_state_name,
+        }
+        return confirm_state_name

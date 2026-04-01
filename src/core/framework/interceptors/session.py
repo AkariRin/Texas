@@ -43,11 +43,14 @@ class SessionInterceptor(HandlerInterceptor):
 
         text = ctx.get_plaintext().strip()
 
-        # 检查取消命令
-        if self._session_manager.is_cancel_command(text, session_key):
+        # 检查全局取消命令
+        if self._session_manager.is_cancel_command(text):
             cancelled = await self._session_manager.cancel_session(session_key, ctx)
             if cancelled:
-                await ctx.reply("已取消当前操作。")
+                msg = self._session_manager._build_at_reply(
+                    "已取消当前操作。", ctx.user_id, ctx.is_group
+                )
+                await ctx.reply(msg)
             return False
 
         # 路由到会话处理

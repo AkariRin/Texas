@@ -40,6 +40,10 @@ class InteractiveSession(Generic[TData]):  # noqa: UP046
         self.manager: SessionManager = None  # type: ignore[assignment]
         self.controller: Any = None
         self._session_key: str = ""
+        # 会话创建者 QQ 号，由 SessionManager.start_session() 赋值
+        self._creator_user_id: int = 0
+        # 待注入的确认状态配置，由 SessionContext.confirm_transition() 写入
+        self._confirm_config: dict[str, Any] | None = None
 
     # ── 生命周期钩子 ──
 

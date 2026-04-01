@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Any
 
 import structlog
 
+from src.core.framework.session.commands import CONFIRM_COMMANDS, CONFIRM_STATE_PREFIX
 from src.core.framework.session.state import State, Transition  # noqa: TC001
 
 if TYPE_CHECKING:
@@ -123,6 +124,10 @@ class StateMachine:
 
     async def transition_to(self, target: str, ctx: SessionContext) -> None:
         """显式转换到目标状态。"""
+        # 目标为确认等待状态且尚未注入时，动态构建并注入该状态
+        if target not in self._states and target.startswith(CONFIRM_STATE_PREFIX):
+            self._inject_confirm_state(ctx)
+
         if target not in self._states:
             raise InvalidTransitionError(f"目标状态 '{target}' 不存在")
 
@@ -130,6 +135,34 @@ class StateMachine:
             await self._exit_state(self._current_state, ctx)
 
         await self._enter_state(target, ctx)
+
+    def _inject_confirm_state(self, ctx: SessionContext) -> None:
+        """动态注入确认等待状态。
+
+        由 transition_to 在目标状态为确认状态时自动调用。
+        从 session._confirm_config 读取配置后构建状态并注册。
+        """
+        config = ctx.session._confirm_config
+        if config is None:
+            return
+
+        state_name: str = config["state_name"]
+        prompt: str = config["prompt"]
+        on_confirm: str = config["on_confirm"]
+
+        async def _on_enter(sctx: SessionContext) -> None:
+            await sctx.reply(prompt)
+
+        async def _on_input(sctx: SessionContext) -> str | None:
+            text = (sctx.input or "").strip()
+            if text in CONFIRM_COMMANDS:
+                return on_confirm
+            await sctx.reply("请发送 /确认 继续，或 /取消 放弃")
+            return None
+
+        self.add_state(State(name=state_name, on_enter=_on_enter, on_input=_on_input))
+        # 清除配置，防止重复注入
+        ctx.session._confirm_config = None
 
     async def _enter_state(self, state_name: str, ctx: SessionContext) -> None:
         """进入指定状态。"""

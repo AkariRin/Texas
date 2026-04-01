@@ -13,6 +13,7 @@ import structlog
 
 from src.core.cache import keys as cache_keys
 from src.core.framework.session.base import InteractiveSession  # noqa: TC001
+from src.core.framework.session.commands import CANCEL_COMMANDS
 from src.core.framework.session.context import SessionContext  # noqa: TC001
 from src.core.framework.session.decorators import SESSION_META
 from src.core.framework.session.enums import SessionScope, TimeoutMode
@@ -72,7 +73,14 @@ class SessionManager:
         # 互斥：内存检查
         existing = self._active_sessions.get(session_key)
         if existing is not None:
-            await ctx.reply("您有一个进行中的操作，请先完成或发送 /取消")
+            cancel_hint = next(iter(CANCEL_COMMANDS))
+            await ctx.reply(
+                self._build_at_reply(
+                    f"您有一个进行中的操作，请先完成或发送 {cancel_hint}",
+                    ctx.user_id,
+                    ctx.is_group,
+                )
+            )
             return False
 
         # 互斥：Redis 残留清理（防止进程重启后内存丢失但 Redis 中仍有记录）
@@ -86,6 +94,7 @@ class SessionManager:
         session = session_cls()
         session.manager = self
         session._session_key = session_key
+        session._creator_user_id = ctx.user_id
 
         data_cls = session_cls._resolve_data_cls()
         session.data = data_cls(**(initial_data or {}))
@@ -190,7 +199,11 @@ class SessionManager:
             )
             await session.on_error(session_ctx, exc)
             await self._cleanup_session(session_key)
-            await ctx.reply("操作过程中发生错误，会话已结束。")
+            await ctx.reply(
+                self._build_at_reply(
+                    "操作过程中发生错误，会话已结束。", session._creator_user_id, ctx.is_group
+                )
+            )
 
         return True
 
@@ -236,44 +249,47 @@ class SessionManager:
     # ── 查询方法 ──
 
     def get_active_session_key(self, user_id: int, group_id: int | None = None) -> str | None:
-        """查询用户是否有活跃的会话。
+        """查询用户在当前来源是否有活跃会话。
 
-        先检查用户级会话，再检查群级会话。
+        按 user+source 粒度查找：同一用户在不同群的会话互不干扰。
 
         Returns:
             活跃会话的 key，无则返回 None。
         """
-        # 用户级会话
-        user_key = self._build_session_key(user_id, None, SessionScope.user)
-        if user_key in self._active_sessions:
-            return user_key
+        key = self._build_session_key(user_id, group_id)
+        return key if key in self._active_sessions else None
 
-        # 群级会话
-        if group_id is not None:
-            group_key = self._build_session_key(user_id, group_id, SessionScope.group)
-            if group_key in self._active_sessions:
-                return group_key
+    @staticmethod
+    def is_cancel_command(text: str, _session_key: str | None = None) -> bool:
+        """检查文本是否为全局取消命令。
 
-        return None
-
-    def is_cancel_command(self, text: str, session_key: str) -> bool:
-        """检查文本是否为取消命令。"""
-        session = self._active_sessions.get(session_key)
-        if session is None:
-            return False
-
-        session_meta = getattr(type(session), SESSION_META, {})
-        cancel_commands = session_meta.get("cancel_commands", ("/取消", "/cancel"))
-        return text.strip() in cancel_commands
+        Args:
+            text: 用户输入文本。
+            _session_key: 已废弃，保留仅用于向后兼容。
+        """
+        return text.strip() in CANCEL_COMMANDS
 
     # ── 内部方法 ──
 
     @staticmethod
-    def _build_session_key(user_id: int, group_id: int | None, scope: SessionScope) -> str:
-        """构建会话键。"""
-        if scope == SessionScope.group and group_id is not None:
-            return f"group:{group_id}"
-        return f"user:{user_id}"
+    def _build_session_key(
+        user_id: int, group_id: int | None, scope: SessionScope = SessionScope.user
+    ) -> str:
+        """构建会话键。
+
+        统一采用 user+source 粒度：同一用户在不同来源（群/私聊）的会话互不干扰，
+        同一用户在同一来源下只能有一个活跃会话。
+
+        Args:
+            user_id: 会话创建者 QQ 号。
+            group_id: 群号（私聊为 None）。
+            scope: 已废弃，保留仅用于向后兼容，不再影响 key 格式。
+
+        Returns:
+            会话键，格式为 ``user:{user_id}:source:{group_id|private}``。
+        """
+        source_id = str(group_id) if group_id is not None else "private"
+        return f"user:{user_id}:source:{source_id}"
 
     def _bind_state_handlers(self, session: InteractiveSession[Any]) -> None:
         """将状态机中的未绑定函数绑定到会话实例。"""
@@ -346,7 +362,13 @@ class SessionManager:
                     active_session = self._active_sessions[session_key]
                     if config.mode == TimeoutMode.notify:
                         with contextlib.suppress(Exception):
-                            await ctx.reply(config.timeout_message)
+                            await ctx.reply(
+                                self._build_at_reply(
+                                    config.timeout_message,
+                                    active_session._creator_user_id,
+                                    ctx.is_group,
+                                )
+                            )
                     with contextlib.suppress(Exception):
                         await active_session.on_timeout(None)
                     await self._cleanup_session(session_key)
@@ -364,9 +386,16 @@ class SessionManager:
                 if warning_time > 0:
                     await asyncio.sleep(warning_time)
                     if session_key in self._active_sessions:
-                        msg = config.warning_message.format(remaining=config.warning_before)
+                        active_session = self._active_sessions[session_key]
+                        msg_text = config.warning_message.format(remaining=config.warning_before)
                         with contextlib.suppress(Exception):
-                            await ctx.reply(msg)
+                            await ctx.reply(
+                                self._build_at_reply(
+                                    msg_text,
+                                    active_session._creator_user_id,
+                                    ctx.is_group,
+                                )
+                            )
             except asyncio.CancelledError:
                 pass
             finally:
@@ -399,6 +428,30 @@ class SessionManager:
         for session_key in list(self._active_sessions):
             await self._cleanup_session(session_key)
         logger.info("SessionManager 已关闭", event_type="session.manager_closed")
+
+    # ── 消息构建辅助 ──
+
+    @staticmethod
+    def _build_at_reply(
+        text: str,
+        user_id: int,
+        is_group: bool,
+    ) -> str | list[Any]:
+        """构建消息体，群聊时在文本前加 @提及。
+
+        Args:
+            text: 消息文本。
+            user_id: 要 @ 的用户 QQ 号。
+            is_group: 是否为群聊场景。
+
+        Returns:
+            私聊返回纯字符串；群聊返回含 at 段的消息列表。
+        """
+        if not is_group:
+            return text
+        from src.core.protocol.segment import Seg
+
+        return [Seg.at(user_id), Seg.text(f" {text}")]
 
 
 def _bind_method(func: Any, instance: Any) -> Any:

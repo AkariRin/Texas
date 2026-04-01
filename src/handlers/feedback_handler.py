@@ -10,7 +10,6 @@ from pydantic import BaseModel
 from src.core.framework.decorators import controller, on_command
 from src.core.framework.session import (
     InteractiveSession,
-    SessionScope,
     TimeoutConfig,
     TimeoutMode,
     interactive_session,
@@ -140,13 +139,11 @@ class FeedbackHandler:
     # ── 交互式会话定义 ──
 
     @interactive_session(
-        cancel_commands=("/取消", "/cancel"),
         timeout=TimeoutConfig(
             duration=300,
             mode=TimeoutMode.notify,
             warning_before=60,
         ),
-        scope=SessionScope.user,
     )
     class FeedbackSession(InteractiveSession[FeedbackSessionData]):
         """反馈收集交互式会话。"""
