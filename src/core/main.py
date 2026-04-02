@@ -53,6 +53,7 @@ if TYPE_CHECKING:
     from collections.abc import AsyncGenerator, Callable, Coroutine
 
     from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
+    from starlette.types import Receive, Scope, Send
 
     from src.core.cache.client import CacheClient
     from src.core.config import Settings
@@ -428,6 +429,21 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
         permission_service=permission_service,
     )
 
+    # ── RPC 消费者（允许 Celery Worker 通过 Redis 调用主进程的 BotAPI）──
+    from src.core.rpc.consumer import RPCConsumer
+
+    rpc_consumer = RPCConsumer(bot_api=bot_api, redis_url=settings.CACHE_REDIS_URL)
+
+    async def _checkin_rpc_handler(params: dict[str, object]) -> dict[str, object]:
+        """将 RPC request_checkin 请求路由到 DailyCheckinService。"""
+        source = str(params.get("source", "scheduled"))
+        checkin_service.request_checkin(source=source)  # type: ignore[arg-type]
+        return {"triggered": True}
+
+    rpc_consumer.register_handler("request_checkin", _checkin_rpc_handler)
+    await rpc_consumer.start()
+    app.state.rpc_consumer = rpc_consumer
+
     # 将服务注册到 Dispatcher（供 Controller 通过 ctx.get_service() 获取）
     _register_services_to_dispatcher(
         dispatcher,
@@ -484,6 +500,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     yield
 
     # ── 关闭 ──
+    await app.state.rpc_consumer.stop()
     sync_coordinator.stop_scheduler()
     await session_manager.close()
     await llm_service.close()
@@ -571,7 +588,7 @@ async def metrics() -> Response:
 class _SPAStaticFiles(StaticFiles):
     """静态文件服务子类：忽略非 HTTP 请求（如 WebSocket），避免 AssertionError。"""
 
-    async def __call__(self, scope: Any, receive: Any, send: Any) -> None:
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != "http":
             # 正确拒绝 WebSocket 连接，防止 StaticFiles 的 assert 崩溃
             if scope["type"] == "websocket":
