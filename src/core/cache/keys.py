@@ -64,11 +64,6 @@ def session_data_key(session_key: str) -> str:
     return f"texas:session:{session_key}:data"
 
 
-def session_fsm_key(session_key: str) -> str:
-    """会话状态机快照。"""
-    return f"texas:session:{session_key}:fsm"
-
-
 # ── 每日打卡 (Daily Checkin) ──
 
 

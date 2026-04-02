@@ -37,7 +37,20 @@ class SessionContext:
 
     @property
     def data(self) -> Any:
-        """类型安全的会话数据访问（由 InteractiveSession 泛型参数决定类型）。"""
+        """会话数据访问，运行时类型由 InteractiveSession 泛型参数决定。
+
+        由于 Python 泛型限制，静态类型标注为 Any。
+        业务处理方法中如需类型推断，可在方法签名处使用 cast：
+
+        .. code-block:: python
+
+            from typing import cast
+
+            @on_input("some_state")
+            async def handle(self, ctx: SessionContext) -> str | None:
+                data = cast(MySessionData, ctx.data)
+                ...
+        """
         return self.session.data
 
     # ── 代理 Context 属性 ──

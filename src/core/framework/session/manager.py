@@ -19,7 +19,7 @@ from src.core.framework.session.decorators import SESSION_META
 from src.core.framework.session.enums import TimeoutMode
 from src.core.framework.session.state_machine import StateMachine  # noqa: TC001
 from src.core.framework.session.timeout import TimeoutConfig
-from src.core.protocol.segment import Seg
+from src.core.protocol.segment import build_mention_message
 
 if TYPE_CHECKING:
     from src.core.cache.client import CacheClient
@@ -42,8 +42,8 @@ class SessionManager:
         self._active_sessions: dict[str, InteractiveSession[Any]] = {}  # session_key → 实例
         self._timeout_tasks: dict[str, asyncio.Task[None]] = {}  # session_key → 超时任务
         self._warning_tasks: dict[str, asyncio.Task[None]] = {}  # session_key → 提醒任务
-        # per-key 锁：防止同一用户的并发消息绕过互斥检查
-        self._start_locks: dict[str, asyncio.Lock] = {}
+        # per-key 锁：防止同一用户的并发消息绕过互斥检查（同时保护 start 和 dispatch）
+        self._session_locks: dict[str, asyncio.Lock] = {}
 
     # ── 会话类注册 ──
 
@@ -78,7 +78,7 @@ class SessionManager:
         session_key = self._build_session_key(ctx.user_id, ctx.group_id)
 
         # per-key 锁：防止同一用户的并发消息在 await 间隙绕过互斥检查
-        lock = self._start_locks.setdefault(session_key, asyncio.Lock())
+        lock = self._session_locks.setdefault(session_key, asyncio.Lock())
         async with lock:
             return await self._start_session_locked(
                 session_cls, session_meta, session_key, ctx, initial_data
@@ -98,7 +98,7 @@ class SessionManager:
         if existing is not None:
             cancel_hint = next(iter(CANCEL_COMMANDS))
             await ctx.reply(
-                self.build_reply(
+                build_mention_message(
                     f"您有一个进行中的操作，请先完成或发送 {cancel_hint}",
                     ctx.user_id,
                     ctx.is_group,
@@ -111,42 +111,43 @@ class SessionManager:
             await asyncio.gather(
                 self._cache.delete(cache_keys.session_key(session_key)),
                 self._cache.delete(cache_keys.session_data_key(session_key)),
-                self._cache.delete(cache_keys.session_fsm_key(session_key)),
                 return_exceptions=True,
             )
 
-        session = session_cls()
-        session.manager = self
-        session._session_key = session_key
-        session._creator_user_id = ctx.user_id
-
-        data_cls = session_cls._resolve_data_cls()
-        session.data = data_cls(**(initial_data or {}))
-
-        states = await session.build_states()
-        if states is not None:
-            if not states:
-                raise ValueError(
-                    f"{session_cls.__name__}.build_states() 返回了空列表，无法确定初始状态"
-                )
-            session.state_machine = StateMachine(states, initial_state=states[0].name)
-        else:
-            state_list, initial_state = session_cls._build_states_from_decorators()
-            session.state_machine = StateMachine(state_list, initial_state=initial_state)
-
-        # 装饰器收集的是未绑定函数，需要绑定到 session 实例
-        self._bind_state_handlers(session)
-
-        self._active_sessions[session_key] = session
-        await self._persist_session(session_key, session, session_meta)
-
-        timeout_config = _resolve_timeout(session_meta.get("timeout", TimeoutConfig()))
-        self._setup_timeout(session_key, session, timeout_config, ctx)
-
-        initial_state_name = session.state_machine.initial_state or ""
-        session_ctx = SessionContext(ctx, session, initial_state_name, None)
-
+        session_ctx: SessionContext | None = None
+        session: InteractiveSession[Any] | None = None
         try:
+            session = session_cls()
+            session.manager = self
+            session._session_key = session_key
+            session._creator_user_id = ctx.user_id
+
+            data_cls = session_cls._resolve_data_cls()
+            session.data = data_cls(**(initial_data or {}))
+
+            states = await session.build_states()
+            if states is not None:
+                if not states:
+                    raise ValueError(
+                        f"{session_cls.__name__}.build_states() 返回了空列表，无法确定初始状态"
+                    )
+                session.state_machine = StateMachine(states, initial_state=states[0].name)
+            else:
+                state_list, initial_state = session_cls._build_states_from_decorators()
+                session.state_machine = StateMachine(state_list, initial_state=initial_state)
+
+            # 装饰器收集的是未绑定函数，需要绑定到 session 实例
+            self._bind_state_handlers(session)
+
+            self._active_sessions[session_key] = session
+            await self._persist_session(session_key, session, session_meta)
+
+            timeout_config = _resolve_timeout(session_meta.get("timeout", TimeoutConfig()))
+            self._setup_timeout(session_key, session, timeout_config, ctx)
+
+            initial_state_name = session.state_machine.initial_state or ""
+            session_ctx = SessionContext(ctx, session, initial_state_name, None)
+
             await session.on_start(session_ctx)
             await session.state_machine.start(session_ctx)
         except Exception as exc:
@@ -157,9 +158,11 @@ class SessionManager:
                 event_type="session.start_error",
                 exc_info=True,
             )
+            # 清理内存、Redis 及 per-key 锁（无论会话是否已写入 _active_sessions）
             await self._cleanup_session(session_key)
-            with contextlib.suppress(Exception):
-                await session.on_error(session_ctx, exc)
+            if session_ctx is not None and session is not None:
+                with contextlib.suppress(Exception):
+                    await session.on_error(session_ctx, exc)
             return False
 
         logger.info(
@@ -185,12 +188,26 @@ class SessionManager:
         Returns:
             是否成功处理。
         """
+        # 复用 per-key 锁，防止同一用户的并发消息同时进入状态机造成状态不一致
+        lock = self._session_locks.get(session_key)
+        if lock is None:
+            # 无锁说明该 key 从未启动过会话，直接返回
+            return False
+
+        async with lock:
+            return await self._dispatch_input_locked(session_key, ctx)
+
+    async def _dispatch_input_locked(self, session_key: str, ctx: Context) -> bool:
+        """在持有 per-key 锁的情况下执行消息分发逻辑。"""
         session = self._active_sessions.get(session_key)
         if session is None:
             return False
 
         user_input = ctx.get_plaintext().strip()
-        assert session.state_machine is not None  # start_session 保证赋值
+        if session.state_machine is None:
+            raise RuntimeError(
+                f"会话 {session_key} 的状态机未初始化（请通过 start_session() 启动）"
+            )
         current_state = session.state_machine.current_state or ""
         session_ctx = SessionContext(ctx, session, current_state, user_input)
 
@@ -203,10 +220,7 @@ class SessionManager:
             if timeout_config.mode != TimeoutMode.never:
                 self._refresh_timeout(session_key, session, timeout_config, ctx)
 
-            # 持久化更新后的状态
-            await self._persist_session(session_key, session, session_meta)
-
-            # 检查是否到达终止状态
+            # 检查是否到达终止状态：已完成的会话直接清理，无需再持久化
             if session.state_machine.is_finished:
                 await session.on_finish(session_ctx)
                 await self._cleanup_session(session_key)
@@ -216,6 +230,9 @@ class SessionManager:
                     final_state=new_state,
                     event_type="session.finished",
                 )
+            else:
+                # 会话仍在进行中，持久化最新状态
+                await self._persist_session(session_key, session, session_meta)
 
         except Exception as exc:
             logger.error(
@@ -232,7 +249,7 @@ class SessionManager:
                 await session.on_error(session_ctx, exc)
             with contextlib.suppress(Exception):
                 await ctx.reply(
-                    self.build_reply(
+                    build_mention_message(
                         "操作过程中发生错误，会话已结束。", session._creator_user_id, ctx.is_group
                     )
                 )
@@ -258,7 +275,10 @@ class SessionManager:
             return False
 
         if ctx is not None:
-            assert session.state_machine is not None  # start_session 保证赋值
+            if session.state_machine is None:
+                raise RuntimeError(
+                    f"会话 {session_key} 的状态机未初始化（请通过 start_session() 启动）"
+                )
             current_state = session.state_machine.current_state or ""
             session_ctx = SessionContext(ctx, session, current_state, None)
             try:
@@ -287,6 +307,10 @@ class SessionManager:
 
     async def cancel_all_sessions(self) -> int:
         """取消所有活跃会话（维护模式 / 优雅关闭前使用）。
+
+        Notes:
+            批量取消**不会**触发各会话的 ``on_cancel`` 钩子（因为没有对应的用户上下文）。
+            如需在关闭前执行清理逻辑，请在 ``on_timeout`` 或业务层自行处理。
 
         Returns:
             被取消的会话数量。
@@ -342,7 +366,10 @@ class SessionManager:
 
     def _bind_state_handlers(self, session: InteractiveSession[Any]) -> None:
         """将状态机中的未绑定函数绑定到会话实例。"""
-        assert session.state_machine is not None  # start_session 保证赋值
+        if session.state_machine is None:
+            raise RuntimeError(
+                f"会话 {session._session_key!r} 的状态机未初始化（请通过 start_session() 启动）"
+            )
         for s in session.state_machine.iter_states():
             if s.on_enter is not None:
                 s.on_enter = _bind_method(s.on_enter, session)
@@ -367,18 +394,19 @@ class SessionManager:
             else timeout_config.duration + 60  # 比超时时间多 60s 的安全余量
         )
 
-        assert session.state_machine is not None  # start_session 保证赋值
+        if session.state_machine is None:
+            raise RuntimeError(
+                f"会话 {session_key!r} 的状态机未初始化（请通过 start_session() 启动）"
+            )
         meta_data = {
             "session_type": type(session).__name__,
             "current_state": session.state_machine.current_state,
         }
         data_json = session.data.model_dump(mode="json")
-        fsm_data = session.state_machine.serialize()
 
         results = await asyncio.gather(
             self._cache.set(cache_keys.session_key(session_key), meta_data, ttl=redis_ttl),
             self._cache.set(cache_keys.session_data_key(session_key), data_json, ttl=redis_ttl),
-            self._cache.set(cache_keys.session_fsm_key(session_key), fsm_data, ttl=redis_ttl),
             return_exceptions=True,
         )
         for result in results:
@@ -391,8 +419,9 @@ class SessionManager:
                 )
 
     async def _cleanup_session(self, session_key: str) -> None:
-        """清理会话（内存 + Redis + 定时任务）。"""
+        """清理会话（内存 + Redis + 定时任务 + 互斥锁）。"""
         self._active_sessions.pop(session_key, None)
+        self._session_locks.pop(session_key, None)
 
         timeout_task = self._timeout_tasks.pop(session_key, None)
         if timeout_task is not None and not timeout_task.done():
@@ -405,7 +434,6 @@ class SessionManager:
         results = await asyncio.gather(
             self._cache.delete(cache_keys.session_key(session_key)),
             self._cache.delete(cache_keys.session_data_key(session_key)),
-            self._cache.delete(cache_keys.session_fsm_key(session_key)),
             return_exceptions=True,
         )
         for result in results:
@@ -437,7 +465,7 @@ class SessionManager:
                     if config.mode == TimeoutMode.notify:
                         with contextlib.suppress(Exception):
                             await ctx.reply(
-                                self.build_reply(
+                                build_mention_message(
                                     config.timeout_message,
                                     active_session._creator_user_id,
                                     ctx.is_group,
@@ -464,7 +492,7 @@ class SessionManager:
                         msg_text = config.warning_message.format(remaining=config.warning_before)
                         with contextlib.suppress(Exception):
                             await ctx.reply(
-                                self.build_reply(
+                                build_mention_message(
                                     msg_text,
                                     active_session._creator_user_id,
                                     ctx.is_group,
@@ -502,28 +530,6 @@ class SessionManager:
         for session_key in list(self._active_sessions):
             await self._cleanup_session(session_key)
         logger.info("SessionManager 已关闭", event_type="session.manager_closed")
-
-    # ── 消息构建辅助 ──
-
-    @staticmethod
-    def build_reply(
-        text: str,
-        user_id: int,
-        is_group: bool,
-    ) -> str | list[Any]:
-        """构建消息体，群聊时在文本前加 @提及。
-
-        Args:
-            text: 消息文本。
-            user_id: 要 @ 的用户 QQ 号。
-            is_group: 是否为群聊场景。
-
-        Returns:
-            私聊返回纯字符串；群聊返回含 at 段的消息列表。
-        """
-        if not is_group:
-            return text
-        return [Seg.at(user_id), Seg.text(f" {text}")]
 
 
 def _bind_method(func: Any, instance: Any) -> Any:

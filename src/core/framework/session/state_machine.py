@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import structlog
 
@@ -28,7 +28,7 @@ class InvalidTransitionError(StateMachineError):
 class StateMachine:
     """有限状态机引擎。
 
-    支持条件转换、嵌套状态、并行状态和历史状态。
+    支持条件转换、嵌套状态（通过 State.parent 字段）和历史状态恢复。
     """
 
     def __init__(self, states: list[State], initial_state: str | None = None) -> None:
@@ -36,7 +36,6 @@ class StateMachine:
         self._initial_state: str | None = initial_state
         self._current_state: str | None = None
         self._history: dict[str, str] = {}  # 父状态 → 最后激活的子状态
-        self._state_stack: list[str] = []  # 状态路径栈（嵌套状态用）
 
         for s in states:
             self.add_state(s)
@@ -215,19 +214,3 @@ class StateMachine:
             await transition.action(ctx)
 
         await self._enter_state(transition.target, ctx)
-
-    def serialize(self) -> dict[str, Any]:
-        """序列化状态机状态（用于 Redis 持久化）。"""
-        return {
-            "current_state": self._current_state,
-            "initial_state": self._initial_state,
-            "history": dict(self._history),
-            "state_stack": list(self._state_stack),
-        }
-
-    def deserialize(self, data: dict[str, Any]) -> None:
-        """从序列化数据恢复状态机状态。"""
-        self._current_state = data.get("current_state")
-        self._initial_state = data.get("initial_state", self._initial_state)
-        self._history = dict(data.get("history", {}))
-        self._state_stack = list(data.get("state_stack", []))

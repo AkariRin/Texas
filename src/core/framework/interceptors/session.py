@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING
 import structlog
 
 from src.core.framework.interceptor import HandlerInterceptor
+from src.core.protocol.segment import build_mention_message
 
 if TYPE_CHECKING:
     from src.core.framework.context import Context
@@ -47,9 +48,7 @@ class SessionInterceptor(HandlerInterceptor):
         if self._session_manager.is_cancel_command(text):
             cancelled = await self._session_manager.cancel_session(session_key, ctx)
             if cancelled:
-                msg = self._session_manager.build_reply(
-                    "已取消当前操作。", ctx.user_id, ctx.is_group
-                )
+                msg = build_mention_message("已取消当前操作。", ctx.user_id, ctx.is_group)
                 await ctx.reply(msg)
             return False
 

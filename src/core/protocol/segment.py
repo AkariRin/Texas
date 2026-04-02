@@ -91,6 +91,22 @@ class Seg:
         return MessageSegment(type="file", data={"file": file, **kw})
 
 
+def build_mention_message(text: str, user_id: int, is_group: bool) -> str | list[MessageSegment]:
+    """构建消息体，群聊时在文本前自动插入 @ 提及。
+
+    Args:
+        text: 消息文本。
+        user_id: 要 @ 的用户 QQ 号。
+        is_group: 是否为群聊场景。
+
+    Returns:
+        私聊返回纯字符串；群聊返回含 at 段的消息列表。
+    """
+    if not is_group:
+        return text
+    return [Seg.at(user_id), Seg.text(f" {text}")]
+
+
 class MessageBuilder:
     """链式消息构建器。
 
