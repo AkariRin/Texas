@@ -11,6 +11,8 @@ from src.core.tasks.celery_app import celery_app
 from src.core.tasks.utils import run_async
 
 if TYPE_CHECKING:
+    import celery
+
     from src.core.config import Settings
     from src.services.chat_archive import ArchiveService
 
@@ -53,7 +55,10 @@ def _build_services() -> tuple[ArchiveService, Settings]:
 
 
 @celery_app.task(bind=True, max_retries=2, default_retry_delay=300)
-def archive_chat_history(self: Any, partition_name: str | None = None) -> dict[str, Any]:
+def archive_chat_history(
+    self: celery.Task[Any, Any],
+    partition_name: str | None = None,
+) -> dict[str, Any]:
     """归档指定分区或自动发现超过 12 个月的分区。
 
     归档流程：

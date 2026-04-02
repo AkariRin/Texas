@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import structlog
 from sqlalchemy import func, or_, select
@@ -18,7 +18,7 @@ from src.models.personnel import User
 if TYPE_CHECKING:
     from uuid import UUID
 
-    from sqlalchemy.ext.asyncio import async_sessionmaker
+    from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
     from src.core.protocol.api import BotAPI
 
@@ -30,7 +30,7 @@ class FeedbackService:
 
     def __init__(
         self,
-        session_factory: async_sessionmaker[Any],
+        session_factory: async_sessionmaker[AsyncSession],
         bot_api: BotAPI,
     ) -> None:
         self._session_factory = session_factory

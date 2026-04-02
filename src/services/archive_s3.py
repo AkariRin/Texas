@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime
+from datetime import date, datetime
 from typing import TYPE_CHECKING, Any
 
 import structlog
@@ -66,8 +66,8 @@ class S3Uploader:
     @staticmethod
     def build_manifest(
         partition_name: str,
-        period_start: Any,
-        period_end: Any,
+        period_start: date,
+        period_end: date,
         total_rows: int,
         original_bytes: int,
         compressed_bytes: int,

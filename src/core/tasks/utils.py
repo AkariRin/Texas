@@ -4,7 +4,11 @@ from __future__ import annotations
 
 import asyncio
 import threading
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from collections.abc import Coroutine
+
 
 # 为 Celery Worker 维护一个持久的事件循环，避免 asyncio.run() 每次
 # 创建/销毁循环导致 async 数据库引擎连接池失效。
@@ -22,7 +26,7 @@ def _get_worker_loop() -> asyncio.AbstractEventLoop:
         return _worker_loop
 
 
-def run_async(coro: Any) -> Any:
+def run_async[T](coro: Coroutine[Any, Any, T]) -> T:
     """在 Celery 同步 Worker 中安全运行异步协程。
 
     使用持久事件循环（run_until_complete），确保 async 数据库引擎的

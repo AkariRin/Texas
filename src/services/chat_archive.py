@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Any
 
 import structlog
 from sqlalchemy import func, select, text, update
+from sqlalchemy.sql import quoted_name
 
 from src.core.utils import SHANGHAI_TZ
 from src.models.chat_archive import ChatArchiveLog
@@ -18,6 +19,8 @@ from src.services.archive_exporter import ParquetExporter
 from src.services.archive_s3 import S3Uploader
 
 if TYPE_CHECKING:
+    import uuid
+
     from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
     from src.core.config import Settings
@@ -238,11 +241,13 @@ class ArchiveService:
                 await session.commit()
 
             # ⑥ 分区清理 → status = 'partition_dropped'
+            # 使用 quoted_name 对标识符进行引号转义，防止 SQL 注入（纵深防御）
+            safe_name = str(quoted_name(partition_name, quote=True))
             async with self._chat_sf() as session:
                 await session.execute(
-                    text(f"ALTER TABLE chat.chat_history DETACH PARTITION chat.{partition_name}")
+                    text(f"ALTER TABLE chat.chat_history DETACH PARTITION chat.{safe_name}")
                 )
-                await session.execute(text(f"DROP TABLE chat.{partition_name}"))
+                await session.execute(text(f"DROP TABLE chat.{safe_name}"))
                 await session.commit()
 
             await self._update_archive_status(archive_id, ArchiveStatus.partition_dropped)
@@ -285,7 +290,7 @@ class ArchiveService:
 
     async def _update_archive_status(
         self,
-        archive_id: Any,
+        archive_id: uuid.UUID,
         status: ArchiveStatus,
         error_message: str | None = None,
     ) -> None:

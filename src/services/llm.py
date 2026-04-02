@@ -20,6 +20,8 @@ from src.services.llm_schemas import (  # noqa: TC001
 )
 
 if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+
     from src.core.cache.client import CacheClient
 
 logger = structlog.get_logger()
@@ -30,7 +32,7 @@ class LLMService:
 
     def __init__(
         self,
-        session_factory: Any,
+        session_factory: async_sessionmaker[AsyncSession],
         cache: CacheClient,
     ) -> None:
         self._session_factory = session_factory

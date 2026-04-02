@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import structlog
 from sqlalchemy import case, select, update
@@ -20,6 +20,8 @@ from src.models.personnel import Group, GroupMembership, User
 from src.services.personnel import compute_relation
 
 if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+
     from src.core.cache.client import CacheClient
 
 logger = structlog.get_logger()
@@ -30,7 +32,7 @@ class PersonnelEventService:
 
     def __init__(
         self,
-        session_factory: Any,
+        session_factory: async_sessionmaker[AsyncSession],
         cache: CacheClient,
     ) -> None:
         self._session_factory = session_factory

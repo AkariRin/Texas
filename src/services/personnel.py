@@ -36,7 +36,7 @@ from src.models.personnel import Group, GroupMembership, User
 
 if TYPE_CHECKING:
     from sqlalchemy.engine import CursorResult
-    from sqlalchemy.ext.asyncio import AsyncSession
+    from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
     from src.core.cache.client import CacheClient
     from src.core.config import Settings
@@ -65,7 +65,7 @@ class PersonnelService:
 
     def __init__(
         self,
-        session_factory: Any,
+        session_factory: async_sessionmaker[AsyncSession],
         cache: CacheClient,
         settings: Settings,
     ) -> None:
