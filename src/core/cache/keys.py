@@ -75,3 +75,16 @@ def session_fsm_key(session_key: str) -> str:
 def checkin_key(group_id: int, date_str: str) -> str:
     """某群某日的打卡状态（date_str 格式：YYYY-MM-DD）。"""
     return f"texas:checkin:{group_id}:{date_str}"
+
+
+# ── 跨进程 RPC (Redis RPC Bridge) ──
+
+
+def rpc_request_queue() -> str:
+    """RPC 请求队列（Redis List），Worker → 主进程。"""
+    return "texas:rpc:requests"
+
+
+def rpc_response_channel(request_id: str) -> str:
+    """RPC 响应通道（Redis Pub/Sub），主进程 → Worker。"""
+    return f"texas:rpc:resp:{request_id}"
