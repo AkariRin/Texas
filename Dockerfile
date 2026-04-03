@@ -33,15 +33,14 @@ COPY --from=frontend-builder /build/dist /app/frontend/dist
 ENV PATH="/app/.venv/bin:$PATH"
 ENV PYTHONUNBUFFERED=1
 
+# 复制启动脚本
+COPY entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
+
 USER texas
 EXPOSE 8000
 
-# 默认角色：bot-core，可通过 ROLE=worker 或 ROLE=beat 覆盖
-ENV ROLE=bot
-CMD if [ "$ROLE" = "worker" ]; then \
-      celery -A src.core.tasks.celery_app worker --loglevel=info; \
-    elif [ "$ROLE" = "beat" ]; then \
-      celery -A src.core.tasks.celery_app beat -S redbeat.RedBeatScheduler --loglevel=info; \
-    else \
-      uvicorn src.core.main:app --host 0.0.0.0 --port 8000; \
-    fi
+# 通过子命令参数控制启动角色：bot（默认）| worker | beat
+# 用法：docker run texas:latest [bot|worker|beat] [额外参数...]
+ENTRYPOINT ["/app/entrypoint.sh"]
+CMD ["bot"]

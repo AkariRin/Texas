@@ -39,10 +39,9 @@ spec:
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           securityContext:
             {{- toYaml .Values.containerSecurityContext | nindent 12 }}
-          env:
-            - name: ROLE
-              value: bot
+          args: ["bot"]
           {{- with .Values.bot.extraEnv }}
+          env:
             {{- toYaml . | nindent 12 }}
           {{- end }}
           envFrom:
