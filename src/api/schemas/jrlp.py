@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date as date_
+from datetime import datetime
 
 from pydantic import BaseModel, Field
 
@@ -15,7 +16,7 @@ class WifeRecordResponse(BaseModel):
     user_id: int
     wife_qq: int
     wife_name: str
-    date: date
+    date: date_
     drawn_at: datetime | None
 
 
@@ -36,7 +37,7 @@ class CreatePresetRequest(BaseModel):
     user_id: int = Field(..., description="抽取者 QQ")
     wife_qq: int = Field(..., description="老婆 QQ")
     wife_name: str = Field(..., min_length=1, max_length=64, description="老婆昵称")
-    date: date = Field(..., description="预设日期（北京时间自然日）")
+    date: date_ = Field(..., description="预设日期（北京时间自然日）")
 
 
 class UpdateRecordRequest(BaseModel):
