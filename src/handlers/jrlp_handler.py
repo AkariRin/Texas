@@ -8,7 +8,7 @@ from zoneinfo import ZoneInfo
 
 import structlog
 
-from src.core.framework.decorators import MessageScope, controller, on_fullmatch
+from src.core.framework.decorators import MessageScope, controller, on_regex
 from src.core.protocol.segment import MessageBuilder
 
 if TYPE_CHECKING:
@@ -33,10 +33,12 @@ _AVATAR_URL = "https://q1.qlogo.cn/g?b=qq&nk={qq}&s=100"
 class JrlpHandler:
     """今日老婆处理器。"""
 
-    @on_fullmatch("jrlp", message_scope=MessageScope.group)
-    @on_fullmatch("今日老婆", message_scope=MessageScope.group)
-    @on_fullmatch("抽老婆", message_scope=MessageScope.group)
-    @on_fullmatch("群老婆", message_scope=MessageScope.group)
+    @on_regex(
+        r"^(jrlp|今日老婆|抽老婆|群老婆)$",
+        message_scope=MessageScope.group,
+        display_name="抽取今日老婆",
+        description="指令：jrlp / 今日老婆 / 抽老婆 / 群老婆",
+    )
     async def draw_wife(self, ctx: Context) -> bool:
         """随机抽取今日群老婆。"""
         from src.services.jrlp import JrlpService
