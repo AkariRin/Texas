@@ -184,6 +184,17 @@ const router = createRouter({
       },
     },
     {
+      path: '/jrlp',
+      name: 'jrlp',
+      component: () => import('@/views/jrlp/JrlpView.vue'),
+      meta: {
+        title: '今日老婆',
+        icon: 'mdi-heart',
+        subtitle: '管理群老婆预设与抽取日志',
+        group: '系统管理',
+      },
+    },
+    {
       path: '/bot',
       name: 'bot-profile',
       component: () => import('@/views/bot/BotView.vue'),

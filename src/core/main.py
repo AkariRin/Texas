@@ -61,6 +61,7 @@ if TYPE_CHECKING:
     from src.services.chat_archive import ArchiveService
     from src.services.daily_checkin import DailyCheckinService
     from src.services.feedback import FeedbackService
+    from src.services.jrlp import JrlpService
     from src.services.llm import LLMService
     from src.services.permission import FeaturePermissionService
     from src.services.personnel import PersonnelService
@@ -188,6 +189,15 @@ def _startup_feedback(
     )
 
 
+def _startup_jrlp(
+    session_factory: async_sessionmaker[AsyncSession],
+) -> JrlpService:
+    """今日老婆服务初始化，返回 JrlpService。"""
+    from src.services.jrlp import JrlpService
+
+    return JrlpService(session_factory=session_factory)
+
+
 def _startup_checkin(
     session_factory: async_sessionmaker[AsyncSession],
     cache_client: CacheClient,
@@ -300,6 +310,7 @@ def _register_services_to_dispatcher(
     cache_client: CacheClient | None = None,
     session_manager: SessionManager | None = None,
     feedback_service: FeedbackService | None = None,
+    jrlp_service: JrlpService | None = None,
 ) -> None:
     """将业务服务注册到 EventDispatcher 的服务注册表。
 
@@ -307,6 +318,7 @@ def _register_services_to_dispatcher(
     """
     from src.core.cache.client import CacheClient as CacheClientClass
     from src.services.feedback import FeedbackService as FeedbackServiceClass
+    from src.services.jrlp import JrlpService as JrlpServiceClass
     from src.services.llm import LLMService as LLMServiceClass
     from src.services.personnel import PersonnelService as PersonnelServiceClass
     from src.services.personnel_events import PersonnelEventService as PersonnelEventServiceClass
@@ -323,6 +335,8 @@ def _register_services_to_dispatcher(
         dispatcher_instance.services[SessionManager] = session_manager
     if feedback_service is not None:
         dispatcher_instance.services[FeedbackServiceClass] = feedback_service
+    if jrlp_service is not None:
+        dispatcher_instance.services[JrlpServiceClass] = jrlp_service
 
 
 # ─────────────────────── Lifespan ───────────────────────
@@ -396,6 +410,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     )
     llm_service = _startup_llm(session_factory, cache_client)
     feedback_service = _startup_feedback(session_factory, bot_api)
+    jrlp_service = _startup_jrlp(session_factory)
     chat_service, archive_service = await _startup_chat(chat_engine, session_factory, settings)
 
     # 框架
@@ -442,6 +457,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
         cache_client=cache_client,
         session_manager=session_manager,
         feedback_service=feedback_service,
+        jrlp_service=jrlp_service,
     )
 
     # 构建事件分发回调
@@ -463,6 +479,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     app.state.personnel_query_service = personnel_query_service
     app.state.sync_coordinator = sync_coordinator
     app.state.checkin_service = checkin_service
+    app.state.jrlp_service = jrlp_service
     app.state.session_manager = session_manager
     app.state.event_dispatch_callback = event_dispatch_callback
 

@@ -55,6 +55,7 @@ runtime-evaluated-base-classes = [
     "sqlalchemy.orm.DeclarativeBase",
     "src.core.db.base.Base",
     "src.core.db.base.ChatBase",
+    "pydantic.BaseModel",
 ]
 
 [tool.ruff.lint.per-file-ignores]

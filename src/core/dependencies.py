@@ -24,6 +24,7 @@ if TYPE_CHECKING:
     from src.services.chat_archive import ArchiveService
     from src.services.daily_checkin import DailyCheckinService
     from src.services.feedback import FeedbackService
+    from src.services.jrlp import JrlpService
     from src.services.llm import LLMService
     from src.services.permission import FeaturePermissionService
     from src.services.personnel import PersonnelService
@@ -50,6 +51,7 @@ class AppState:
     sync_coordinator: SyncCoordinator
     checkin_service: DailyCheckinService
     feedback_service: FeedbackService
+    jrlp_service: JrlpService
     session_manager: SessionManager
     event_dispatch_callback: Callable[[Any], Coroutine[Any, Any, None]] | None
 
@@ -124,6 +126,11 @@ def get_sync_coordinator(request: Request) -> SyncCoordinator:
 def get_feedback_service(request: Request) -> FeedbackService:
     """获取用户反馈服务。"""
     return _state(request).feedback_service
+
+
+def get_jrlp_service(request: Request) -> JrlpService:
+    """获取今日老婆服务。"""
+    return _state(request).jrlp_service
 
 
 # ── WebSocket 端点辅助函数 ──
