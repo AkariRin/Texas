@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 import structlog
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import selectinload
 
 from src.models.jrlp import WifeRecord
 from src.models.personnel import GroupMembership
@@ -56,7 +57,7 @@ class JrlpService:
             if member is None:
                 raise ValueError("该群暂无可抽取的活跃成员")
 
-            wife_name = member.card.strip() or str(member.user_id)
+            wife_name = member.card.strip() or member.user.nickname.strip() or str(member.user_id)
             new_record = WifeRecord(
                 group_id=group_id,
                 user_id=user_id,
@@ -194,6 +195,7 @@ class JrlpService:
                 GroupMembership.group_id == group_id,
                 GroupMembership.is_active.is_(True),
             )
+            .options(selectinload(GroupMembership.user))
             .order_by(func.random())
             .limit(1)
         )
