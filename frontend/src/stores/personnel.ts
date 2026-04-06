@@ -116,8 +116,9 @@ export const usePersonnelStore = defineStore('personnel', () => {
       ])
       sessionGroups.value = groupResult.items
       sessionUsers.value = userResult.items
-    } catch {
-      // 静默失败，列表保持空状态
+    } catch (e: unknown) {
+      // 静默失败，列表保持空状态（非关键数据，不阻断主流程）
+      console.warn('加载会话列表失败', e)
     }
   }
 

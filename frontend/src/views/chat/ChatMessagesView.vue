@@ -280,9 +280,9 @@ function loadMore() {
       ...(searchKeyword.value ? { keyword: searchKeyword.value } : {}),
       ...(filterUserId.value ? { userId: Number(filterUserId.value) } : {}),
     }
-    store.loadGroupMessages(currentSession.value.id, params)
+    void store.loadGroupMessages(currentSession.value.id, params)
   } else {
-    store.loadPrivateMessages(currentSession.value.id, { before, limit: 50 })
+    void store.loadPrivateMessages(currentSession.value.id, { before, limit: 50 })
   }
 }
 

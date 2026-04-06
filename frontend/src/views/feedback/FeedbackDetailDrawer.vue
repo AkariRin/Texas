@@ -92,6 +92,16 @@
           rows="4"
           class="mb-3"
         />
+        <v-alert
+          v-if="updateError"
+          type="error"
+          density="compact"
+          class="mb-3"
+          closable
+          @click:close="updateError = null"
+        >
+          {{ updateError }}
+        </v-alert>
         <v-btn
           block
           variant="elevated"
@@ -126,6 +136,7 @@ const emit = defineEmits<{
 const editStatus = ref('')
 const editReply = ref('')
 const updateLoading = ref(false)
+const updateError = ref<string | null>(null)
 
 watch(
   () => props.feedback,
@@ -141,6 +152,7 @@ watch(
 async function saveAndNotify() {
   if (!props.feedback) return
   updateLoading.value = true
+  updateError.value = null
   try {
     await feedbackApi.updateStatus(props.feedback.id, {
       status: editStatus.value,
@@ -148,8 +160,9 @@ async function saveAndNotify() {
     })
     emit('update:modelValue', false)
     emit('saved')
-  } catch {
+  } catch (e: unknown) {
     // 更新失败时保持抽屉打开，用户可重试
+    updateError.value = e instanceof Error ? e.message : '更新失败，请重试'
   } finally {
     updateLoading.value = false
   }

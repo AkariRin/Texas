@@ -223,7 +223,11 @@ async function addUser() {
 
 async function removeUser(qq: number) {
   if (!selectedFeature.value) return
-  await permStore.removeUser(selectedFeature.value, qq)
+  try {
+    await permStore.removeUser(selectedFeature.value, qq)
+  } catch {
+    // 错误已通过 permStore.error 记录，组件可通过该字段展示
+  }
 }
 
 onMounted(async () => {

@@ -1,10 +1,6 @@
 <template>
   <template v-for="seg in segments" :key="seg">
-    <span
-      v-if="seg.type === 'text'"
-      class="message-text"
-      v-html="escapeHtml(String(seg.data?.text ?? ''))"
-    ></span>
+    <span v-if="seg.type === 'text'" class="message-text">{{ seg.data?.text ?? '' }}</span>
     <v-img
       v-else-if="seg.type === 'image'"
       :src="getImageSrc(seg)"
@@ -181,11 +177,9 @@
       [猜拳] {{ seg.data?.result != null ? `结果: ${seg.data.result}` : '' }}
     </v-chip>
     <!-- Markdown -->
-    <div
-      v-else-if="seg.type === 'markdown'"
-      class="message-text"
-      v-html="escapeHtml(String(seg.data?.content ?? ''))"
-    ></div>
+    <div v-else-if="seg.type === 'markdown'" class="message-text">
+      {{ seg.data?.content ?? '' }}
+    </div>
     <!-- 未知消息段类型 -->
     <v-chip
       v-else
@@ -229,14 +223,6 @@ function getImageSrc(seg: { data?: Record<string, unknown> }): string {
   const path = seg.data?.path
   if (path && typeof path === 'string' && path.length > 0) return path
   return ''
-}
-
-function escapeHtml(text: string): string {
-  return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/\n/g, '<br>')
 }
 </script>
 

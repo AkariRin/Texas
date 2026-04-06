@@ -85,8 +85,13 @@ export const usePermissionStore = defineStore('permission', () => {
     const payload: Record<string, unknown> = {}
     if (enabled !== undefined) payload.enabled = enabled
     if (privateMode !== undefined) payload.private_mode = privateMode
-    await updateFeature(name, payload)
-    updateFeatureInTree(features.value, name, enabled, privateMode)
+    try {
+      await updateFeature(name, payload)
+      updateFeatureInTree(features.value, name, enabled, privateMode)
+    } catch (e: unknown) {
+      error.value = e instanceof Error ? e.message : '更新功能配置失败'
+      throw e
+    }
   }
 
   async function saveGroupFeatures(
@@ -108,21 +113,31 @@ export const usePermissionStore = defineStore('permission', () => {
   }
 
   async function addUser(featureName: string, userQq: number) {
-    await addPrivateUser(featureName, userQq)
-    if (!privateUsers.value[featureName]) {
-      privateUsers.value[featureName] = []
-    }
-    if (!privateUsers.value[featureName].includes(userQq)) {
-      privateUsers.value[featureName].push(userQq)
+    try {
+      await addPrivateUser(featureName, userQq)
+      if (!privateUsers.value[featureName]) {
+        privateUsers.value[featureName] = []
+      }
+      if (!privateUsers.value[featureName].includes(userQq)) {
+        privateUsers.value[featureName].push(userQq)
+      }
+    } catch (e: unknown) {
+      error.value = e instanceof Error ? e.message : '添加用户失败'
+      throw e
     }
   }
 
   async function removeUser(featureName: string, userQq: number) {
-    await removePrivateUser(featureName, userQq)
-    if (privateUsers.value[featureName]) {
-      privateUsers.value[featureName] = privateUsers.value[featureName].filter(
-        (qq) => qq !== userQq,
-      )
+    try {
+      await removePrivateUser(featureName, userQq)
+      if (privateUsers.value[featureName]) {
+        privateUsers.value[featureName] = privateUsers.value[featureName].filter(
+          (qq) => qq !== userQq,
+        )
+      }
+    } catch (e: unknown) {
+      error.value = e instanceof Error ? e.message : '移除用户失败'
+      throw e
     }
   }
 
