@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import structlog
 
-from src.core.rpc.proxy import get_rpc_proxy
+from src.core.rpc.bridge import get_rpc_bridge
 from src.core.tasks.celery_app import celery_app
 
 logger = structlog.get_logger()
@@ -17,8 +17,8 @@ def trigger_daily_checkin() -> dict[str, object]:
     通过 Redis RPC 调用主进程注册的 request_checkin handler，
     由主进程借助已有的 WebSocket 连接执行实际打卡流程。
     """
-    proxy = get_rpc_proxy()
-    resp = proxy.call("request_checkin", {"source": "scheduled"}, timeout=10.0)
+    bridge = get_rpc_bridge()
+    resp = bridge.call("request_checkin", {"source": "scheduled"}, timeout=10.0)
 
     if resp.success:
         logger.info(

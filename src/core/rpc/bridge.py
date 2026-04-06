@@ -1,4 +1,4 @@
-"""Worker 端通用 RPC 代理 —— 通过 Redis 桥接主进程的 RPC Consumer。
+"""Worker 端通用 RPC 桥接器 —— 通过 Redis 桥接主进程的 RPC Consumer。
 
 Celery Worker 运行在同步上下文，本模块使用同步 redis 客户端，
 向 Worker 暴露简洁的跨进程调用接口，返回通用 RPCResponse。
@@ -23,8 +23,8 @@ logger = structlog.get_logger()
 _TIMEOUT_MARGIN = 5.0
 
 
-class RPCProxy:
-    """Worker 端的通用跨进程 RPC 代理。
+class RPCBridge:
+    """Worker 端的通用跨进程 RPC 桥接器。
 
     通过 Redis List（请求队列）+ Pub/Sub（响应通道）实现 RPC，
     返回通用 RPCResponse，不依赖任何协议特定模型。
@@ -73,7 +73,7 @@ class RPCProxy:
                 "RPC 调用超时",
                 action=action,
                 request_id=request_id,
-                event_type="rpc.proxy_timeout",
+                event_type="rpc.bridge_timeout",
             )
             return RPCResponse(
                 request_id=request_id,
@@ -87,15 +87,15 @@ class RPCProxy:
 
 # ── 模块级 lazy singleton（Celery Worker 进程内复用 Redis 连接）──
 
-_proxy: RPCProxy | None = None
+_bridge: RPCBridge | None = None
 
 
-def get_rpc_proxy() -> RPCProxy:
-    """获取全局 RPCProxy 单例。
+def get_rpc_bridge() -> RPCBridge:
+    """获取全局 RPCBridge 单例。
 
     在 Celery Worker 进程中首次调用时创建实例，后续复用同一连接。
     """
-    global _proxy
-    if _proxy is None:
-        _proxy = RPCProxy()
-    return _proxy
+    global _bridge
+    if _bridge is None:
+        _bridge = RPCBridge()
+    return _bridge

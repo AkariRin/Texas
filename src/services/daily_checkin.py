@@ -1,6 +1,6 @@
 """每日打卡服务 —— 在已启用群执行 NapCat 签到。
 
-由 Celery Beat 每天零点触发（通过 /api/checkin/trigger 回调），
+由 Celery Beat 每天零点触发，经 Redis RPC 桥接器调用主进程执行打卡；
 同时在 WS 连接建立时触发，通过 Redis 日期键去重防止重复打卡。
 """
 
@@ -48,7 +48,7 @@ CheckinSource = Literal["ws_connect", "scheduled"]
 class DailyCheckinService:
     """每日自动打卡协调器。
 
-    由 Celery Beat 每天零点通过 HTTP 回调触发，WS 连接建立时亦可触发，
+    由 Celery Beat 每天零点通过 Redis RPC 触发，WS 连接建立时亦可触发，
     均通过 Redis 日期键去重防止重复执行。
     打卡 API 使用 NapCat ``send_group_sign``，不发送文本消息。
     """
@@ -159,14 +159,25 @@ class DailyCheckinService:
 
             # 执行打卡
             try:
-                await self._bot_api.send_group_sign(group_id)
-                await self._cache.set(checkin_key(group_id, today), "1", ttl=_CHECKIN_TTL)
-                sent += 1
+                resp = await self._bot_api.send_group_sign(group_id)
+                if not resp.ok:
+                    logger.warning(
+                        "群打卡 API 返回失败",
+                        group_id=group_id,
+                        retcode=resp.retcode,
+                        message=resp.message,
+                        event_type="checkin.send_error",
+                    )
+                    failed += 1
+                else:
+                    await self._cache.set(checkin_key(group_id, today), "1", ttl=_CHECKIN_TTL)
+                    sent += 1
             except Exception:
                 logger.warning(
-                    "群打卡失败",
+                    "群打卡异常",
                     group_id=group_id,
                     event_type="checkin.send_error",
+                    exc_info=True,
                 )
                 failed += 1
 

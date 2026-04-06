@@ -115,7 +115,7 @@ async def trigger_archive(
     body: TriggerArchiveRequest | None = None,
 ) -> dict[str, Any]:
     """手动触发归档任务。"""
-    from src.tasks.chat_archive import archive_chat_history
+    from src.core.tasks.chat_archive import archive_chat_history
 
     partition_name = body.partition_name if body else None
     task = archive_chat_history.delay(partition_name)

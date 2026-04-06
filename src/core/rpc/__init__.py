@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
+from .bridge import RPCBridge, get_rpc_bridge
 from .consumer import RPCConsumer
 from .models import RPCRequest, RPCResponse
-from .proxy import RPCProxy, get_rpc_proxy
 
 __all__ = [
+    "RPCBridge",
     "RPCConsumer",
-    "RPCProxy",
     "RPCRequest",
     "RPCResponse",
-    "get_rpc_proxy",
+    "get_rpc_bridge",
 ]
