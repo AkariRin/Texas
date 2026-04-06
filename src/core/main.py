@@ -421,7 +421,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     # ── RPC 消费者（允许 Celery Worker 通过 Redis 调用主进程的 BotAPI）──
     from src.core.rpc.consumer import RPCConsumer
 
-    rpc_consumer = RPCConsumer(bot_api=bot_api, redis_url=settings.CACHE_REDIS_URL)
+    rpc_consumer = RPCConsumer(redis_url=settings.CACHE_REDIS_URL)
 
     async def _checkin_rpc_handler(params: dict[str, object]) -> dict[str, object]:
         """将 RPC request_checkin 请求路由到 DailyCheckinService。"""

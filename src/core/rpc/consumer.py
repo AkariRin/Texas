@@ -1,11 +1,11 @@
-"""主进程端 RPC 消费者 —— 从 Redis 队列取请求，委托 BotAPI 执行，响应写回 Redis。"""
+"""主进程端 RPC 消费者 —— 从 Redis 队列取请求，委托已注册 handler 执行，响应写回 Redis。"""
 
 from __future__ import annotations
 
 import asyncio
 import contextlib
 from collections.abc import Awaitable, Callable
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import redis.asyncio as aioredis
 import structlog
@@ -14,9 +14,6 @@ from src.core.cache.keys import rpc_request_queue, rpc_response_channel
 
 from .models import RPCRequest, RPCResponse
 
-if TYPE_CHECKING:
-    from src.core.protocol.api import BotAPI
-
 logger = structlog.get_logger()
 
 # 自定义 action handler 类型：接收 params dict，返回任意可序列化结果
@@ -24,28 +21,26 @@ ActionHandler = Callable[[dict[str, Any]], Awaitable[Any]]
 
 
 class RPCConsumer:
-    """在主进程事件循环中运行的 RPC 请求消费者。
+    """在主进程事件循环中运行的通用 RPC 请求消费者。
 
     使用 BLPOP 阻塞式从 Redis List 取请求，
-    调用 BotAPI._call() 或自定义 handler 执行，
+    调用已注册的 handler 执行，
     结果通过 PUBLISH 返回给 Worker 端的 Pub/Sub 订阅者。
     """
 
-    def __init__(self, bot_api: BotAPI, redis_url: str) -> None:
-        self._bot_api = bot_api
+    def __init__(self, redis_url: str) -> None:
         self._redis = aioredis.from_url(redis_url, decode_responses=True)  # type: ignore[no-untyped-call]
-        self._custom_handlers: dict[str, ActionHandler] = {}
+        self._handlers: dict[str, ActionHandler] = {}
         self._task: asyncio.Task[None] | None = None
 
     def register_handler(self, action: str, handler: ActionHandler) -> None:
-        """注册自定义 action handler，优先于透传给 BotAPI._call()。
+        """注册 action handler。
 
-        用于高层业务操作（如 request_checkin），这些操作无法直接映射为
-        单个 OneBot action，需要在主进程侧执行业务逻辑。
+        多次注册同一 action 时，后注册的会覆盖前者。
         """
-        self._custom_handlers[action] = handler
+        self._handlers[action] = handler
         logger.debug(
-            "RPC 自定义 handler 已注册",
+            "RPC handler 已注册",
             action=action,
             event_type="rpc.handler_registered",
         )
@@ -107,34 +102,27 @@ class RPCConsumer:
             )
 
     async def _execute(self, req: RPCRequest) -> RPCResponse:
-        """执行 RPC 请求：自定义 handler 优先，否则透传给 BotAPI._call()。"""
-        try:
-            if req.action in self._custom_handlers:
-                handler = self._custom_handlers[req.action]
-                result = await handler(req.params)
-                # 自定义 handler 返回值包装为 APIResponse 兼容的结构，
-                # 确保 Proxy 端 APIResponse.model_validate() 得到 status="ok"
-                payload: dict[str, object] = (
-                    result if isinstance(result, dict) else {"result": result}
-                )
-                return RPCResponse(
-                    request_id=req.request_id,
-                    success=True,
-                    data={
-                        "status": "ok",
-                        "retcode": 0,
-                        "data": payload,
-                        "message": "",
-                        "echo": req.request_id,
-                    },
-                )
+        """执行 RPC 请求：查找已注册 handler，未注册则返回错误。"""
+        if req.action not in self._handlers:
+            logger.warning(
+                "RPC 未注册的 action",
+                action=req.action,
+                event_type="rpc.unregistered_action",
+            )
+            return RPCResponse(
+                request_id=req.request_id,
+                success=False,
+                error=f"未注册的 action: {req.action}",
+            )
 
-            # 标准 OneBot action：透传给 BotAPI
-            api_resp = await self._bot_api._call(req.action, req.params, timeout=req.timeout)
+        try:
+            handler = self._handlers[req.action]
+            result = await handler(req.params)
+            data: dict[str, object] = result if isinstance(result, dict) else {"result": result}
             return RPCResponse(
                 request_id=req.request_id,
                 success=True,
-                data=api_resp.model_dump(),
+                data=data,
             )
         except Exception as exc:
             logger.warning(

@@ -12,7 +12,7 @@ class RPCRequest(BaseModel):
     """UUID 字符串，用于匹配对应的响应通道。"""
 
     action: str
-    """OneBot 11 action 名称（如 send_group_msg）或自定义 action（如 request_checkin）。"""
+    """action 名称（业务自定义，如 request_checkin）。"""
 
     params: dict[str, object] = Field(default_factory=dict)
     """传递给 action 的参数字典。"""
@@ -31,7 +31,7 @@ class RPCResponse(BaseModel):
     """True 表示调用成功，False 表示发生错误。"""
 
     data: dict[str, object] | None = None
-    """成功时为 APIResponse.model_dump() 序列化结果。"""
+    """成功时为 handler 返回的数据字典。"""
 
     error: str | None = None
     """失败时的错误描述。"""
