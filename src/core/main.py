@@ -383,7 +383,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
         interceptors=[
             LoggingInterceptor(),
             SessionInterceptor(session_manager=session_manager),
-            RateLimitInterceptor(cache_client=cache_client),
+            RateLimitInterceptor(cache_client=cache_client, skip_controllers=frozenset({"jrlp"})),
         ],
     )
     scanner = ComponentScanner(mapping=composite_mapping)
