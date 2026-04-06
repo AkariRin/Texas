@@ -122,38 +122,6 @@ def cmd_heads(args: argparse.Namespace) -> None:
         command.heads(_build_cfg(t, settings))
 
 
-def cmd_reset_auth_token(args: argparse.Namespace) -> None:
-    """删除 admin_credentials 表中所有记录（重置令牌）。
-
-    重启服务后，bootstrap_token() 将自动生成新令牌并打印到日志。
-    警告：此操作会同时清除 TOTP 绑定，但不影响 WebAuthn 凭据。
-    """
-    import asyncio
-
-    async def _reset() -> None:
-        from sqlalchemy import text
-
-        from src.core.db.engine import create_engine, create_session_factory
-
-        s = _get_settings()
-        engine = create_engine(s.DATABASE_URL)
-        session_factory = create_session_factory(engine)
-        async with session_factory() as session:
-            cursor = await session.execute(text("DELETE FROM admin_credentials"))
-            await session.commit()
-            count = getattr(cursor, "rowcount", -1)
-        await engine.dispose()
-        print(f"已删除 {count} 条管理员凭据。重启服务后将自动生成新令牌。")
-
-    print("警告：此操作将删除管理员令牌和 TOTP 绑定，需要重启服务才能生效。")
-    confirm = input("确认继续？输入 'yes' 继续：").strip()
-    if confirm != "yes":
-        print("已取消。")
-        sys.exit(0)
-
-    asyncio.run(_reset())
-
-
 # ─────────────────────── CLI 入口 ───────────────────────
 
 
@@ -201,10 +169,6 @@ def main() -> None:
     p = sub.add_parser("heads", help="显示 head 版本")
     p.add_argument("--target", help="迁移目标名称（默认全部）")
     p.set_defaults(func=cmd_heads)
-
-    # reset-auth-token
-    p = sub.add_parser("reset-auth-token", help="重置管理员令牌（删除凭据，重启后自动生成新令牌）")
-    p.set_defaults(func=cmd_reset_auth_token)
 
     args = parser.parse_args()
     args.func(args)

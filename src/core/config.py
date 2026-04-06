@@ -98,12 +98,6 @@ class Settings(BaseSettings):
     CHAT_ARCHIVE_BATCH_SIZE: int = Field(default=5000, ge=100)
     CHAT_ARCHIVE_COMPRESSION: Literal["zstd", "gzip", "none"] = "zstd"
 
-    # ── 鉴权 ──
-    AUTH_RP_ID: str = "localhost"  # WebAuthn RP ID（生产环境改为域名的 eTLD+1）
-    AUTH_RP_NAME: str = "Texas"  # WebAuthn 显示名称
-    AUTH_SESSION_TTL: int = 28800  # Session 有效期（秒），默认 8h，固定不续期
-    AUTH_BCRYPT_ROUNDS: int = 12  # bcrypt work factor
-
     # 运行环境：development | production
     ENV: Literal["development", "production"] = "development"
 

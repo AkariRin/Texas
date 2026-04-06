@@ -385,17 +385,6 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     # 统一执行所有数据库迁移（连接检查 + schema 创建 + upgrade head）
     await run_all_startup_migrations({"main": engine, "chat": chat_engine}, settings)
 
-    # ── 鉴权服务（迁移完成后立即初始化，bootstrap 依赖 schema 就绪）──
-    from src.services.auth import AuthService
-
-    auth_service = AuthService(
-        session_factory=session_factory,
-        cache=cache_client,
-        settings=settings,
-    )
-    await auth_service.bootstrap_token()
-    app.state.auth_service = auth_service
-
     # 业务模块（依赖 schema 已就绪）
     (
         personnel_service,
@@ -526,12 +515,6 @@ app = FastAPI(
     redoc_url=_redoc_url,
     openapi_url=_openapi_url,
 )
-
-# ── ASGI 中间件（挂载顺序：后注册先执行，SessionAuthMiddleware 最先鉴权）──
-
-from src.core.framework.interceptors.auth_middleware import SessionAuthMiddleware  # noqa: E402
-
-app.add_middleware(SessionAuthMiddleware)
 
 # ── 全局异常处理器（统一响应格式为 {code, data, message}）──
 

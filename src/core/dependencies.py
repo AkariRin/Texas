@@ -20,7 +20,6 @@ if TYPE_CHECKING:
     from src.core.protocol.api import BotAPI
     from src.core.ws.connection import ConnectionManager
     from src.core.ws.heartbeat import HeartbeatMonitor
-    from src.services.auth import AuthService
     from src.services.chat import ChatHistoryService
     from src.services.chat_archive import ArchiveService
     from src.services.daily_checkin import DailyCheckinService
@@ -53,7 +52,6 @@ class AppState:
     feedback_service: FeedbackService
     session_manager: SessionManager
     event_dispatch_callback: Callable[[Any], Coroutine[Any, Any, None]] | None
-    auth_service: AuthService
 
 
 def _state(request: Request) -> AppState:
@@ -126,11 +124,6 @@ def get_sync_coordinator(request: Request) -> SyncCoordinator:
 def get_feedback_service(request: Request) -> FeedbackService:
     """获取用户反馈服务。"""
     return _state(request).feedback_service
-
-
-def get_auth_service(request: Request) -> AuthService:
-    """获取鉴权服务。"""
-    return _state(request).auth_service
 
 
 # ── WebSocket 端点辅助函数 ──
