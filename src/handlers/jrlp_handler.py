@@ -20,7 +20,7 @@ logger = structlog.get_logger()
 _SHANGHAI_TZ = ZoneInfo("Asia/Shanghai")
 
 # QQ 头像 URL 模板（与前端保持一致）
-_AVATAR_URL = "https://q1.qlogo.cn/g?b=qq&nk={qq}&s=100"
+_AVATAR_URL = "https://q1.qlogo.cn/g?b=qq&nk={qq}&s=640"
 
 
 @controller(
@@ -50,7 +50,7 @@ class JrlpHandler:
         today = datetime.now(_SHANGHAI_TZ).date()
 
         try:
-            record, is_new = await jrlp_service.get_or_draw(
+            record, is_new, wife_display_name = await jrlp_service.get_or_draw(
                 group_id=ctx.group_id,
                 user_id=ctx.user_id,
                 today=today,
@@ -71,9 +71,9 @@ class JrlpHandler:
         avatar_url = _AVATAR_URL.format(qq=record.wife_qq)
 
         if is_new:
-            text = f"你今天的群老婆是：{record.wife_name}({record.wife_qq})"
+            text = f"你今天的群老婆是：{wife_display_name}({record.wife_qq})"
         else:
-            text = f"你今天已经有群老婆{record.wife_name}({record.wife_qq})了，要好好对待她哦~"
+            text = f"你今天已经有群老婆{wife_display_name}({record.wife_qq})了，要好好对待她哦~"
 
         msg = MessageBuilder().at(ctx.user_id).image(avatar_url).text(f" {text}").build()
         await ctx.reply(msg)

@@ -9,8 +9,8 @@ import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from src.api.schemas.jrlp import (  # noqa: TC001 — FastAPI Body 参数运行时需要
-    CreatePresetRequest,
     DeleteRecordRequest,
+    SetWifeRequest,
     UpdateRecordRequest,
 )
 from src.core.dependencies import get_jrlp_service
@@ -29,9 +29,11 @@ def _record_to_dict(r: Any) -> dict[str, Any]:
     return {
         "id": r.id,
         "group_id": r.group_id,
+        "group_name": r.group.group_name if r.group else str(r.group_id),
         "user_id": r.user_id,
+        "user_nickname": r.user.nickname if r.user else str(r.user_id),
         "wife_qq": r.wife_qq,
-        "wife_name": r.wife_name,
+        "wife_nickname": r.wife.nickname if r.wife else str(r.wife_qq),
         "date": r.date.isoformat(),
         "drawn_at": r.drawn_at.isoformat() if r.drawn_at else None,
     }
@@ -68,21 +70,20 @@ async def list_records(
 
 @router.post("/records/create")
 async def create_preset(
-    body: CreatePresetRequest,
+    body: SetWifeRequest,
     service: JrlpService = Depends(get_jrlp_service),
 ) -> dict[str, Any]:
-    """管理员预设今日老婆。"""
+    """手动设置老婆（创建预设）。"""
     try:
         record = await service.create_preset(
             group_id=body.group_id,
             user_id=body.user_id,
             wife_qq=body.wife_qq,
-            wife_name=body.wife_name,
             record_date=body.date,
         )
     except ValueError as exc:
         return fail(str(exc))
-    return ok(_record_to_dict(record), message="预设成功")
+    return ok(_record_to_dict(record), message="设置成功")
 
 
 @router.post("/records/update")
@@ -91,19 +92,19 @@ async def update_record(
     service: JrlpService = Depends(get_jrlp_service),
 ) -> dict[str, Any]:
     """修改记录的老婆信息。"""
-    record = await service.update_record(body.id, wife_qq=body.wife_qq, wife_name=body.wife_name)
+    record = await service.update_record(body.id, wife_qq=body.wife_qq)
     if record is None:
         raise HTTPException(status_code=404, detail="记录不存在")
     return ok(_record_to_dict(record), message="修改成功")
 
 
 @router.post("/records/delete")
-async def delete_preset(
+async def delete_record(
     body: DeleteRecordRequest,
     service: JrlpService = Depends(get_jrlp_service),
 ) -> dict[str, Any]:
-    """删除预设记录（仅限 drawn_at=null）。"""
-    success = await service.delete_preset(body.id)
+    """删除记录。"""
+    success = await service.delete_record(body.id)
     if not success:
-        return fail("记录不存在或已被用户抽取，不允许删除")
+        return fail("记录不存在")
     return ok(None, message="删除成功")

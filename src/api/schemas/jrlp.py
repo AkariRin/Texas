@@ -14,8 +14,9 @@ class WifeRecordResponse(BaseModel):
     id: int
     group_id: int
     user_id: int
+    user_nickname: str
     wife_qq: int
-    wife_name: str
+    wife_nickname: str
     date: date_
     drawn_at: datetime | None
 
@@ -30,14 +31,13 @@ class PaginatedRecordsResponse(BaseModel):
     pages: int
 
 
-class CreatePresetRequest(BaseModel):
-    """创建预设请求体。"""
+class SetWifeRequest(BaseModel):
+    """手动设置老婆请求体（创建预设）。"""
 
     group_id: int = Field(..., description="群号")
     user_id: int = Field(..., description="抽取者 QQ")
     wife_qq: int = Field(..., description="老婆 QQ")
-    wife_name: str = Field(..., min_length=1, max_length=64, description="老婆昵称")
-    date: date_ = Field(..., description="预设日期（北京时间自然日）")
+    date: date_ = Field(..., description="日期（北京时间自然日）")
 
 
 class UpdateRecordRequest(BaseModel):
@@ -45,10 +45,9 @@ class UpdateRecordRequest(BaseModel):
 
     id: int = Field(..., description="记录 ID")
     wife_qq: int = Field(..., description="新老婆 QQ")
-    wife_name: str = Field(..., min_length=1, max_length=64, description="新老婆昵称")
 
 
 class DeleteRecordRequest(BaseModel):
-    """删除预设请求体。"""
+    """删除记录请求体。"""
 
-    id: int = Field(..., description="记录 ID（仅限 drawn_at=null 的预设记录）")
+    id: int = Field(..., description="记录 ID")

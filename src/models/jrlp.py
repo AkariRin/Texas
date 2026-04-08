@@ -5,10 +5,11 @@ from __future__ import annotations
 from datetime import date as date_
 from datetime import datetime
 
-from sqlalchemy import BigInteger, Date, DateTime, ForeignKey, Integer, String, UniqueConstraint
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import BigInteger, Date, DateTime, ForeignKey, Integer, UniqueConstraint
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.core.db.base import Base
+from src.models.personnel import Group, User
 
 
 class WifeRecord(Base):
@@ -37,9 +38,6 @@ class WifeRecord(Base):
         ForeignKey("users.qq", ondelete="CASCADE"),
         comment="老婆 QQ",
     )
-    wife_name: Mapped[str] = mapped_column(
-        String(64), comment="老婆昵称快照（抽取时记录，防止后续改名影响历史）"
-    )
     date: Mapped[date_] = mapped_column(
         Date, index=True, comment="自然日（北京时间），如 2026-04-06"
     )
@@ -47,6 +45,23 @@ class WifeRecord(Base):
         DateTime(timezone=True),
         nullable=True,
         comment="抽取时间；null = 管理员预设未触发；有值 = 用户已抽取",
+    )
+
+    # ── 关系 ──
+    group: Mapped[Group] = relationship(
+        "Group",
+        foreign_keys=[group_id],
+        lazy="raise",
+    )
+    user: Mapped[User] = relationship(
+        "User",
+        foreign_keys=[user_id],
+        lazy="raise",
+    )
+    wife: Mapped[User] = relationship(
+        "User",
+        foreign_keys=[wife_qq],
+        lazy="raise",
     )
 
     __table_args__ = (

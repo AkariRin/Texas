@@ -31,11 +31,12 @@ class JrlpService:
 
     async def get_or_draw(
         self, group_id: int, user_id: int, today: date
-    ) -> tuple[WifeRecord, bool]:
+    ) -> tuple[WifeRecord, bool, str]:
         """查询或抽取今日老婆。
 
         Returns:
-            (record, is_new): is_new=True 表示本次为首次抽取（含预设触发）。
+            (record, is_new, wife_display_name): is_new=True 表示本次为首次抽取（含预设触发）；
+            wife_display_name 为老婆显示名称，在 session 内计算避免 lazy 加载问题。
 
         Raises:
             ValueError: 群内无可抽取的活跃成员。
@@ -45,24 +46,27 @@ class JrlpService:
 
             if record is not None:
                 if record.drawn_at is not None:
-                    return record, False
+                    wife_display_name = record.wife.nickname if record.wife else str(record.wife_qq)
+                    return record, False, wife_display_name
                 # 预设未触发 → 标记为已抽取
                 record.drawn_at = datetime.now(UTC)
                 await session.commit()
                 await session.refresh(record)
-                return record, True
+                wife_display_name = record.wife.nickname if record.wife else str(record.wife_qq)
+                return record, True, wife_display_name
 
             # 无记录 → 随机抽取群成员
             member = await self._random_member(session, group_id)
             if member is None:
                 raise ValueError("该群暂无可抽取的活跃成员")
 
-            wife_name = member.card.strip() or member.user.nickname.strip() or str(member.user_id)
+            wife_display_name = (
+                member.card.strip() or member.user.nickname.strip() or str(member.user_id)
+            )
             new_record = WifeRecord(
                 group_id=group_id,
                 user_id=user_id,
                 wife_qq=member.user_id,
-                wife_name=wife_name,
                 date=today,
                 drawn_at=datetime.now(UTC),
             )
@@ -70,14 +74,17 @@ class JrlpService:
             try:
                 await session.commit()
                 await session.refresh(new_record)
-                return new_record, True
+                return new_record, True, wife_display_name
             except IntegrityError:
                 # 并发冲突：另一请求已先写入，重查返回
                 await session.rollback()
                 existing = await self._find_record(session, group_id, user_id, today)
                 if existing is None:
                     raise RuntimeError("并发写入后仍未找到记录，请重试") from None
-                return existing, False
+                wife_display_name = (
+                    existing.wife.nickname if existing.wife else str(existing.wife_qq)
+                )
+                return existing, False, wife_display_name
 
     # ── 管理接口 ──
 
@@ -104,7 +111,12 @@ class JrlpService:
             total = count_result.scalar_one()
 
             result = await session.execute(
-                stmt.order_by(WifeRecord.date.desc(), WifeRecord.id.desc())
+                stmt.options(
+                    selectinload(WifeRecord.group),
+                    selectinload(WifeRecord.wife),
+                    selectinload(WifeRecord.user),
+                )
+                .order_by(WifeRecord.date.desc(), WifeRecord.id.desc())
                 .offset((page - 1) * page_size)
                 .limit(page_size)
             )
@@ -116,7 +128,6 @@ class JrlpService:
         group_id: int,
         user_id: int,
         wife_qq: int,
-        wife_name: str,
         record_date: date,
     ) -> WifeRecord:
         """管理员预设今日老婆（drawn_at=null）。
@@ -133,40 +144,54 @@ class JrlpService:
                 group_id=group_id,
                 user_id=user_id,
                 wife_qq=wife_qq,
-                wife_name=wife_name,
                 date=record_date,
                 drawn_at=None,
             )
             session.add(record)
             await session.commit()
-            await session.refresh(record)
-            return record
+            # 提交后重查以加载 wife / user 关系
+            result = await session.execute(
+                select(WifeRecord)
+                .where(WifeRecord.id == record.id)
+                .options(
+                    selectinload(WifeRecord.group),
+                    selectinload(WifeRecord.wife),
+                    selectinload(WifeRecord.user),
+                )
+            )
+            return result.scalar_one()
 
-    async def update_record(
-        self, record_id: int, *, wife_qq: int, wife_name: str
-    ) -> WifeRecord | None:
-        """修改记录的老婆信息（预设和已抽取均可修改）。"""
+    async def update_record(self, record_id: int, *, wife_qq: int) -> WifeRecord | None:
+        """修改记录的老婆（预设和已抽取均可修改）。"""
         async with self._session_factory() as session:
             result = await session.execute(select(WifeRecord).where(WifeRecord.id == record_id))
             record = result.scalar_one_or_none()
             if record is None:
                 return None
             record.wife_qq = wife_qq
-            record.wife_name = wife_name
             await session.commit()
-            await session.refresh(record)
-            return record
+            # 重查以加载 group / wife / user 关系
+            result = await session.execute(
+                select(WifeRecord)
+                .where(WifeRecord.id == record_id)
+                .options(
+                    selectinload(WifeRecord.group),
+                    selectinload(WifeRecord.wife),
+                    selectinload(WifeRecord.user),
+                )
+            )
+            return result.scalar_one_or_none()
 
-    async def delete_preset(self, record_id: int) -> bool:
-        """删除预设记录（仅允许删除 drawn_at=null 的记录）。
+    async def delete_record(self, record_id: int) -> bool:
+        """删除记录（预设和已抽取均可删除）。
 
         Returns:
-            True = 删除成功；False = 记录不存在或已抽取（不允许删除）。
+            True = 删除成功；False = 记录不存在。
         """
         async with self._session_factory() as session:
             result = await session.execute(select(WifeRecord).where(WifeRecord.id == record_id))
             record = result.scalar_one_or_none()
-            if record is None or record.drawn_at is not None:
+            if record is None:
                 return False
             await session.delete(record)
             await session.commit()
@@ -179,11 +204,13 @@ class JrlpService:
         session: AsyncSession, group_id: int, user_id: int, record_date: date
     ) -> WifeRecord | None:
         result = await session.execute(
-            select(WifeRecord).where(
+            select(WifeRecord)
+            .where(
                 WifeRecord.group_id == group_id,
                 WifeRecord.user_id == user_id,
                 WifeRecord.date == record_date,
             )
+            .options(selectinload(WifeRecord.wife), selectinload(WifeRecord.user))
         )
         return result.scalar_one_or_none()
 
