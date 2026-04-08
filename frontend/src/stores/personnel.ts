@@ -116,10 +116,25 @@ export const usePersonnelStore = defineStore('personnel', () => {
       ])
       sessionGroups.value = groupResult.items
       sessionUsers.value = userResult.items
-    } catch (e: unknown) {
+    } catch {
       // 静默失败，列表保持空状态（非关键数据，不阻断主流程）
-      console.warn('加载会话列表失败', e)
     }
+  }
+
+  // ── 非共享状态的数据获取函数（组件内部使用，不写入共享 ref） ──
+
+  async function fetchUserDetail(qq: number): Promise<{ user: UserDetail; groups: GroupItem[] }> {
+    const [user, groups] = await Promise.all([api.fetchUser(qq), api.fetchUserGroups(qq)])
+    return { user, groups }
+  }
+
+  async function fetchMemberDetail(groupId: number, qq: number): Promise<GroupMemberItem | null> {
+    const result = await api.fetchGroupMembers(groupId, { page: 1, page_size: 1, qq })
+    return result.items[0] ?? null
+  }
+
+  async function fetchGroupDetail(groupId: number): Promise<GroupItem> {
+    return api.fetchGroup(groupId)
   }
 
   // ── 同步状态 ──
@@ -134,10 +149,8 @@ export const usePersonnelStore = defineStore('personnel', () => {
     syncLoading.value = true
     try {
       await api.triggerSync()
-      // 延迟后刷新状态
-      setTimeout(() => loadSyncStatus(), 2000)
-    } catch {
-      // 触发同步失败时静默处理，状态轮询会反映真实结果
+      // 延迟后刷新状态，静默失败（主流程已完成，状态轮询会反映真实结果）
+      setTimeout(() => loadSyncStatus().catch(() => {}), 2000)
     } finally {
       syncLoading.value = false
     }
@@ -182,6 +195,10 @@ export const usePersonnelStore = defineStore('personnel', () => {
     groupMembers,
     membersLoading,
     loadGroupMembers,
+    // 非共享状态获取函数
+    fetchUserDetail,
+    fetchMemberDetail,
+    fetchGroupDetail,
     // 会话选择器
     sessionGroups,
     sessionUsers,

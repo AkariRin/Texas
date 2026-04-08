@@ -58,3 +58,19 @@ export function roleColor(r: string | undefined): string {
 export function roleLabel(r: string | undefined): string {
   return ROLE_LABEL[r ?? ''] ?? r ?? ''
 }
+
+export const roleOptions = [
+  { title: '群主', value: 'owner' },
+  { title: '管理员', value: 'admin' },
+  { title: '成员', value: 'member' },
+] as const
+
+// ── 活跃状态 ──
+
+export function activeColor(active: boolean): string {
+  return active ? 'success' : 'grey'
+}
+
+export function activeLabel(active: boolean): string {
+  return active ? '活跃' : '已退出'
+}

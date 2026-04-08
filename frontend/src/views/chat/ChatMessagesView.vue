@@ -143,10 +143,10 @@
 
     <!-- 弹窗 -->
     <MessageDetailDialog v-model="detailDialog" :message="detailMessage" />
-    <MemberDetailDialog
+    <UserInfoCard
       v-model="memberDetailDialog"
-      :loading="memberDetailLoading"
-      :member="memberDetail"
+      :qq="memberDetailQQ"
+      :group-id="currentSession?.type === 'group' ? currentSession.id : undefined"
     />
     <ImagePreviewDialog v-model="imagePreviewDialog" :src="imagePreviewSrc" />
   </v-container>
@@ -156,12 +156,11 @@
 import { ref, computed, nextTick, onMounted } from 'vue'
 import { useChatStore } from '@/stores/chat'
 import { usePersonnelStore } from '@/stores/personnel'
-import type { GroupMemberItem } from '@/apis/personnel'
 import type { ChatMessage } from '@/apis/chat'
 import SessionSelector from './components/SessionSelector.vue'
 import MessageBubble from './components/MessageBubble.vue'
 import MessageDetailDialog from './components/MessageDetailDialog.vue'
-import MemberDetailDialog from './components/MemberDetailDialog.vue'
+import UserInfoCard from '@/components/UserInfoCard.vue'
 import ImagePreviewDialog from './components/ImagePreviewDialog.vue'
 
 const store = useChatStore()
@@ -182,8 +181,7 @@ const detailDialog = ref(false)
 const detailMessage = ref<ChatMessage | null>(null)
 
 const memberDetailDialog = ref(false)
-const memberDetailLoading = ref(false)
-const memberDetail = ref<GroupMemberItem | null>(null)
+const memberDetailQQ = ref<number | null>(null)
 
 const imagePreviewDialog = ref(false)
 const imagePreviewSrc = ref('')
@@ -208,28 +206,13 @@ function showDetail(msg: ChatMessage) {
   detailDialog.value = true
 }
 
-async function onAtChipClick(qq: unknown) {
+function onAtChipClick(qq: unknown) {
   if (qq === 'all') return
   if (!currentSession.value || currentSession.value.type !== 'group') return
   const qqNum = Number(qq)
   if (isNaN(qqNum)) return
-
-  memberDetail.value = null
-  memberDetailLoading.value = true
+  memberDetailQQ.value = qqNum
   memberDetailDialog.value = true
-
-  try {
-    await personnelStore.loadGroupMembers(currentSession.value.id, {
-      page: 1,
-      page_size: 1,
-      qq: qqNum,
-    })
-    memberDetail.value = personnelStore.groupMembers.items[0] ?? null
-  } catch {
-    memberDetail.value = null
-  } finally {
-    memberDetailLoading.value = false
-  }
 }
 
 function openImagePreview(src: string) {

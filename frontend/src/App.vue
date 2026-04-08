@@ -42,7 +42,7 @@
       </v-tooltip>
     </v-app-bar>
 
-    <AppMegaMenu :open="menuOpen" @close="menuOpen = false" />
+    <AppMenu :open="menuOpen" @close="menuOpen = false" />
 
     <v-main>
       <v-dialog v-model="dialogDark" max-width="300">
@@ -75,7 +75,7 @@ import { useRouter } from 'vue-router'
 import { useThemeStore } from './stores/theme'
 import { useBotStore } from './stores/bot'
 import type { ThemePreference } from './stores/theme'
-import AppMegaMenu from './components/AppMegaMenu.vue'
+import AppMenu from './components/AppMenu.vue'
 
 const vuetifyTheme = useTheme()
 const router = useRouter()

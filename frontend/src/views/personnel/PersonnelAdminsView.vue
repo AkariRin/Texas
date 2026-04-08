@@ -37,10 +37,19 @@
             class="admin-card"
           >
             <div class="d-flex align-center pa-4">
-              <v-avatar size="48" class="mr-4">
+              <v-avatar
+                size="48"
+                class="mr-4"
+                style="cursor: pointer"
+                @click="openAdminDetail(admin.qq)"
+              >
                 <v-img :src="`https://q1.qlogo.cn/g?b=qq&nk=${admin.qq}&s=100`" />
               </v-avatar>
-              <div class="flex-grow-1 overflow-hidden">
+              <div
+                class="flex-grow-1 overflow-hidden"
+                style="cursor: pointer"
+                @click="openAdminDetail(admin.qq)"
+              >
                 <div class="text-subtitle-1 font-weight-bold text-truncate">
                   {{ admin.nickname || '未知用户' }}
                 </div>
@@ -127,6 +136,9 @@
         {{ snackText }}
       </v-snackbar>
     </v-card>
+
+    <!-- 管理员用户详情弹窗 -->
+    <UserInfoCard v-model="adminDetailDialog" :qq="adminDetailQQ" />
   </PageLayout>
 </template>
 
@@ -135,6 +147,7 @@ import { ref, onMounted } from 'vue'
 import { usePersonnelStore } from '@/stores/personnel'
 import type { UserItem } from '@/apis/personnel'
 import PageLayout from '@/components/PageLayout.vue'
+import UserInfoCard from '@/components/UserInfoCard.vue'
 
 const store = usePersonnelStore()
 
@@ -149,6 +162,15 @@ const addError = ref('')
 const removeDialog = ref(false)
 const removeTarget = ref<UserItem | null>(null)
 const removeLoading = ref(false)
+
+// 管理员详情弹窗
+const adminDetailDialog = ref(false)
+const adminDetailQQ = ref<number | null>(null)
+
+function openAdminDetail(qq: number) {
+  adminDetailQQ.value = qq
+  adminDetailDialog.value = true
+}
 
 // 提示
 const snackbar = ref(false)

@@ -98,104 +98,31 @@
     <SyncDialog v-model="syncDialog" />
 
     <!-- 用户详情弹窗 -->
-    <v-dialog
-      :model-value="detailDialog"
-      max-width="700"
-      @update:model-value="detailDialog = $event"
-    >
-      <v-card v-if="detailUser" :loading="detailLoading">
-        <v-card-title class="d-flex align-center ga-3 pa-4">
-          <v-avatar size="56">
-            <v-img :src="`https://q1.qlogo.cn/g?b=qq&nk=${detailUser.qq}&s=100`" />
-          </v-avatar>
-          <div>
-            <div class="text-h6">{{ detailUser.nickname || '未知用户' }}</div>
-            <div class="text-caption text-medium-emphasis">QQ: {{ detailUser.qq }}</div>
-          </div>
-          <v-spacer />
-          <v-chip :color="relationColor(detailUser.relation)" variant="elevated">
-            <v-icon start size="small">{{ relationIcon(detailUser.relation) }}</v-icon>
-            {{ relationLabel(detailUser.relation) }}
-          </v-chip>
-        </v-card-title>
+    <UserInfoCard v-model="detailDialog" :qq="detailQQ" @open-group="openGroup" />
 
-        <v-divider />
+    <!-- 群信息弹窗（从用户详情钻取） -->
+    <GroupInfoCard
+      v-model="groupDialog"
+      :group-id="groupIdToOpen"
+      @open-user="openMemberFromGroup"
+    />
 
-        <v-card-text>
-          <v-row dense>
-            <v-col cols="6" sm="4">
-              <div class="text-caption text-medium-emphasis">所属群数</div>
-              <div class="text-body-1 font-weight-medium">{{ detailUser.group_count }}</div>
-            </v-col>
-            <v-col cols="6" sm="4">
-              <div class="text-caption text-medium-emphasis">关系等级</div>
-              <div class="text-body-1 font-weight-medium">
-                {{ relationLabel(detailUser.relation) }}
-              </div>
-            </v-col>
-            <v-col cols="12" sm="4">
-              <div class="text-caption text-medium-emphasis">最后同步</div>
-              <div class="text-body-1 font-weight-medium">
-                {{ detailUser.last_synced ? formatTime(detailUser.last_synced) : '-' }}
-              </div>
-            </v-col>
-          </v-row>
-
-          <!-- 所属群聊列表 -->
-          <div class="text-subtitle-2 mt-4 mb-2">所属群聊</div>
-          <v-table v-if="detailGroups.length" density="compact" hover>
-            <thead>
-              <tr>
-                <th>群号</th>
-                <th>群名</th>
-                <th>成员数</th>
-                <th>状态</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="g in detailGroups" :key="g.group_id">
-                <td>{{ g.group_id }}</td>
-                <td>{{ g.group_name }}</td>
-                <td>{{ g.member_count }} / {{ g.max_member_count }}</td>
-                <td>
-                  <v-chip
-                    :color="g.is_active ? 'success' : 'grey'"
-                    size="x-small"
-                    variant="elevated"
-                  >
-                    {{ g.is_active ? '活跃' : '已退出' }}
-                  </v-chip>
-                </td>
-              </tr>
-            </tbody>
-          </v-table>
-          <v-alert v-else type="info" variant="elevated" density="compact" class="mt-2">
-            该用户不在任何群聊中
-          </v-alert>
-        </v-card-text>
-
-        <v-card-actions>
-          <v-spacer />
-          <v-btn color="red" variant="elevated" @click="detailDialog = false">关闭</v-btn>
-        </v-card-actions>
-      </v-card>
-
-      <!-- 加载中 -->
-      <v-card v-else>
-        <v-card-text class="pa-4">
-          <v-skeleton-loader type="list-item-avatar-three-line, divider, article, table-row" />
-        </v-card-text>
-      </v-card>
-    </v-dialog>
+    <!-- 群成员详情弹窗（从群信息钻取） -->
+    <UserInfoCard
+      v-model="memberFromGroupDialog"
+      :qq="memberFromGroupQQ"
+      :group-id="memberGroupId"
+    />
   </PageLayout>
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted } from 'vue'
+import { ref, onMounted } from 'vue'
 import { usePersonnelStore } from '@/stores/personnel'
-import type { UserDetail, GroupItem } from '@/apis/personnel'
 import SyncDialog from './SyncDialog.vue'
 import PageLayout from '@/components/PageLayout.vue'
+import UserInfoCard from '@/components/UserInfoCard.vue'
+import GroupInfoCard from '@/components/GroupInfoCard.vue'
 import { formatTime } from '@/utils/format'
 import { relationColor, relationLabel, relationIcon } from '@/utils/personnel'
 import { debounce } from '@/utils/ui'
@@ -209,11 +136,19 @@ const filterQQ = ref<string | null>(null)
 const filterNickname = ref<string | null>(null)
 
 const syncDialog = ref(false)
+
+// 用户详情弹窗
 const detailDialog = ref(false)
-const detailQQ = ref(0)
-const detailUser = ref<UserDetail | null>(null)
-const detailGroups = ref<GroupItem[]>([])
-const detailLoading = ref(false)
+const detailQQ = ref<number | null>(null)
+
+// 群信息弹窗（从用户详情钻取）
+const groupDialog = ref(false)
+const groupIdToOpen = ref<number | null>(null)
+
+// 群成员弹窗（从群信息钻取）
+const memberFromGroupDialog = ref(false)
+const memberFromGroupQQ = ref<number | null>(null)
+const memberGroupId = ref<number | null>(null)
 
 const relationOptions = [
   { title: '陌生人', value: 'stranger' },
@@ -254,24 +189,16 @@ function openDetail(qq: number) {
   detailDialog.value = true
 }
 
-// 弹窗打开时加载用户详情
-watch(detailDialog, async (open) => {
-  if (open && detailQQ.value) {
-    detailLoading.value = true
-    detailUser.value = null
-    detailGroups.value = []
-    try {
-      await Promise.all([store.loadUser(detailQQ.value), store.loadUserGroups(detailQQ.value)])
-      detailUser.value = store.currentUser
-      detailGroups.value = store.currentUserGroups
-    } finally {
-      detailLoading.value = false
-    }
-  } else {
-    detailUser.value = null
-    detailGroups.value = []
-  }
-})
+function openGroup(groupId: number) {
+  groupIdToOpen.value = groupId
+  groupDialog.value = true
+}
+
+function openMemberFromGroup(qq: number, groupId: number) {
+  memberFromGroupQQ.value = qq
+  memberGroupId.value = groupId
+  memberFromGroupDialog.value = true
+}
 
 onMounted(() => loadPage(1))
 </script>

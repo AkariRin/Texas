@@ -192,8 +192,10 @@ async function refresh() {
     await botStore.fetchProfile()
     editForm.nickname = botStore.profile.nickname ?? ''
     editForm.personal_note = ''
-  } catch (e: unknown) {
-    console.warn('获取 Bot 信息失败', e)
+  } catch {
+    snackbar.message = '获取 Bot 信息失败，请重试'
+    snackbar.color = 'error'
+    snackbar.show = true
   }
 }
 
