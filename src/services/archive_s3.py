@@ -22,7 +22,7 @@ class S3Uploader:
     def __init__(self, settings: Settings) -> None:
         self._settings = settings
 
-    def _get_client(self) -> Any:
+    def _get_client(self) -> Any:  # boto3 无官方类型存根，返回 Any 为已知限制
         """创建 S3 客户端。"""
         import boto3
 

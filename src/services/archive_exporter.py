@@ -13,6 +13,7 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 import structlog
 from sqlalchemy import text
+from sqlalchemy.sql.elements import quoted_name
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -85,8 +86,11 @@ class ParquetExporter:
 
         try:
             async with self._chat_sf() as session:
+                # partition_name 已通过 _PARTITION_NAME_RE 白名单验证；
+                # 额外使用 quoted_name 对标识符进行双引号转义，彻底消除 SQL 注入路径
+                safe_name = quoted_name(partition_name, quote=True)
                 result = await session.stream(
-                    text(f"SELECT * FROM chat.{partition_name} ORDER BY created_at")
+                    text(f"SELECT * FROM chat.{safe_name} ORDER BY created_at")  # noqa: S608
                 )
                 async for row in result:
                     row_dict = dict(row._mapping)

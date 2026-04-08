@@ -10,7 +10,7 @@ from typing import Any
 import redis.asyncio as aioredis
 import structlog
 
-from src.core.cache.keys import rpc_request_queue, rpc_response_channel
+from src.core.rpc.keys import rpc_request_queue, rpc_response_channel
 
 from .models import RPCRequest, RPCResponse
 

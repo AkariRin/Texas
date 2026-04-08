@@ -538,3 +538,38 @@ class FeaturePermissionService:
                 for g in groups
             ],
         }
+
+
+# ── 生命周期注册 ──
+
+from src.core.lifecycle import startup  # noqa: E402
+
+
+@startup(
+    name="permission",
+    provides=["permission_service"],
+    requires=["session_factory", "cache_client", "scanner", "dispatcher", "personnel_service"],
+)
+async def _lifecycle_start(deps: dict[str, Any]) -> dict[str, Any]:
+    """权限系统启动：同步功能注册表并注入 dispatcher。"""
+    from src.core.framework.permission_checker import FeaturePermissionChecker
+
+    scanner = deps["scanner"]
+    permission_service = FeaturePermissionService(
+        session_factory=deps["session_factory"],
+        cache=deps["cache_client"],
+        metadata_provider=scanner.feature_metadata,
+    )
+    await permission_service.sync_features(
+        scanner.controllers,
+        standalone_features=scanner.standalone_features,
+    )
+    checker = FeaturePermissionChecker(
+        permission_service=permission_service,
+        personnel_service=deps["personnel_service"],
+    )
+    dispatcher = deps["dispatcher"]
+    dispatcher.feature_checker = checker
+    dispatcher.personnel_service = deps["personnel_service"]
+    logger.info("权限系统已就绪", event_type="permission.ready")
+    return {"permission_service": permission_service}

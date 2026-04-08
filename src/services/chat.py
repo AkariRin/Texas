@@ -267,3 +267,33 @@ class ChatHistoryService:
             "created_at": msg.created_at.isoformat() if msg.created_at else None,
             "stored_at": msg.stored_at.isoformat() if msg.stored_at else None,
         }
+
+
+# ── 生命周期注册 ──
+
+from src.core.lifecycle import startup  # noqa: E402
+
+
+@startup(
+    name="chat",
+    provides=["chat_service", "archive_service"],
+    requires=["chat_engine", "session_factory", "settings"],
+)
+async def _lifecycle_start(deps: dict[str, Any]) -> dict[str, Any]:
+    """聊天记录模块启动（聊天库 session factory 在此创建）。"""
+    from src.core.db.engine import create_session_factory
+    from src.services.chat_archive import ArchiveService
+
+    chat_session_factory = create_session_factory(deps["chat_engine"])
+    chat_service = ChatHistoryService(session_factory=chat_session_factory)
+    archive_service = ArchiveService(
+        chat_session_factory=chat_session_factory,
+        main_session_factory=deps["session_factory"],
+        settings=deps["settings"],
+    )
+    try:
+        await archive_service.ensure_partitions()
+        logger.info("聊天分区已就绪", event_type="chat.partitions_ensured")
+    except Exception:
+        logger.exception("启动时分区预创建失败", event_type="chat.partition_ensure_error")
+    return {"chat_service": chat_service, "archive_service": archive_service}

@@ -12,8 +12,8 @@ from typing import Any
 import redis
 import structlog
 
-from src.core.cache.keys import rpc_request_queue, rpc_response_channel
 from src.core.config import get_settings
+from src.core.rpc.keys import rpc_request_queue, rpc_response_channel
 
 from .models import RPCRequest, RPCResponse
 

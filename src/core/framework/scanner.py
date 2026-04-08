@@ -14,7 +14,9 @@ from src.core.framework.mapping import CompositeHandlerMapping, HandlerMethod
 from src.core.framework.session.decorators import SESSION_META
 
 if TYPE_CHECKING:
+    from src.core.cache.key_registry import CacheKeyEntry
     from src.core.framework.session.manager import SessionManager
+    from src.core.lifecycle.registry import ShutdownEntry, StartupEntry
 
 logger = structlog.get_logger()
 
@@ -28,6 +30,9 @@ class ComponentScanner:
         self._standalone_features: list[dict[str, Any]] = []
         self._feature_metadata: dict[str, dict[str, Any]] = {}
         self._session_classes: list[tuple[str, type]] = []  # (controller_name, session_cls)
+        self._startup_entries: tuple[StartupEntry, ...] = ()
+        self._shutdown_entries: tuple[ShutdownEntry, ...] = ()
+        self._cache_key_entries: tuple[CacheKeyEntry, ...] = ()
 
     @property
     def controllers(self) -> list[dict[str, Any]]:
@@ -53,6 +58,21 @@ class ComponentScanner:
         """返回所有已发现的交互式会话类。"""
         return list(self._session_classes)
 
+    @property
+    def startup_entries(self) -> tuple[StartupEntry, ...]:
+        """返回 scan() 完成后快照的所有 @startup 入口。"""
+        return self._startup_entries
+
+    @property
+    def shutdown_entries(self) -> tuple[ShutdownEntry, ...]:
+        """返回 scan() 完成后快照的所有 @shutdown 入口。"""
+        return self._shutdown_entries
+
+    @property
+    def cache_key_entries(self) -> tuple[CacheKeyEntry, ...]:
+        """返回 scan() 完成后快照的所有已注册缓存键定义。"""
+        return self._cache_key_entries
+
     def register_sessions(self, session_manager: SessionManager) -> None:
         """将扫描到的会话类注册到 SessionManager。"""
         for controller_name, session_cls in self._session_classes:
@@ -67,10 +87,18 @@ class ComponentScanner:
             )
 
     def scan(self, packages: list[str]) -> None:
-        """扫描给定的包路径以查找控制器，完成后构建内存元数据注册表。"""
+        """扫描给定的包路径以查找控制器，完成后构建内存元数据注册表并快照生命周期入口。"""
+        from src.core.cache.key_registry import get_all_cache_keys
+        from src.core.lifecycle.registry import get_all_shutdowns, get_all_startups
+
         for package_name in packages:
             self._scan_package(package_name)
         self._build_feature_metadata()
+        # 快照生命周期入口（import 触发的 @startup/@shutdown 注册）
+        self._startup_entries = tuple(get_all_startups())
+        self._shutdown_entries = tuple(get_all_shutdowns())
+        # 快照缓存键注册表（import 触发的 cache_key() 注册）
+        self._cache_key_entries = get_all_cache_keys()
 
     def _build_feature_metadata(self) -> None:
         """从 controllers 列表构建扁平化内存元数据 map，scan() 后调用。"""

@@ -15,11 +15,7 @@ import structlog
 from sqlalchemy import case, func, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
-from src.core.cache.keys import (
-    admin_set_key,
-    personnel_sync_status_key,
-    user_relation_key,
-)
+from src.core.cache.key_registry import cache_key, glob_for
 from src.core.monitoring.metrics import (
     personnel_admins_total,
     personnel_friends_total,
@@ -42,6 +38,28 @@ if TYPE_CHECKING:
     from src.core.config import Settings
 
 logger = structlog.get_logger()
+
+# ── 本模块的 Redis 缓存键定义 ──
+personnel_sync_status_key = cache_key(
+    "personnel.sync_status",
+    "texas:personnel:sync_status",
+    description="最近一次同步状态。",
+)
+personnel_sync_lock_key = cache_key(
+    "personnel.sync_lock",
+    "texas:lock:personnel_sync",
+    description="同步任务分布式锁。",
+)
+user_relation_key = cache_key(
+    "personnel.user_relation",
+    "texas:personnel:user:{qq}:relation",
+    description="用户关系等级缓存。",
+)
+admin_set_key = cache_key(
+    "personnel.admin_set",
+    "texas:personnel:admins",
+    description="超级管理员 QQ 号集合（Redis Set）。",
+)
 
 
 def compute_relation(
@@ -573,10 +591,66 @@ class PersonnelService:
     async def _invalidate_all_relation_cache(self) -> None:
         """清除所有用户关系缓存（全量同步后）。"""
         try:
-            await self._cache.delete_by_pattern("texas:personnel:user:*:relation")
+            await self._cache.delete_by_pattern(glob_for(user_relation_key))
             # 同时清除超级管理员集合缓存
             await self._cache.delete(admin_set_key())
         except Exception as exc:
             logger.warning(
                 "清除关系缓存失败", error=str(exc), event_type="personnel.cache_invalidate_error"
             )
+
+
+# ── 生命周期注册 ──
+
+from src.core.lifecycle import shutdown, startup  # noqa: E402
+
+
+@startup(
+    name="personnel",
+    provides=[
+        "personnel_service",
+        "personnel_event_service",
+        "personnel_query_service",
+        "sync_coordinator",
+    ],
+    requires=["session_factory", "cache_client", "settings", "bot_api", "conn_mgr"],
+    dispatcher_services=["personnel_service", "personnel_event_service"],
+)
+async def _lifecycle_start(deps: dict[str, Any]) -> dict[str, Any]:
+    """用户管理模块启动。"""
+    from src.services.personnel_events import PersonnelEventService
+    from src.services.personnel_query import PersonnelQueryService
+    from src.services.personnel_sync import SyncCoordinator
+
+    ps = PersonnelService(
+        session_factory=deps["session_factory"],
+        cache=deps["cache_client"],
+        settings=deps["settings"],
+    )
+    pe = PersonnelEventService(
+        session_factory=deps["session_factory"],
+        cache=deps["cache_client"],
+    )
+    pq = PersonnelQueryService(
+        session_factory=deps["session_factory"],
+        cache=deps["cache_client"],
+    )
+    sc = SyncCoordinator(
+        bot_api=deps["bot_api"],
+        conn_mgr=deps["conn_mgr"],
+        personnel_service=ps,
+        settings=deps["settings"],
+    )
+    sc.start_scheduler()
+    return {
+        "personnel_service": ps,
+        "personnel_event_service": pe,
+        "personnel_query_service": pq,
+        "sync_coordinator": sc,
+    }
+
+
+@shutdown(name="personnel")
+async def _lifecycle_stop(services: dict[str, Any]) -> None:
+    """用户管理模块关闭（停止同步调度器）。"""
+    services["sync_coordinator"].stop_scheduler()

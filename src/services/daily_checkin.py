@@ -8,11 +8,11 @@ from __future__ import annotations
 
 import asyncio
 from datetime import datetime
-from typing import TYPE_CHECKING, Final, Literal
+from typing import TYPE_CHECKING, Any, Final, Literal
 
 import structlog
 
-from src.core.cache.keys import checkin_key
+from src.core.cache.key_registry import cache_key
 from src.core.framework.decorators import feature
 from src.core.utils import SHANGHAI_TZ
 from src.models.personnel import Group
@@ -26,6 +26,14 @@ if TYPE_CHECKING:
     from src.services.permission import FeaturePermissionService
 
 logger = structlog.get_logger()
+
+# ── 本模块的 Redis 缓存键定义 ──
+checkin_key = cache_key(
+    "checkin.daily",
+    "texas:checkin:{group_id}:{date_str}",
+    ttl_hint=90000,
+    description="某群某日的打卡状态（date_str 格式：YYYY-MM-DD）。",
+)
 
 # 打卡 Redis 键 TTL：25 小时（覆盖时区漂移，自动清理）
 _CHECKIN_TTL: Final[int] = 90_000
@@ -204,3 +212,40 @@ class DailyCheckinService:
                 )
             )
             return list(result.scalars().all())
+
+
+# ── 生命周期注册 ──
+
+from src.core.lifecycle import startup  # noqa: E402
+
+
+@startup(
+    name="checkin",
+    provides=["checkin_service"],
+    requires=[
+        "session_factory",
+        "cache_client",
+        "bot_api",
+        "conn_mgr",
+        "permission_service",
+        "rpc_consumer",
+    ],
+)
+async def _lifecycle_start(deps: dict[str, Any]) -> dict[str, Any]:
+    """打卡模块启动（注册 RPC handler，rpc_consumer.start() 由 lifespan 在此后调用）。"""
+    checkin_service = DailyCheckinService(
+        bot_api=deps["bot_api"],
+        conn_mgr=deps["conn_mgr"],
+        cache=deps["cache_client"],
+        permission_service=deps["permission_service"],
+        session_factory=deps["session_factory"],
+    )
+
+    async def _rpc_handler(params: dict[str, Any]) -> dict[str, Any]:
+        """将 RPC request_checkin 请求路由到 DailyCheckinService。"""
+        source = str(params.get("source", "scheduled"))
+        checkin_service.request_checkin(source=source)  # type: ignore[arg-type]
+        return {"triggered": True}
+
+    deps["rpc_consumer"].register_handler("request_checkin", _rpc_handler)
+    return {"checkin_service": checkin_service}

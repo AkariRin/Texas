@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import inspect
 import json
-from typing import TYPE_CHECKING, Any, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 import redis.asyncio as aioredis
 
@@ -54,19 +54,18 @@ class CacheClient:
     async def expire(self, key: str, ttl: int) -> None:
         await self._redis.expire(key, ttl)
 
-    async def get_or_set(self, key: str, factory: Callable[[], Any], ttl: int | None = None) -> Any:
+    async def get_or_set(self, key: str, factory: Callable[[], T], ttl: int | None = None) -> T:
         """从缓存中获取值；若未命中，则调用 factory，缓存结果并返回。
 
         factory 可以是同步函数或 async 函数。
         """
-        val = await self.get(key)
-        if val is not None:
-            return val
-        val = factory()
-        if inspect.isawaitable(val):
-            val = await val
-        await self.set(key, val, ttl)
-        return val
+        cached = await self.get(key)
+        if cached is not None:
+            return cast("T", cached)
+        raw = factory()
+        result: T = cast("T", await raw) if inspect.isawaitable(raw) else raw
+        await self.set(key, result, ttl)
+        return result
 
     async def delete_by_pattern(self, pattern: str) -> None:
         """按 glob 模式批量删除匹配的键（使用 SCAN 迭代，避免 KEYS 阻塞）。"""

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, date, datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import structlog
 from sqlalchemy import func, select
@@ -200,3 +200,19 @@ class JrlpService:
             .limit(1)
         )
         return result.scalar_one_or_none()
+
+
+# ── 生命周期注册 ──
+
+from src.core.lifecycle import startup  # noqa: E402
+
+
+@startup(
+    name="jrlp",
+    provides=["jrlp_service"],
+    requires=["session_factory"],
+    dispatcher_services=["jrlp_service"],
+)
+async def _lifecycle_start(deps: dict[str, Any]) -> dict[str, Any]:
+    """今日老婆模块启动。"""
+    return {"jrlp_service": JrlpService(session_factory=deps["session_factory"])}

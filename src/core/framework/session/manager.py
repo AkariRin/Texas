@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Any
 
 import structlog
 
-from src.core.cache import keys as cache_keys
+from src.core.framework.session import keys as session_cache_keys
 from src.core.framework.session.base import InteractiveSession  # noqa: TC001
 from src.core.framework.session.commands import CANCEL_COMMANDS
 from src.core.framework.session.context import SessionContext  # noqa: TC001
@@ -107,10 +107,10 @@ class SessionManager:
             return False
 
         # 互斥：Redis 残留清理（防止进程重启后内存丢失但 Redis 中仍有记录）
-        if await self._cache.exists(cache_keys.session_key(session_key)):
+        if await self._cache.exists(session_cache_keys.session_key(session_key)):
             await asyncio.gather(
-                self._cache.delete(cache_keys.session_key(session_key)),
-                self._cache.delete(cache_keys.session_data_key(session_key)),
+                self._cache.delete(session_cache_keys.session_key(session_key)),
+                self._cache.delete(session_cache_keys.session_data_key(session_key)),
                 return_exceptions=True,
             )
 
@@ -405,8 +405,10 @@ class SessionManager:
         data_json = session.data.model_dump(mode="json")
 
         results = await asyncio.gather(
-            self._cache.set(cache_keys.session_key(session_key), meta_data, ttl=redis_ttl),
-            self._cache.set(cache_keys.session_data_key(session_key), data_json, ttl=redis_ttl),
+            self._cache.set(session_cache_keys.session_key(session_key), meta_data, ttl=redis_ttl),
+            self._cache.set(
+                session_cache_keys.session_data_key(session_key), data_json, ttl=redis_ttl
+            ),
             return_exceptions=True,
         )
         for result in results:
@@ -432,8 +434,8 @@ class SessionManager:
             warning_task.cancel()
 
         results = await asyncio.gather(
-            self._cache.delete(cache_keys.session_key(session_key)),
-            self._cache.delete(cache_keys.session_data_key(session_key)),
+            self._cache.delete(session_cache_keys.session_key(session_key)),
+            self._cache.delete(session_cache_keys.session_data_key(session_key)),
             return_exceptions=True,
         )
         for result in results:

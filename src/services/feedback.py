@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import structlog
 from sqlalchemy import func, or_, select
@@ -231,17 +232,22 @@ class FeedbackService:
             f"ID：{feedback.id}"
         )
 
-        # 发送私聊消息给所有管理员
-        for admin in admins:
-            try:
-                await self._bot_api.send_private_msg(admin.qq, message)
-            except Exception:
-                logger.warning(
-                    "通知管理员失败",
-                    admin_qq=admin.qq,
-                    feedback_id=str(feedback.id),
-                    event_type="feedback.notify_admin_failed",
-                )
+        # 并发通知所有管理员，限制最大并发数避免触发限流
+        semaphore = asyncio.Semaphore(3)
+
+        async def _send_one(admin: User) -> None:
+            async with semaphore:
+                try:
+                    await self._bot_api.send_private_msg(admin.qq, message)
+                except Exception:
+                    logger.warning(
+                        "通知管理员失败",
+                        admin_qq=admin.qq,
+                        feedback_id=str(feedback.id),
+                        event_type="feedback.notify_admin_failed",
+                    )
+
+        await asyncio.gather(*[_send_one(admin) for admin in admins])
 
     async def _notify_user(self, feedback: Feedback) -> None:
         """通知用户反馈已处理（私有方法）。"""
@@ -264,3 +270,24 @@ class FeedbackService:
                 feedback_id=str(feedback.id),
                 event_type="feedback.notify_user_failed",
             )
+
+
+# ── 生命周期注册 ──
+
+from src.core.lifecycle import startup  # noqa: E402
+
+
+@startup(
+    name="feedback",
+    provides=["feedback_service"],
+    requires=["session_factory", "bot_api"],
+    dispatcher_services=["feedback_service"],
+)
+async def _lifecycle_start(deps: dict[str, Any]) -> dict[str, Any]:
+    """反馈模块启动。"""
+    return {
+        "feedback_service": FeedbackService(
+            session_factory=deps["session_factory"],
+            bot_api=deps["bot_api"],
+        )
+    }
