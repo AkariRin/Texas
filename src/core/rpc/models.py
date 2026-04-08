@@ -18,7 +18,7 @@ class RPCRequest(BaseModel):
     """传递给 action 的参数字典。"""
 
     timeout: float = 30.0
-    """调用方期望的超时秒数，RPCConsumer 会以此作为 BotAPI._call() 的超时。"""
+    """调用方期望的超时秒数，Consumer 侧将以此限制 handler 的最大执行时间。"""
 
 
 class RPCResponse(BaseModel):

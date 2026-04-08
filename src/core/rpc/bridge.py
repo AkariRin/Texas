@@ -6,6 +6,7 @@ Celery Worker 运行在同步上下文，本模块使用同步 redis 客户端�
 
 from __future__ import annotations
 
+import time
 import uuid
 from typing import Any
 
@@ -21,6 +22,8 @@ logger = structlog.get_logger()
 
 # RPC 超时裕量（秒）：覆盖网络延迟 + 主进程调度耗时
 _TIMEOUT_MARGIN = 5.0
+# Pub/Sub 轮询粒度（秒）：降低至 0.1s 减少无谓等待
+_POLL_INTERVAL = 0.1
 
 
 class RPCBridge:
@@ -55,24 +58,61 @@ class RPCBridge:
 
         resp_channel = rpc_response_channel(request_id)
         pubsub = self._redis.pubsub()
-        pubsub.subscribe(resp_channel)
-
         try:
-            # 先订阅、再入队，防止竞态窗口
-            self._redis.rpush(rpc_request_queue(), req.model_dump_json())
+            pubsub.subscribe(resp_channel)
+        except redis.RedisError as exc:
+            pubsub.close()
+            logger.error(
+                "RPC 订阅响应通道失败",
+                action=action,
+                request_id=request_id,
+                error=str(exc),
+                event_type="rpc.bridge_subscribe_error",
+            )
+            return RPCResponse(
+                request_id=request_id,
+                success=False,
+                error="rpc_connection_error",
+            )
+
+        t0 = time.monotonic()
+        try:
+            try:
+                # 先订阅、再入队，防止竞态窗口
+                self._redis.rpush(rpc_request_queue(), req.model_dump_json())
+            except redis.RedisError as exc:
+                logger.error(
+                    "RPC 请求入队失败",
+                    action=action,
+                    request_id=request_id,
+                    error=str(exc),
+                    event_type="rpc.bridge_enqueue_error",
+                )
+                return RPCResponse(
+                    request_id=request_id,
+                    success=False,
+                    error="rpc_connection_error",
+                )
 
             # 等待响应，超时阈值包含裕量
             deadline = timeout + _TIMEOUT_MARGIN
-            while deadline > 0:
-                msg = pubsub.get_message(timeout=min(deadline, 1.0), ignore_subscribe_messages=True)
+            while True:
+                elapsed = time.monotonic() - t0
+                remaining = deadline - elapsed
+                if remaining <= 0:
+                    break
+                msg = pubsub.get_message(
+                    timeout=min(remaining, _POLL_INTERVAL),
+                    ignore_subscribe_messages=True,
+                )
                 if msg and msg["type"] == "message":
                     return RPCResponse.model_validate_json(msg["data"])
-                deadline -= 1.0
 
             logger.warning(
                 "RPC 调用超时",
                 action=action,
                 request_id=request_id,
+                elapsed=time.monotonic() - t0,
                 event_type="rpc.bridge_timeout",
             )
             return RPCResponse(
@@ -83,6 +123,10 @@ class RPCBridge:
         finally:
             pubsub.unsubscribe(resp_channel)
             pubsub.close()
+
+    def close(self) -> None:
+        """关闭底层 Redis 连接池。测试隔离或进程退出时调用。"""
+        self._redis.close()
 
 
 # ── 模块级 lazy singleton（Celery Worker 进程内复用 Redis 连接）──
@@ -99,3 +143,14 @@ def get_rpc_bridge() -> RPCBridge:
     if _bridge is None:
         _bridge = RPCBridge()
     return _bridge
+
+
+def reset_rpc_bridge() -> None:
+    """重置全局 RPCBridge 单例并关闭 Redis 连接。
+
+    主要供测试使用，确保用例间连接隔离。
+    """
+    global _bridge
+    if _bridge is not None:
+        _bridge.close()
+        _bridge = None

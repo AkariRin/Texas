@@ -33,6 +33,26 @@ api_call_errors = Counter("texas_api_call_errors_total", "OneBot API call failur
 # ── 处理器指标 ──
 handlers_registered = Gauge("texas_handlers_registered", "Number of registered handler methods")
 
+# ── RPC 指标 ──
+rpc_calls_total = Counter(
+    "texas_rpc_calls_total",
+    "RPC calls initiated by Worker via bridge",
+    ["action", "success"],
+)
+rpc_call_duration_seconds = Histogram(
+    "texas_rpc_call_duration_seconds",
+    "End-to-end RPC call duration as measured by the bridge (seconds)",
+)
+rpc_handler_exec_seconds = Histogram(
+    "texas_rpc_handler_exec_seconds",
+    "RPC handler execution duration on the consumer side (seconds)",
+    ["action"],
+)
+rpc_inflight = Gauge("texas_rpc_inflight", "Number of in-flight RPC handler tasks")
+rpc_registered_handlers = Gauge(
+    "texas_rpc_registered_handlers", "Number of registered RPC action handlers"
+)
+
 # ── 系统指标 ──
 uptime_seconds = Gauge("texas_uptime_seconds", "Process uptime in seconds")
 
