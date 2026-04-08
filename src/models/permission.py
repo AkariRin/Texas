@@ -88,7 +88,7 @@ class Feature(Base):
 class GroupFeaturePermission(Base):
     """群聊功能权限表 —— 记录特定群对特定功能的启用/禁用状态。"""
 
-    __tablename__ = "group_feature_permissions"
+    __tablename__ = "permission_group"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID, primary_key=True, default=uuid.uuid4)
 
@@ -116,7 +116,7 @@ class GroupFeaturePermission(Base):
 class PrivateFeaturePermission(Base):
     """私聊功能用户权限表 —— 记录用户在私聊中对某功能的黑/白名单成员。"""
 
-    __tablename__ = "private_feature_permissions"
+    __tablename__ = "permission_private"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID, primary_key=True, default=uuid.uuid4)
 
