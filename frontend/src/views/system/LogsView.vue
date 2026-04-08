@@ -83,7 +83,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
-import PageLayout from '@/components/PageLayout.vue'
+import PageLayout from '@/layouts/PageLayout.vue'
 
 interface LogEntry {
   timestamp: string

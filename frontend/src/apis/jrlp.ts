@@ -10,9 +10,11 @@ import type { ApiResponse, PaginatedResult } from './types'
 export interface WifeRecord {
   id: number
   group_id: number
+  group_name: string
   user_id: number
+  user_nickname: string
   wife_qq: number
-  wife_name: string
+  wife_nickname: string
   date: string
   drawn_at: string | null
 }
@@ -25,18 +27,16 @@ export interface ListRecordsParams {
   page_size?: number
 }
 
-export interface CreatePresetRequest {
+export interface SetWifeRequest {
   group_id: number
   user_id: number
   wife_qq: number
-  wife_name: string
   date: string
 }
 
 export interface UpdateRecordRequest {
   id: number
   wife_qq: number
-  wife_name: string
 }
 
 export interface DeleteRecordRequest {
@@ -61,7 +61,7 @@ export async function listRecords(params: ListRecordsParams): Promise<PaginatedR
   return data.data
 }
 
-export async function createPreset(body: CreatePresetRequest): Promise<WifeRecord> {
+export async function setWife(body: SetWifeRequest): Promise<WifeRecord> {
   const { data } = await http.post<ApiResponse<WifeRecord>>(`${BASE}/records/create`, body)
   return data.data
 }

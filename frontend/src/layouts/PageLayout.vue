@@ -1,7 +1,7 @@
 <template>
-  <v-container v-bind="$attrs" class="page-layout">
+  <v-container v-bind="$attrs" fluid class="page-layout">
     <v-row justify="center">
-      <v-col cols="12" lg="11">
+      <v-col cols="10">
         <div class="mb-6">
           <v-breadcrumbs v-if="route.meta.group" :items="breadcrumbItems" class="pa-0 mb-2">
             <template #divider>
@@ -38,10 +38,13 @@ defineOptions({ inheritAttrs: false })
 
 const route = useRoute()
 
-const breadcrumbItems = computed(() => [
-  { title: route.meta.group ?? '', disabled: true },
-  { title: route.meta.title ?? '', disabled: true },
-])
+const breadcrumbItems = computed(() => {
+  const items: { title: string; disabled: boolean }[] = []
+  if (route.meta.group) items.push({ title: route.meta.group, disabled: true })
+  if (route.meta.section) items.push({ title: route.meta.section, disabled: true })
+  items.push({ title: route.meta.title ?? '', disabled: true })
+  return items
+})
 </script>
 
 <style scoped></style>

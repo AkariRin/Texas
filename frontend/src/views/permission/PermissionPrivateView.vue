@@ -179,7 +179,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { usePermissionStore } from '@/stores/permission'
-import PageLayout from '@/components/PageLayout.vue'
+import PageLayout from '@/layouts/PageLayout.vue'
 import type { FeatureItem } from '@/apis/permission'
 
 const permStore = usePermissionStore()

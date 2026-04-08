@@ -138,7 +138,7 @@
 import { ref, onMounted } from 'vue'
 import * as feedbackApi from '@/apis/feedback'
 import type { Feedback } from '@/apis/feedback'
-import PageLayout from '@/components/PageLayout.vue'
+import PageLayout from '@/layouts/PageLayout.vue'
 import { formatTime } from '@/utils/format'
 import { debounce } from '@/utils/ui'
 import {

@@ -147,7 +147,7 @@
 import { onMounted, onUnmounted, ref, computed } from 'vue'
 import { useQueueStore } from '@/stores/queue'
 import type { TaskCategory, UnifiedTask } from '@/apis/queue'
-import PageLayout from '@/components/PageLayout.vue'
+import PageLayout from '@/layouts/PageLayout.vue'
 import { formatTimestamp } from '@/utils/format'
 
 const store = useQueueStore()

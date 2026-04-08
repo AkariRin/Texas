@@ -1,190 +1,201 @@
 <template>
   <PageLayout>
+    <template #actions>
+      <v-btn
+        color="primary"
+        variant="elevated"
+        prepend-icon="mdi-pencil"
+        @click="openSetWifeDialog"
+      >
+        手动设置老婆
+      </v-btn>
+    </template>
+
     <v-card flat>
-      <!-- Tab 切换 -->
-      <v-tabs v-model="activeTab" color="primary">
-        <v-tab value="logs">抽取日志</v-tab>
-        <v-tab value="presets">预设管理</v-tab>
-      </v-tabs>
+      <!-- 筛选栏 -->
+      <v-card-title class="d-flex align-center flex-wrap ga-2 pt-3">
+        <v-text-field
+          v-model.number="filter.group_id"
+          label="群号"
+          density="compact"
+          variant="solo-filled"
+          hide-details
+          clearable
+          type="number"
+          style="max-width: 160px"
+          @update:model-value="loadRecords(1)"
+        />
+        <v-text-field
+          v-model.number="filter.user_id"
+          label="用户 QQ"
+          density="compact"
+          variant="solo-filled"
+          hide-details
+          clearable
+          type="number"
+          style="max-width: 160px"
+          @update:model-value="loadRecords(1)"
+        />
+        <v-text-field
+          v-model="filter.date"
+          label="日期"
+          density="compact"
+          variant="solo-filled"
+          hide-details
+          clearable
+          type="date"
+          style="max-width: 180px"
+          @update:model-value="loadRecords(1)"
+        />
+      </v-card-title>
 
-      <v-divider />
-
-      <v-window v-model="activeTab">
-        <!-- Tab 1: 抽取日志 -->
-        <v-window-item value="logs">
-          <v-card-title class="d-flex align-center flex-wrap ga-2 pt-3">
-            <v-text-field
-              v-model.number="logsFilter.group_id"
-              label="群号"
-              density="compact"
-              variant="solo-filled"
-              hide-details
-              clearable
-              type="number"
-              style="max-width: 160px"
-              @update:model-value="loadLogs(1)"
-            />
-            <v-text-field
-              v-model.number="logsFilter.user_id"
-              label="用户 QQ"
-              density="compact"
-              variant="solo-filled"
-              hide-details
-              clearable
-              type="number"
-              style="max-width: 160px"
-              @update:model-value="loadLogs(1)"
-            />
-            <v-text-field
-              v-model="logsFilter.date"
-              label="日期"
-              density="compact"
-              variant="solo-filled"
-              hide-details
-              clearable
-              type="date"
-              style="max-width: 180px"
-              @update:model-value="loadLogs(1)"
-            />
-          </v-card-title>
-
-          <v-skeleton-loader v-if="logsLoading && !logItems.length" type="table" class="pa-2" />
-          <v-data-table
-            v-else
-            :headers="logHeaders"
-            :items="logItems"
-            :items-length="logsTotal"
-            :loading="logsLoading"
-            :page="logsPage"
-            :items-per-page="logsPageSize"
-            :items-per-page-options="[10, 20, 50]"
-            hover
-            @update:page="loadLogs"
-            @update:items-per-page="
-              (v: number) => {
-                logsPageSize = v
-                loadLogs(1)
-              }
-            "
+      <v-skeleton-loader v-if="loading && !items.length" type="table" class="pa-2" />
+      <v-data-table
+        v-else
+        :headers="headers"
+        :items="items"
+        :items-length="total"
+        :loading="loading"
+        :page="page"
+        :items-per-page="pageSize"
+        :items-per-page-options="[10, 20, 50]"
+        hover
+        @update:page="loadRecords"
+        @update:items-per-page="
+          (v: number) => {
+            pageSize = v
+            loadRecords(1)
+          }
+        "
+      >
+        <!-- 群聊列 -->
+        <template #[`item.group_id`]="{ item }">
+          <div
+            class="d-flex align-center ga-2 cursor-pointer"
+            @click="openGroupInfo(item.group_id)"
           >
-            <!-- 老婆列 -->
-            <template #[`item.wife_qq`]="{ item }">
-              <div class="d-flex align-center ga-2">
-                <v-avatar size="24">
-                  <v-img :src="`https://q1.qlogo.cn/g?b=qq&nk=${item.wife_qq}&s=40`" />
-                </v-avatar>
-                <span class="text-caption">{{ item.wife_name }}（{{ item.wife_qq }}）</span>
-              </div>
-            </template>
-            <!-- 抽取时间列 -->
-            <template #[`item.drawn_at`]="{ item }">
-              <v-chip :color="item.drawn_at ? 'success' : 'warning'" size="small" variant="tonal">
-                {{ item.drawn_at ? formatTime(item.drawn_at) : '预设中' }}
-              </v-chip>
-            </template>
-          </v-data-table>
-        </v-window-item>
+            <v-avatar size="24">
+              <v-img :src="`https://p.qlogo.cn/gh/${item.group_id}/${item.group_id}/40`">
+                <template #error>
+                  <v-icon size="20">mdi-account-group</v-icon>
+                </template>
+              </v-img>
+            </v-avatar>
+            <span class="text-caption">{{ item.group_name }}（{{ item.group_id }}）</span>
+          </div>
+        </template>
 
-        <!-- Tab 2: 预设管理 -->
-        <v-window-item value="presets">
-          <v-card-title class="d-flex align-center pt-3">
-            <v-spacer />
-            <v-btn color="primary" prepend-icon="mdi-plus" @click="openCreateDialog">
-              新增预设
-            </v-btn>
-          </v-card-title>
-
-          <v-skeleton-loader
-            v-if="presetsLoading && !presetItems.length"
-            type="table"
-            class="pa-2"
-          />
-          <v-data-table
-            v-else
-            :headers="presetHeaders"
-            :items="presetItems"
-            :items-length="presetsTotal"
-            :loading="presetsLoading"
-            :page="presetsPage"
-            :items-per-page="presetsPageSize"
-            :items-per-page-options="[10, 20, 50]"
-            hover
-            @update:page="loadPresets"
-            @update:items-per-page="
-              (v: number) => {
-                presetsPageSize = v
-                loadPresets(1)
-              }
-            "
+        <!-- 抽取者列 -->
+        <template #[`item.user_id`]="{ item }">
+          <div
+            class="d-flex align-center ga-2 cursor-pointer"
+            @click="openUserInfo(item.user_id, item.group_id)"
           >
-            <!-- 老婆列 -->
-            <template #[`item.wife_qq`]="{ item }">
-              <div class="d-flex align-center ga-2">
-                <v-avatar size="24">
-                  <v-img :src="`https://q1.qlogo.cn/g?b=qq&nk=${item.wife_qq}&s=40`" />
-                </v-avatar>
-                <span class="text-caption">{{ item.wife_name }}（{{ item.wife_qq }}）</span>
-              </div>
-            </template>
-            <!-- 操作列 -->
-            <template #[`item.actions`]="{ item }">
-              <v-btn icon size="small" variant="text" @click="openEditDialog(item)">
-                <v-icon>mdi-pencil</v-icon>
-                <v-tooltip activator="parent" location="top">修改</v-tooltip>
-              </v-btn>
-              <v-btn icon size="small" variant="text" color="error" @click="confirmDelete(item)">
-                <v-icon>mdi-delete</v-icon>
-                <v-tooltip activator="parent" location="top">删除</v-tooltip>
-              </v-btn>
-            </template>
-          </v-data-table>
-        </v-window-item>
-      </v-window>
+            <v-avatar size="24">
+              <v-img :src="`https://q1.qlogo.cn/g?b=qq&nk=${item.user_id}&s=40`">
+                <template #error>
+                  <v-icon size="20">mdi-account-circle</v-icon>
+                </template>
+              </v-img>
+            </v-avatar>
+            <span class="text-caption">{{ item.user_nickname }}（{{ item.user_id }}）</span>
+          </div>
+        </template>
+
+        <!-- 老婆列 -->
+        <template #[`item.wife_qq`]="{ item }">
+          <div
+            class="d-flex align-center ga-2 cursor-pointer"
+            @click="openUserInfo(item.wife_qq, item.group_id)"
+          >
+            <v-avatar size="24">
+              <v-img :src="`https://q1.qlogo.cn/g?b=qq&nk=${item.wife_qq}&s=40`">
+                <template #error>
+                  <v-icon size="20">mdi-account-circle</v-icon>
+                </template>
+              </v-img>
+            </v-avatar>
+            <span class="text-caption">{{ item.wife_nickname }}（{{ item.wife_qq }}）</span>
+          </div>
+        </template>
+
+        <!-- 抽取时间列 -->
+        <template #[`item.drawn_at`]="{ item }">
+          <v-chip :color="item.drawn_at ? 'success' : 'warning'" size="small" variant="tonal">
+            {{ item.drawn_at ? formatTime(item.drawn_at) : '预设中' }}
+          </v-chip>
+        </template>
+
+        <!-- 操作列 -->
+        <template #[`item.actions`]="{ item }">
+          <v-btn icon size="small" variant="text" @click="openEditDialog(item)">
+            <v-icon>mdi-pencil</v-icon>
+            <v-tooltip activator="parent" location="top">修改老婆</v-tooltip>
+          </v-btn>
+          <v-btn icon size="small" variant="text" color="error" @click="confirmDelete(item)">
+            <v-icon>mdi-delete</v-icon>
+            <v-tooltip activator="parent" location="top">删除记录</v-tooltip>
+          </v-btn>
+        </template>
+      </v-data-table>
     </v-card>
 
-    <!-- 新增/编辑弹窗 -->
-    <v-dialog v-model="formDialog" max-width="480" persistent>
+    <!-- 手动设置老婆弹窗 -->
+    <v-dialog v-model="setWifeDialog" max-width="480" persistent>
       <v-card>
-        <v-card-title>{{ isEditing ? '修改老婆' : '新增预设' }}</v-card-title>
+        <v-card-title>手动设置老婆</v-card-title>
         <v-card-text>
-          <v-form ref="formRef">
-            <template v-if="!isEditing">
-              <v-text-field
-                v-model.number="formData.group_id"
-                label="群号"
-                type="number"
-                :rules="[required]"
-                class="mb-2"
-              />
-              <v-text-field
-                v-model.number="formData.user_id"
-                label="抽取者 QQ"
-                type="number"
-                :rules="[required]"
-                class="mb-2"
-              />
-              <v-text-field
-                v-model="formData.date"
-                label="日期"
-                type="date"
-                :rules="[required]"
-                class="mb-2"
-              />
-            </template>
+          <v-form ref="setWifeFormRef">
             <v-text-field
-              v-model.number="formData.wife_qq"
+              v-model.number="setWifeData.group_id"
+              label="群号"
+              type="number"
+              :rules="[required]"
+              class="mb-2"
+            />
+            <v-text-field
+              v-model.number="setWifeData.user_id"
+              label="抽取者 QQ"
+              type="number"
+              :rules="[required]"
+              class="mb-2"
+            />
+            <v-text-field
+              v-model.number="setWifeData.wife_qq"
               label="老婆 QQ"
               type="number"
               :rules="[required]"
               class="mb-2"
             />
-            <v-text-field v-model="formData.wife_name" label="老婆昵称" :rules="[required]" />
+            <v-text-field v-model="setWifeData.date" label="日期" type="date" :rules="[required]" />
           </v-form>
         </v-card-text>
         <v-card-actions>
           <v-spacer />
-          <v-btn variant="text" @click="formDialog = false">取消</v-btn>
-          <v-btn color="primary" :loading="formLoading" @click="submitForm">确定</v-btn>
+          <v-btn variant="text" @click="setWifeDialog = false">取消</v-btn>
+          <v-btn color="primary" :loading="setWifeLoading" @click="submitSetWife">确定</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <!-- 编辑老婆弹窗 -->
+    <v-dialog v-model="editDialog" max-width="400" persistent>
+      <v-card>
+        <v-card-title>修改老婆</v-card-title>
+        <v-card-text>
+          <v-form ref="editFormRef">
+            <v-text-field
+              v-model.number="editData.wife_qq"
+              label="新老婆 QQ"
+              type="number"
+              :rules="[required]"
+            />
+          </v-form>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn variant="text" @click="editDialog = false">取消</v-btn>
+          <v-btn color="primary" :loading="editLoading" @click="submitEdit">确定</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -194,7 +205,8 @@
       <v-card>
         <v-card-title>确认删除</v-card-title>
         <v-card-text>
-          确定删除 {{ deleteTarget?.user_id }} 在群 {{ deleteTarget?.group_id }} 的预设老婆吗？
+          确定删除用户 {{ deleteTarget?.user_id }} 在群 {{ deleteTarget?.group_id }}
+          {{ deleteTarget?.date }} 的老婆记录吗？
         </v-card-text>
         <v-card-actions>
           <v-spacer />
@@ -203,6 +215,12 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
+
+    <!-- 用户信息弹窗 -->
+    <UserInfoCard v-model="userInfoDialog" :qq="userInfoQq" :group-id="userInfoGroupId" />
+
+    <!-- 群聊信息弹窗 -->
+    <GroupInfoCard v-model="groupInfoDialog" :group-id="groupInfoId" @open-user="openUserInfo" />
   </PageLayout>
 </template>
 
@@ -211,141 +229,111 @@ import { onMounted, ref } from 'vue'
 
 import * as jrlpApi from '@/apis/jrlp'
 import type { WifeRecord } from '@/apis/jrlp'
-import PageLayout from '@/components/PageLayout.vue'
+import PageLayout from '@/layouts/PageLayout.vue'
+import GroupInfoCard from '@/components/GroupInfoCard.vue'
+import UserInfoCard from '@/components/UserInfoCard.vue'
 import { formatTime } from '@/utils/format'
 
-// ── 当前激活 Tab ──
-const activeTab = ref<'logs' | 'presets'>('logs')
-
-// ── 抽取日志 ──
-const logsPage = ref(1)
-const logsPageSize = ref(20)
-const logsLoading = ref(false)
-const logItems = ref<WifeRecord[]>([])
-const logsTotal = ref(0)
-const logsFilter = ref<{ group_id: number | null; user_id: number | null; date: string | null }>({
+// ── 记录列表 ──
+const page = ref(1)
+const pageSize = ref(20)
+const loading = ref(false)
+const items = ref<WifeRecord[]>([])
+const total = ref(0)
+const filter = ref<{ group_id: number | null; user_id: number | null; date: string | null }>({
   group_id: null,
   user_id: null,
   date: null,
 })
 
-const logHeaders = [
-  { title: '群号', key: 'group_id', sortable: false },
-  { title: '抽取者 QQ', key: 'user_id', sortable: false },
+const headers = [
+  { title: '群聊', key: 'group_id', sortable: false },
+  { title: '抽取者', key: 'user_id', sortable: false },
   { title: '老婆', key: 'wife_qq', sortable: false },
   { title: '日期', key: 'date', sortable: false },
-  { title: '抽取时间', key: 'drawn_at', sortable: false },
-]
-
-async function loadLogs(page = logsPage.value) {
-  logsLoading.value = true
-  logsPage.value = page
-  try {
-    const result = await jrlpApi.listRecords({
-      group_id: logsFilter.value.group_id ?? undefined,
-      user_id: logsFilter.value.user_id ?? undefined,
-      date: logsFilter.value.date ?? undefined,
-      page,
-      page_size: logsPageSize.value,
-    })
-    logItems.value = result.items
-    logsTotal.value = result.total
-  } finally {
-    logsLoading.value = false
-  }
-}
-
-// ── 预设管理 ──
-const presetsPage = ref(1)
-const presetsPageSize = ref(20)
-const presetsLoading = ref(false)
-const presetItems = ref<WifeRecord[]>([])
-const presetsTotal = ref(0)
-
-const presetHeaders = [
-  { title: '群号', key: 'group_id', sortable: false },
-  { title: '抽取者 QQ', key: 'user_id', sortable: false },
-  { title: '老婆', key: 'wife_qq', sortable: false },
-  { title: '日期', key: 'date', sortable: false },
+  { title: '状态', key: 'drawn_at', sortable: false },
   { title: '操作', key: 'actions', sortable: false },
 ]
 
-async function loadPresets(page = presetsPage.value) {
-  presetsLoading.value = true
-  presetsPage.value = page
+async function loadRecords(p = page.value) {
+  loading.value = true
+  page.value = p
   try {
-    // 预设 = drawn_at 为 null；后端暂无此过滤参数，前端过滤已有数据
     const result = await jrlpApi.listRecords({
-      page,
-      page_size: presetsPageSize.value,
+      group_id: filter.value.group_id ?? undefined,
+      user_id: filter.value.user_id ?? undefined,
+      date: filter.value.date ?? undefined,
+      page: p,
+      page_size: pageSize.value,
     })
-    presetItems.value = result.items.filter((r) => r.drawn_at === null)
-    presetsTotal.value = presetItems.value.length
+    items.value = result.items
+    total.value = result.total
   } finally {
-    presetsLoading.value = false
+    loading.value = false
   }
 }
 
-// ── 表单弹窗 ──
-const formDialog = ref(false)
-const formLoading = ref(false)
-const isEditing = ref(false)
-const editingId = ref<number | null>(null)
-const formRef = ref<{ validate: () => Promise<{ valid: boolean }> } | null>(null)
-const formData = ref({
+// ── 公共表单校验 ──
+const required = (v: unknown) => !!v || '此字段为必填'
+
+// ── 手动设置老婆 ──
+const setWifeDialog = ref(false)
+const setWifeLoading = ref(false)
+const setWifeFormRef = ref<{ validate: () => Promise<{ valid: boolean }> } | null>(null)
+const setWifeData = ref({
   group_id: null as number | null,
   user_id: null as number | null,
   wife_qq: null as number | null,
-  wife_name: '',
   date: '',
 })
 
-const required = (v: unknown) => !!v || '此字段为必填'
-
-function openCreateDialog() {
-  isEditing.value = false
-  editingId.value = null
-  formData.value = { group_id: null, user_id: null, wife_qq: null, wife_name: '', date: '' }
-  formDialog.value = true
+function openSetWifeDialog() {
+  setWifeData.value = { group_id: null, user_id: null, wife_qq: null, date: '' }
+  setWifeDialog.value = true
 }
+
+async function submitSetWife() {
+  const valid = await setWifeFormRef.value?.validate()
+  if (!valid?.valid) return
+  setWifeLoading.value = true
+  try {
+    await jrlpApi.setWife({
+      group_id: setWifeData.value.group_id!,
+      user_id: setWifeData.value.user_id!,
+      wife_qq: setWifeData.value.wife_qq!,
+      date: setWifeData.value.date,
+    })
+    setWifeDialog.value = false
+    await loadRecords(1)
+  } finally {
+    setWifeLoading.value = false
+  }
+}
+
+// ── 编辑老婆 ──
+const editDialog = ref(false)
+const editLoading = ref(false)
+const editingId = ref<number | null>(null)
+const editFormRef = ref<{ validate: () => Promise<{ valid: boolean }> } | null>(null)
+const editData = ref({ wife_qq: null as number | null })
 
 function openEditDialog(item: WifeRecord) {
-  isEditing.value = true
   editingId.value = item.id
-  formData.value = {
-    group_id: item.group_id,
-    user_id: item.user_id,
-    wife_qq: item.wife_qq,
-    wife_name: item.wife_name,
-    date: item.date,
-  }
-  formDialog.value = true
+  editData.value = { wife_qq: item.wife_qq }
+  editDialog.value = true
 }
 
-async function submitForm() {
-  const valid = await formRef.value?.validate()
+async function submitEdit() {
+  const valid = await editFormRef.value?.validate()
   if (!valid?.valid) return
-  formLoading.value = true
+  if (editingId.value == null) return
+  editLoading.value = true
   try {
-    if (isEditing.value && editingId.value != null) {
-      await jrlpApi.updateRecord({
-        id: editingId.value,
-        wife_qq: formData.value.wife_qq!,
-        wife_name: formData.value.wife_name,
-      })
-    } else {
-      await jrlpApi.createPreset({
-        group_id: formData.value.group_id!,
-        user_id: formData.value.user_id!,
-        wife_qq: formData.value.wife_qq!,
-        wife_name: formData.value.wife_name,
-        date: formData.value.date,
-      })
-    }
-    formDialog.value = false
-    await loadPresets(1)
+    await jrlpApi.updateRecord({ id: editingId.value, wife_qq: editData.value.wife_qq! })
+    editDialog.value = false
+    await loadRecords()
   } finally {
-    formLoading.value = false
+    editLoading.value = false
   }
 }
 
@@ -365,14 +353,33 @@ async function doDelete() {
   try {
     await jrlpApi.deleteRecord({ id: deleteTarget.value.id })
     deleteDialog.value = false
-    await loadPresets(1)
+    await loadRecords()
   } finally {
     deleteLoading.value = false
   }
 }
 
+// ── 用户信息弹窗 ──
+const userInfoDialog = ref(false)
+const userInfoQq = ref<number | null>(null)
+const userInfoGroupId = ref<number | null>(null)
+
+function openUserInfo(qq: number, groupId: number) {
+  userInfoQq.value = qq
+  userInfoGroupId.value = groupId
+  userInfoDialog.value = true
+}
+
+// ── 群聊信息弹窗 ──
+const groupInfoDialog = ref(false)
+const groupInfoId = ref<number | null>(null)
+
+function openGroupInfo(groupId: number) {
+  groupInfoId.value = groupId
+  groupInfoDialog.value = true
+}
+
 onMounted(() => {
-  loadLogs()
-  loadPresets()
+  loadRecords()
 })
 </script>

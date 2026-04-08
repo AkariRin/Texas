@@ -161,7 +161,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { usePermissionStore } from '@/stores/permission'
 import type { PermissionMatrixGroup } from '@/apis/permission'
-import PageLayout from '@/components/PageLayout.vue'
+import PageLayout from '@/layouts/PageLayout.vue'
 
 const permStore = usePermissionStore()
 

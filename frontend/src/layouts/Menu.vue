@@ -46,10 +46,13 @@
 
           <!-- 分组内页面卡片网格 -->
           <template v-else>
-            <div class="l2-title">{{ activeGroup }}</div>
-            <div class="l2-card-grid">
+            <!-- 无 section 时显示 group 名称大标题；有 section 时由 section 标题代替 -->
+            <div v-if="!sectionedRoutes.size" class="l2-title">{{ activePanelTitle }}</div>
+
+            <!-- 无 section 的路由：直接渲染卡片（兼容扁平分组） -->
+            <div v-if="unsectionedRoutes.length" class="l2-card-grid">
               <div
-                v-for="r in activeGroupRoutes"
+                v-for="r in unsectionedRoutes"
                 :key="String(r.name)"
                 class="l2-card"
                 :class="{ 'l2-card--active': route.name === r.name }"
@@ -62,6 +65,26 @@
                 <div v-if="r.meta.subtitle" class="l2-card__subtitle">{{ r.meta.subtitle }}</div>
               </div>
             </div>
+
+            <!-- 有 section 的路由：section 名称复用 l2-title 样式，无 divider -->
+            <template v-for="[section, sectionRoutes] in sectionedRoutes" :key="section">
+              <div class="l2-title">{{ section }}</div>
+              <div class="l2-card-grid">
+                <div
+                  v-for="r in sectionRoutes"
+                  :key="String(r.name)"
+                  class="l2-card"
+                  :class="{ 'l2-card--active': route.name === r.name }"
+                  @click="navigateTo(r.path)"
+                >
+                  <div class="l2-card__header">
+                    <v-icon size="16" class="l2-card__icon">{{ r.meta.icon }}</v-icon>
+                    <div class="l2-card__title">{{ r.meta.title }}</div>
+                  </div>
+                  <div v-if="r.meta.subtitle" class="l2-card__subtitle">{{ r.meta.subtitle }}</div>
+                </div>
+              </div>
+            </template>
           </template>
         </div>
       </div>
@@ -70,9 +93,11 @@
 </template>
 
 <script setup lang="ts">
+defineOptions({ name: 'AppMenu' })
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import type { RouteRecordNormalized } from 'vue-router'
+import { menuPanelTitles } from '@/router'
 
 const props = defineProps<{ open: boolean }>()
 const emit = defineEmits<{ close: [] }>()
@@ -105,10 +130,33 @@ const groupedRoutes = computed(() => {
 /** 当前激活的 L1 分组名 */
 const activeGroup = ref<string | null>(null)
 
-/** 激活分组下的路由，在 L2 展示为卡片 */
+/** 激活分组下的全部路由 */
 const activeGroupRoutes = computed(() =>
   activeGroup.value ? (groupedRoutes.value.get(activeGroup.value) ?? []) : [],
 )
+
+/** 激活分组的右区面板标题（优先取 menuPanelTitles，回退到分组名） */
+const activePanelTitle = computed(() =>
+  activeGroup.value ? (menuPanelTitles[activeGroup.value] ?? activeGroup.value) : '',
+)
+
+/** 激活分组下无 section 的路由（直接展示，兼容扁平分组） */
+const unsectionedRoutes = computed(() => activeGroupRoutes.value.filter((r) => !r.meta.section))
+
+/**
+ * 激活分组下按 section 聚合的路由映射。
+ * 保持路由定义顺序（Map 插入顺序 = 迭代顺序）。
+ */
+const sectionedRoutes = computed(() => {
+  const map = new Map<string, RouteRecordNormalized[]>()
+  for (const r of activeGroupRoutes.value) {
+    const s = r.meta.section
+    if (!s) continue
+    if (!map.has(s)) map.set(s, [])
+    map.get(s)!.push(r)
+  }
+  return map
+})
 
 /** 菜单打开时自动定位到当前路由所属分组 */
 watch(

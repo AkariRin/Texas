@@ -120,7 +120,7 @@
 import { ref, onMounted } from 'vue'
 import { usePersonnelStore } from '@/stores/personnel'
 import SyncDialog from './SyncDialog.vue'
-import PageLayout from '@/components/PageLayout.vue'
+import PageLayout from '@/layouts/PageLayout.vue'
 import UserInfoCard from '@/components/UserInfoCard.vue'
 import GroupInfoCard from '@/components/GroupInfoCard.vue'
 import { formatTime } from '@/utils/format'

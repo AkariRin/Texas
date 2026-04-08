@@ -218,7 +218,7 @@
 import { ref, computed, watch, onMounted } from 'vue'
 import { useLLMStore } from '@/stores/llm'
 import type { ModelItem } from '@/apis/llm'
-import PageLayout from '@/components/PageLayout.vue'
+import PageLayout from '@/layouts/PageLayout.vue'
 
 const store = useLLMStore()
 

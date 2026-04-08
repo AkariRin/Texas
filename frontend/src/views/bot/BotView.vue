@@ -163,7 +163,7 @@
 
 <script setup lang="ts">
 import { reactive, computed, onMounted } from 'vue'
-import PageLayout from '@/components/PageLayout.vue'
+import PageLayout from '@/layouts/PageLayout.vue'
 import { useBotStore } from '@/stores/bot'
 
 const botStore = useBotStore()

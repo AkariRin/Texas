@@ -5,11 +5,14 @@ declare module 'vue-router' {
     title?: string
     icon?: string
     subtitle?: string
-    group?: string
-    parentPage?: string // 子路由归属的父页面 route.name；group 在子路由中复用为 L2 分节标题
+    group?: string // L1 分组 key，左列显示
+    section?: string // L2 分组标题，同一 group 下的子分类（纯文本 section header）
     hideInMenu?: boolean // 设为 true 则不出现在大菜单导航中
   }
 }
+
+/** L1 分组 → 右区面板自定义标题（未配置则回退到分组名本身） */
+export const menuPanelTitles: Record<string, string> = {}
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -25,6 +28,28 @@ const router = createRouter({
       },
     },
     {
+      path: '/feedback',
+      name: 'feedback',
+      component: () => import('@/views/feedback/FeedbackView.vue'),
+      meta: {
+        title: '用户反馈',
+        icon: 'mdi-message-alert',
+        subtitle: '管理用户反馈和建议',
+        group: '功能模块',
+      },
+    },
+    {
+      path: '/jrlp',
+      name: 'jrlp',
+      component: () => import('@/views/jrlp/JrlpView.vue'),
+      meta: {
+        title: '今日老婆',
+        icon: 'mdi-heart',
+        subtitle: '管理群老婆抽取记录',
+        group: '功能模块',
+      },
+    },
+    {
       path: '/personnel',
       redirect: '/personnel/users',
     },
@@ -37,6 +62,7 @@ const router = createRouter({
         icon: 'mdi-account-group',
         subtitle: '管理和查看机器人用户信息',
         group: '用户与群组',
+        section: '人员管理',
       },
     },
     {
@@ -48,6 +74,7 @@ const router = createRouter({
         icon: 'mdi-forum',
         subtitle: '管理和查看机器人加入的群聊',
         group: '用户与群组',
+        section: '人员管理',
       },
     },
     {
@@ -59,6 +86,35 @@ const router = createRouter({
         icon: 'mdi-shield-crown',
         subtitle: '管理机器人超级管理员权限',
         group: '用户与群组',
+        section: '人员管理',
+      },
+    },
+    {
+      path: '/permissions',
+      redirect: '/permissions/groups',
+    },
+    {
+      path: '/permissions/groups',
+      name: 'permissions-groups',
+      component: () => import('@/views/permission/PermissionGroupsView.vue'),
+      meta: {
+        title: '群聊权限',
+        icon: 'mdi-shield-check',
+        subtitle: '管理各群对功能的启用/禁用状态',
+        group: '用户与群组',
+        section: '权限管理',
+      },
+    },
+    {
+      path: '/permissions/private',
+      name: 'permissions-private',
+      component: () => import('@/views/permission/PermissionPrivateView.vue'),
+      meta: {
+        title: '私聊权限',
+        icon: 'mdi-account-lock',
+        subtitle: '管理私聊功能的黑名单/白名单用户',
+        group: '用户与群组',
+        section: '权限管理',
       },
     },
     {
@@ -144,54 +200,6 @@ const router = createRouter({
         icon: 'mdi-cog',
         subtitle: 'Texas 机器人管理面板设置',
         group: '系统',
-      },
-    },
-    {
-      path: '/permissions',
-      redirect: '/permissions/groups',
-    },
-    {
-      path: '/permissions/groups',
-      name: 'permissions-groups',
-      component: () => import('@/views/permission/PermissionGroupsView.vue'),
-      meta: {
-        title: '群聊权限',
-        icon: 'mdi-shield-check',
-        subtitle: '管理各群对功能的启用/禁用状态',
-        group: '权限管理',
-      },
-    },
-    {
-      path: '/permissions/private',
-      name: 'permissions-private',
-      component: () => import('@/views/permission/PermissionPrivateView.vue'),
-      meta: {
-        title: '私聊权限',
-        icon: 'mdi-account-lock',
-        subtitle: '管理私聊功能的黑名单/白名单用户',
-        group: '权限管理',
-      },
-    },
-    {
-      path: '/feedback',
-      name: 'feedback',
-      component: () => import('@/views/feedback/FeedbackView.vue'),
-      meta: {
-        title: '用户反馈',
-        icon: 'mdi-message-alert',
-        subtitle: '管理用户反馈和建议',
-        group: '系统管理',
-      },
-    },
-    {
-      path: '/jrlp',
-      name: 'jrlp',
-      component: () => import('@/views/jrlp/JrlpView.vue'),
-      meta: {
-        title: '今日老婆',
-        icon: 'mdi-heart',
-        subtitle: '管理群老婆预设与抽取日志',
-        group: '系统管理',
       },
     },
     {

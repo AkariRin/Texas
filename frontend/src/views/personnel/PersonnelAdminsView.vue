@@ -146,7 +146,7 @@
 import { ref, onMounted } from 'vue'
 import { usePersonnelStore } from '@/stores/personnel'
 import type { UserItem } from '@/apis/personnel'
-import PageLayout from '@/components/PageLayout.vue'
+import PageLayout from '@/layouts/PageLayout.vue'
 import UserInfoCard from '@/components/UserInfoCard.vue'
 
 const store = usePersonnelStore()

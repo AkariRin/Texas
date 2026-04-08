@@ -220,7 +220,7 @@
 import { ref, onMounted } from 'vue'
 import { useChatStore } from '@/stores/chat'
 import type { ArchiveLog } from '@/apis/chat'
-import PageLayout from '@/components/PageLayout.vue'
+import PageLayout from '@/layouts/PageLayout.vue'
 import { formatTime, formatBytes, formatNumber } from '@/utils/format'
 
 const store = useChatStore()
