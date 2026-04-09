@@ -13,6 +13,7 @@ jobs:
     if: >
       github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.repository.full_name == github.repository &&
       startsWith(github.event.workflow_run.head_branch, 'v') &&
       contains(github.event.workflow_run.head_branch, '.')
     permissions:
@@ -63,6 +64,7 @@ jobs:
     if: >
       github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.repository.full_name == github.repository &&
       startsWith(github.event.workflow_run.head_branch, 'v') &&
       contains(github.event.workflow_run.head_branch, '.')
     permissions:
@@ -77,12 +79,21 @@ jobs:
         uses: azure/setup-helm@v5
 
       - name: Log into GHCR
-        run: echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io -u ${{ github.actor }} --password-stdin
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GHCR_USER: ${{ github.actor }}
+        run: echo "${GHCR_TOKEN}" | helm registry login ghcr.io -u "${GHCR_USER}" --password-stdin
 
       - name: Update Helm chart version
+        env:
+          HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
         run: |
-          VERSION="${{ github.event.workflow_run.head_branch }}"
-          VERSION="${VERSION#v}"
+          # 严格校验分支名只含合法 semver 字符，防止注入
+          if [[ ! "${HEAD_BRANCH}" =~ ^v?[0-9]+\.[0-9]+(\.[0-9]+)?(-[a-zA-Z0-9._-]+)?(\+[a-zA-Z0-9._-]+)?$ ]]; then
+            echo "::error::非法的版本号格式: ${HEAD_BRANCH}"
+            exit 1
+          fi
+          VERSION="${HEAD_BRANCH#v}"
           sed -i "s/^version:.*/version: ${VERSION}/" helm/texas/Chart.yaml
           sed -i "s/^appVersion:.*/appVersion: \"${VERSION}\"/" helm/texas/Chart.yaml
 

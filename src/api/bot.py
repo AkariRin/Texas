@@ -136,6 +136,6 @@ async def update_bot_profile(
             return fail(f"修改失败：{resp.message or '未知错误'}")
     except Exception as exc:
         logger.warning("修改 Bot 资料失败", error=str(exc), event_type="bot.update_profile_error")
-        return fail(f"修改失败：{exc!s}")
+        return fail("修改失败，请稍后重试")
 
     return ok({})

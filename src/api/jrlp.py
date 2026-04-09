@@ -79,7 +79,8 @@ async def create_preset(
             record_date=body.date,
         )
     except ValueError as exc:
-        return fail(str(exc))
+        logger.warning("创建老婆预设失败", error=str(exc), event_type="jrlp.create_preset_error")
+        return fail("设置失败，请检查参数或记录是否已存在")
     return ok(_record_to_dict(record), message="设置成功")
 
 

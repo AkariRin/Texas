@@ -111,7 +111,13 @@ async def test_provider(
         result = await service.test_provider(pid)
         return ok(result)
     except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+        logger.warning(
+            "测试提供商失败",
+            error=str(exc),
+            provider_id=provider_id,
+            event_type="llm.test_provider_error",
+        )
+        raise HTTPException(status_code=404, detail="提供商不存在") from exc
 
 
 # ══════════════════════════════════════════════

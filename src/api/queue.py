@@ -213,7 +213,7 @@ async def get_active_tasks() -> dict[str, Any]:
         return ok(active)
     except Exception as exc:
         logger.warning("获取活跃任务失败", error=str(exc), event_type="queue.inspect_error")
-        return fail(f"无法连接 Worker: {exc}", data=[])
+        return fail("无法连接 Worker", data=[])
 
 
 @router.get("/reserved-tasks")
@@ -225,7 +225,7 @@ async def get_reserved_tasks() -> dict[str, Any]:
         return ok(reserved)
     except Exception as exc:
         logger.warning("获取预留任务失败", error=str(exc), event_type="queue.inspect_error")
-        return fail(f"无法连接 Worker: {exc}", data=[])
+        return fail("无法连接 Worker", data=[])
 
 
 @router.get("/workers")
@@ -237,7 +237,7 @@ async def get_workers() -> dict[str, Any]:
         return ok(workers)
     except Exception as exc:
         logger.warning("获取 Worker 信息失败", error=str(exc), event_type="queue.inspect_error")
-        return fail(f"无法连接 Worker: {exc}", data=[])
+        return fail("无法连接 Worker", data=[])
 
 
 @router.get("/queue-length")
@@ -249,7 +249,7 @@ async def get_queue_length() -> dict[str, Any]:
         return ok(data)
     except Exception as exc:
         logger.warning("获取队列长度失败", error=str(exc), event_type="queue.broker_error")
-        return fail(str(exc), data={"queue": "celery", "length": None})
+        return fail("无法获取队列长度", data={"queue": "celery", "length": None})
 
 
 @router.get("/pending-tasks")
@@ -261,7 +261,7 @@ async def get_pending_tasks() -> dict[str, Any]:
         return ok(result)
     except Exception as exc:
         logger.warning("获取等待任务失败", error=str(exc), event_type="queue.broker_error")
-        return fail(f"无法读取队列: {exc}", data=[])
+        return fail("无法读取队列", data=[])
 
 
 # ── SSE 实时推送 ──

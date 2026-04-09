@@ -31,5 +31,4 @@ updates:
       day: "monday"
     labels:
       - "dependencies"
-      - "ci"
     open-pull-requests-limit: 5
