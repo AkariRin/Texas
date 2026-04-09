@@ -72,7 +72,7 @@
         <v-divider></v-divider>
         <div class="pa-3">
           <div class="text-caption font-weight-bold mb-1">Segments (JSON)</div>
-          <pre class="text-caption detail-json pa-2 rounded bg-grey-lighten-4">{{
+          <pre class="text-caption detail-json overflow-x-auto pa-2 rounded bg-grey-lighten-4">{{
             JSON.stringify(message?.segments, null, 2)
           }}</pre>
         </div>
@@ -103,7 +103,6 @@ function formatMessageType(type: number | undefined): string {
 
 <style scoped>
 .detail-json {
-  overflow-x: auto;
   max-height: 300px;
   font-family: monospace;
   white-space: pre;

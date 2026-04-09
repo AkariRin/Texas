@@ -31,7 +31,7 @@
         v-if="!msg.segments || msg.segments.length === 0"
         elevation="2"
         rounded="lg"
-        class="message-body"
+        class="message-body text-left"
         color="red-lighten-5"
         variant="elevated"
       >
@@ -46,7 +46,7 @@
         v-else
         elevation="2"
         rounded="lg"
-        class="message-body"
+        class="message-body text-left"
         :color="isSelf ? 'blue-lighten-4' : undefined"
       >
         <div class="d-flex align-center flex-wrap ga-2 py-2 px-3">
@@ -104,7 +104,6 @@ function formatMsgTime(iso: string | null): string {
 
 <style scoped>
 .message-body {
-  text-align: left;
   max-width: 100%;
 }
 

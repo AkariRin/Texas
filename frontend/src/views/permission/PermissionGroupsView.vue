@@ -43,6 +43,11 @@
         </v-toolbar>
       </template>
 
+      <!-- 群名称列 -->
+      <template #item.group_name="{ item }">
+        {{ personnelStore.getGroupName(item.group_id) }}
+      </template>
+
       <!-- Bot 总开关列 -->
       <template #item.bot_enabled="{ item }">
         <v-switch
@@ -158,12 +163,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { usePermissionStore } from '@/stores/permission'
+import { usePersonnelStore } from '@/stores/personnel'
 import type { PermissionMatrixGroup } from '@/apis/permission'
 import PageLayout from '@/layouts/PageLayout.vue'
 
 const permStore = usePermissionStore()
+const personnelStore = usePersonnelStore()
 
 const groupSearch = ref('')
 const expandedRows = ref<string[]>([])
@@ -171,23 +178,36 @@ const expandedRows = ref<string[]>([])
 // 所有 controller 级功能（含 children）
 const ctrlFeatures = computed(() => permStore.matrix?.features ?? [])
 
-// 过滤群组（v-data-table 内置搜索，额外支持群号精确匹配）
+// 过滤群组（支持群名和群号搜索）
 const filteredGroups = computed(() => {
   const groups = permStore.matrix?.groups ?? []
   if (!groupSearch.value) return groups
   const q = groupSearch.value.toLowerCase()
   return groups.filter(
-    (g) => g.group_name.toLowerCase().includes(q) || String(g.group_id).includes(q),
+    (g) =>
+      personnelStore.getGroupName(g.group_id).toLowerCase().includes(q) ||
+      String(g.group_id).includes(q),
   )
 })
 
 const headers = [
-  { title: '群名称', key: 'group_name', sortable: true },
+  { title: '群名称', key: 'group_name', sortable: false },
   { title: '群号', key: 'group_id', sortable: true },
   { title: 'Bot 开关', key: 'bot_enabled', sortable: false, width: '110px' },
   { title: '已启用功能', key: 'feature_count', sortable: false, width: '130px' },
   { title: '', key: 'data-table-expand', width: '48px' },
 ]
+
+// 矩阵加载完成后预取所有群 ID
+watch(
+  () => permStore.matrix,
+  (matrix) => {
+    if (!matrix) return
+    const groupIds = matrix.groups.map((g) => g.group_id)
+    personnelStore.prefetchIds([], groupIds)
+  },
+  { immediate: true },
+)
 
 async function onToggle(groupId: number, featureName: string, enabled: boolean) {
   await permStore.saveGroupFeatures(groupId, [{ feature_name: featureName, enabled }])

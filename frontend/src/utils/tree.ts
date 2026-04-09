@@ -12,14 +12,12 @@ export function updateFeatureInTree(
   features: FeatureItem[],
   name: string,
   enabled?: boolean,
-  privateMode?: string,
 ): void {
   for (const f of features) {
     if (f.name === name) {
       if (enabled !== undefined) f.enabled = enabled
-      if (privateMode !== undefined) f.private_mode = privateMode as 'blacklist' | 'whitelist'
     }
-    if (f.children?.length) updateFeatureInTree(f.children, name, enabled, privateMode)
+    if (f.children?.length) updateFeatureInTree(f.children, name, enabled)
   }
 }
 

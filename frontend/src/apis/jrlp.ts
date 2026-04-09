@@ -10,11 +10,8 @@ import type { ApiResponse, PaginatedResult } from './types'
 export interface WifeRecord {
   id: number
   group_id: number
-  group_name: string
   user_id: number
-  user_nickname: string
   wife_qq: number
-  wife_nickname: string
   date: string
   drawn_at: string | null
 }

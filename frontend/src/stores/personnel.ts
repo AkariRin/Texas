@@ -2,7 +2,7 @@
  * 用户管理 Pinia Store —— 管理用户数据状态。
  */
 
-import { ref } from 'vue'
+import { ref, shallowRef, triggerRef } from 'vue'
 import { defineStore } from 'pinia'
 import * as api from '@/apis/personnel'
 import type {
@@ -12,6 +12,8 @@ import type {
   GroupMemberItem,
   SyncStatus,
   PaginatedResult,
+  ResolvedUser,
+  ResolvedGroup,
 } from '@/apis/personnel'
 
 export const usePersonnelStore = defineStore('personnel', () => {
@@ -149,11 +151,100 @@ export const usePersonnelStore = defineStore('personnel', () => {
     syncLoading.value = true
     try {
       await api.triggerSync()
+      // 同步后清空解析缓存，确保名称数据与最新同步结果一致
+      clearCache()
       // 延迟后刷新状态，静默失败（主流程已完成，状态轮询会反映真实结果）
       setTimeout(() => loadSyncStatus().catch(() => {}), 2000)
     } finally {
       syncLoading.value = false
     }
+  }
+
+  // ── ID 解析缓存 ──
+
+  // shallowRef 包裹 Map，修改后手动 triggerRef 触发响应式更新
+  const userCache = shallowRef(new Map<number, ResolvedUser>())
+  const groupCache = shallowRef(new Map<number, ResolvedGroup>())
+
+  // 待解析的 ID 集合（非响应式，仅用于批量合并）
+  const pendingUserIds = new Set<number>()
+  const pendingGroupIds = new Set<number>()
+  let flushScheduled = false
+
+  async function _flushPending() {
+    flushScheduled = false
+    const userIds = [...pendingUserIds].filter((id) => !userCache.value.has(id))
+    const groupIds = [...pendingGroupIds].filter((id) => !groupCache.value.has(id))
+    pendingUserIds.clear()
+    pendingGroupIds.clear()
+
+    if (!userIds.length && !groupIds.length) return
+
+    try {
+      const result = await api.resolvePersonnel(userIds, groupIds)
+      for (const [k, v] of Object.entries(result.users)) {
+        userCache.value.set(Number(k), v)
+      }
+      for (const [k, v] of Object.entries(result.groups)) {
+        groupCache.value.set(Number(k), v)
+      }
+      // 统一触发响应式更新
+      triggerRef(userCache)
+      triggerRef(groupCache)
+    } catch {
+      // 静默失败，下次访问时重新尝试
+    }
+  }
+
+  function _scheduleFlush() {
+    if (flushScheduled) return
+    flushScheduled = true
+    queueMicrotask(() => _flushPending())
+  }
+
+  /**
+   * 同步获取用户昵称；缓存未命中时返回 QQ 号字符串，并自动调度批量解析。
+   */
+  function getUserName(qq: number): string {
+    const cached = userCache.value.get(qq)
+    if (cached) return cached.nickname
+    pendingUserIds.add(qq)
+    _scheduleFlush()
+    return String(qq)
+  }
+
+  /**
+   * 同步获取群名称；缓存未命中时返回群号字符串，并自动调度批量解析。
+   */
+  function getGroupName(groupId: number): string {
+    const cached = groupCache.value.get(groupId)
+    if (cached) return cached.group_name
+    pendingGroupIds.add(groupId)
+    _scheduleFlush()
+    return String(groupId)
+  }
+
+  /**
+   * 主动预取一批 ID，在数据加载完成后立即调用以减少渲染闪烁。
+   */
+  function prefetchIds(userIds: number[], groupIds: number[]) {
+    userIds.forEach((id) => {
+      if (!userCache.value.has(id)) pendingUserIds.add(id)
+    })
+    groupIds.forEach((id) => {
+      if (!groupCache.value.has(id)) pendingGroupIds.add(id)
+    })
+    _scheduleFlush()
+  }
+
+  /**
+   * 清空解析缓存（在数据同步完成后调用）。
+   */
+  function clearCache() {
+    userCache.value.clear()
+    groupCache.value.clear()
+    triggerRef(userCache)
+    triggerRef(groupCache)
   }
 
   // ── 超级管理员 ──
@@ -214,5 +305,10 @@ export const usePersonnelStore = defineStore('personnel', () => {
     loadAdmins,
     setAdmin,
     unsetAdmin,
+    // ID 解析缓存
+    getUserName,
+    getGroupName,
+    prefetchIds,
+    clearCache,
   }
 })

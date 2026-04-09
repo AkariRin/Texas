@@ -258,9 +258,3 @@ watch(
   { immediate: false },
 )
 </script>
-
-<style scoped>
-.cursor-pointer {
-  cursor: pointer;
-}
-</style>

@@ -1,5 +1,5 @@
 <template>
-  <div class="group-selector d-flex flex-column" style="height: 100%">
+  <div class="group-selector d-flex flex-column h-100">
     <!-- 搜索栏 -->
     <div class="pa-2">
       <v-text-field
@@ -31,7 +31,7 @@
     <v-list
       density="compact"
       nav
-      class="flex-grow-1 overflow-y-auto selector-list"
+      class="flex-grow-1 overflow-y-auto selector-list pt-1 pb-0"
       style="min-height: 0"
     >
       <template v-if="tab === 'groups'">
@@ -133,10 +133,5 @@ const filteredUsers = computed(() => {
 
 .group-selector :deep(.v-tabs .v-window) {
   display: none;
-}
-
-.selector-list {
-  padding-top: 4px !important;
-  padding-bottom: 0 !important;
 }
 </style>

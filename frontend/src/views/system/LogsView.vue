@@ -1,5 +1,5 @@
 <template>
-  <PageLayout class="logs-container d-flex flex-column overflow-hidden">
+  <PageLayout class="logs-container pa-4 d-flex flex-column overflow-hidden">
     <template #actions>
       <div class="d-flex align-center ga-2">
         <v-chip :color="connected ? 'success' : 'error'" variant="elevated" size="small">
@@ -45,8 +45,11 @@
       </div>
     </template>
 
-    <v-card class="log-card flex-grow-1 d-flex flex-column overflow-hidden" variant="elevated">
-      <div class="log-search-bar px-3 pt-2 pb-1">
+    <v-card
+      class="log-card rounded-lg flex-grow-1 d-flex flex-column overflow-hidden"
+      variant="elevated"
+    >
+      <div class="log-search-bar flex-shrink-0 px-3 pt-2 pb-1">
         <v-text-field
           v-model="searchQuery"
           density="compact"
@@ -69,12 +72,14 @@
           class="log-line d-flex ga-3"
           :class="`log-level-${entry.level.toLowerCase()}`"
         >
-          <span class="log-time">{{ formatTime(entry.timestamp) }}</span>
-          <span class="log-level" :class="`level-${entry.level.toLowerCase()}`">{{
-            padLevel(entry.level)
-          }}</span>
-          <span class="log-logger">{{ entry.logger }}</span>
-          <span class="log-message">{{ entry.message }}</span>
+          <span class="log-time flex-shrink-0">{{ formatTime(entry.timestamp) }}</span>
+          <span
+            class="log-level flex-shrink-0 font-weight-medium"
+            :class="`level-${entry.level.toLowerCase()}`"
+            >{{ padLevel(entry.level) }}</span
+          >
+          <span class="log-logger flex-shrink-0 text-truncate">{{ entry.logger }}</span>
+          <span class="log-message flex-grow-1">{{ entry.message }}</span>
         </div>
       </div>
     </v-card>
@@ -212,18 +217,15 @@ onUnmounted(() => {
 <style scoped>
 .logs-container {
   height: calc(100vh - 64px);
-  padding: 16px !important;
 }
 
 .log-card {
   min-height: 0;
   background: #0d1117 !important;
   border: 1px solid rgba(var(--v-theme-on-surface), 0.08);
-  border-radius: 8px;
 }
 
 .log-search-bar {
-  flex-shrink: 0;
   border-bottom: 1px solid rgba(var(--v-theme-on-surface), 0.08);
 }
 
@@ -271,12 +273,9 @@ onUnmounted(() => {
 
 .log-time {
   color: #6e7681;
-  flex-shrink: 0;
 }
 
 .log-level {
-  flex-shrink: 0;
-  font-weight: 600;
   min-width: 60px;
 }
 
@@ -302,15 +301,11 @@ onUnmounted(() => {
 
 .log-logger {
   color: #7ee787;
-  flex-shrink: 0;
   max-width: 200px;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .log-message {
   color: #c9d1d9;
-  flex: 1;
 }
 
 /* 行悬停高亮 */

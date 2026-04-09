@@ -100,7 +100,9 @@
             <v-avatar size="24">
               <v-img :src="`https://q1.qlogo.cn/g?b=qq&nk=${item.user_id}&s=40`" />
             </v-avatar>
-            <span class="text-caption">{{ item.user_id }}</span>
+            <span class="text-caption">
+              {{ personnelStore.getUserName(item.user_id) }}（{{ item.user_id }}）
+            </span>
           </div>
         </template>
 
@@ -152,6 +154,9 @@ import {
 } from '@/utils/feedback'
 import FeedbackDetailDrawer from './FeedbackDetailDrawer.vue'
 import FeedbackExportDialog from './FeedbackExportDialog.vue'
+import { usePersonnelStore } from '@/stores/personnel'
+
+const personnelStore = usePersonnelStore()
 
 const page = ref(1)
 const pageSize = ref(20)
@@ -196,6 +201,12 @@ async function loadPage(p: number) {
     })
     items.value = result.items
     total.value = result.total
+    // 预取用户和群昵称，减少渲染闪烁
+    const userIds = [...new Set(result.items.map((f) => f.user_id))]
+    const groupIds = [
+      ...new Set(result.items.map((f) => f.group_id).filter((id): id is number => id != null)),
+    ]
+    personnelStore.prefetchIds(userIds, groupIds)
   } catch {
     items.value = []
     total.value = 0

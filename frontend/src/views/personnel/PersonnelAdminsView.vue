@@ -37,17 +37,11 @@
             class="admin-card"
           >
             <div class="d-flex align-center pa-4">
-              <v-avatar
-                size="48"
-                class="mr-4"
-                style="cursor: pointer"
-                @click="openAdminDetail(admin.qq)"
-              >
+              <v-avatar size="48" class="mr-4 cursor-pointer" @click="openAdminDetail(admin.qq)">
                 <v-img :src="`https://q1.qlogo.cn/g?b=qq&nk=${admin.qq}&s=100`" />
               </v-avatar>
               <div
-                class="flex-grow-1 overflow-hidden"
-                style="cursor: pointer"
+                class="flex-grow-1 overflow-hidden cursor-pointer"
                 @click="openAdminDetail(admin.qq)"
               >
                 <div class="text-subtitle-1 font-weight-bold text-truncate">

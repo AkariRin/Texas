@@ -1,8 +1,8 @@
 <template>
   <v-container fluid class="pa-0" style="height: calc(100vh - 64px)">
-    <v-row no-gutters style="height: 100%">
+    <v-row no-gutters class="h-100">
       <!-- 左侧：群/私聊选择器 -->
-      <v-col cols="3" style="height: 100%; border-right: 1px solid rgba(0, 0, 0, 0.12)">
+      <v-col cols="3" class="h-100" style="border-right: 1px solid rgba(0, 0, 0, 0.12)">
         <SessionSelector
           :active-type="currentSession?.type ?? null"
           :active-id="currentSession?.id ?? null"
@@ -13,7 +13,7 @@
       </v-col>
 
       <!-- 右侧：消息区域 -->
-      <v-col cols="9" class="d-flex flex-column" style="height: 100%">
+      <v-col cols="9" class="d-flex flex-column h-100">
         <!-- 未选择会话 -->
         <div
           v-if="!currentSession"

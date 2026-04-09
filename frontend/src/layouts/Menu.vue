@@ -7,81 +7,101 @@
 
     <!-- 面板滑入 -->
     <Transition name="panel">
-      <div v-if="open" class="mega-menu-panel">
-        <!-- L1 左列：无分组直接项 + 分组名列表 -->
-        <div class="mega-menu-l1">
-          <!-- 顶层无分组页面（仪表盘）：点击直接导航 -->
+      <div v-if="open" class="mega-menu-panel d-flex">
+        <!-- 左列：无分组直接项 + 面板名列表 -->
+        <div class="panel-nav">
+          <!-- 顶层无面板页面（仪表盘）：点击直接导航 -->
           <div
-            v-for="r in ungroupedRoutes"
+            v-for="r in unpanelRoutes"
             :key="String(r.name)"
-            class="l1-item l1-item--direct"
-            :class="{ 'l1-item--active': route.name === r.name }"
+            class="panel-nav__item panel-nav__item--direct d-flex align-center ga-2"
+            :class="{ 'panel-nav__item--active': route.name === r.name }"
             @click="navigateTo(r.path)"
           >
-            <v-icon size="16" class="l1-item__icon">{{ r.meta.icon }}</v-icon>
-            <span class="l1-item__label">{{ r.meta.title }}</span>
+            <v-icon size="16" class="panel-nav__item-icon flex-shrink-0">{{ r.meta.icon }}</v-icon>
+            <span class="panel-nav__item-label">{{ r.meta.title }}</span>
           </div>
 
-          <!-- 分组名列表（L1 = 分组） -->
+          <!-- 面板名列表 -->
           <div
-            v-for="[group] in groupedRoutes"
-            :key="group"
-            class="l1-item"
-            :class="{ 'l1-item--active': activeGroup === group }"
-            @mouseenter="onGroupMouseEnter(group)"
-            @mouseleave="onGroupMouseLeave"
-            @click="onGroupClick(group)"
+            v-for="[panel] in panelRoutes"
+            :key="panel"
+            class="panel-nav__item d-flex align-center ga-2"
+            :class="{ 'panel-nav__item--active': activePanel === panel }"
+            @mouseenter="onPanelMouseEnter(panel)"
+            @mouseleave="onPanelMouseLeave"
+            @click="onPanelClick(panel)"
           >
-            <span class="l1-item__label">{{ group }}</span>
-            <v-icon size="14" class="l1-item__arrow">mdi-chevron-right</v-icon>
+            <span class="panel-nav__item-label">{{ panel }}</span>
+            <v-icon size="14" class="panel-nav__item-arrow ml-auto flex-shrink-0"
+              >mdi-chevron-right</v-icon
+            >
           </div>
         </div>
 
-        <!-- L2 右区：选中分组下的页面卡片 -->
-        <div class="mega-menu-l2">
-          <!-- 未选中任何分组时 -->
-          <div v-if="!activeGroup" class="l2-empty">
+        <!-- 右区：选中面板下的页面卡片 -->
+        <div class="panel-content flex-grow-1 overflow-y-auto">
+          <!-- 未选中任何面板时 -->
+          <div
+            v-if="!activePanel"
+            class="panel-content__empty d-flex align-center justify-center h-100"
+          >
             <span>← 选择左侧分组</span>
           </div>
 
-          <!-- 分组内页面卡片网格 -->
+          <!-- 面板内页面卡片 -->
           <template v-else>
-            <!-- 无 section 时显示 group 名称大标题；有 section 时由 section 标题代替 -->
-            <div v-if="!sectionedRoutes.size" class="l2-title">{{ activePanelTitle }}</div>
+            <!-- 无 section 时显示面板名称大标题；有 section 时由 section 标题代替 -->
+            <div
+              v-if="!sectionedRoutes.size"
+              class="section-title d-flex align-center font-weight-bold mb-4"
+            >
+              {{ activePanelTitle }}
+            </div>
 
-            <!-- 无 section 的路由：直接渲染卡片（兼容扁平分组） -->
-            <div v-if="unsectionedRoutes.length" class="l2-card-grid">
+            <!-- 无 section 的路由：直接渲染卡片（兼容扁平面板） -->
+            <div v-if="unsectionedRoutes.length" class="section-grid">
               <div
                 v-for="r in unsectionedRoutes"
                 :key="String(r.name)"
-                class="l2-card"
-                :class="{ 'l2-card--active': route.name === r.name }"
+                class="section-card"
+                :class="{ 'section-card--active': route.name === r.name }"
                 @click="navigateTo(r.path)"
               >
-                <div class="l2-card__header">
-                  <v-icon size="16" class="l2-card__icon">{{ r.meta.icon }}</v-icon>
-                  <div class="l2-card__title">{{ r.meta.title }}</div>
+                <div class="section-card__header d-flex align-center ga-2 mb-1">
+                  <v-icon size="16" class="section-card__icon flex-shrink-0">{{
+                    r.meta.icon
+                  }}</v-icon>
+                  <div class="section-card__title">{{ r.meta.title }}</div>
                 </div>
-                <div v-if="r.meta.subtitle" class="l2-card__subtitle">{{ r.meta.subtitle }}</div>
+                <div v-if="r.meta.subtitle" class="section-card__subtitle">
+                  {{ r.meta.subtitle }}
+                </div>
               </div>
             </div>
 
-            <!-- 有 section 的路由：section 名称复用 l2-title 样式，无 divider -->
+            <!-- 有 section 的路由：section 名称作为标题 -->
             <template v-for="[section, sectionRoutes] in sectionedRoutes" :key="section">
-              <div class="l2-title">{{ section }}</div>
-              <div class="l2-card-grid">
+              <div class="section-title d-flex align-center font-weight-bold mb-4">
+                {{ section }}
+              </div>
+              <div class="section-grid">
                 <div
                   v-for="r in sectionRoutes"
                   :key="String(r.name)"
-                  class="l2-card"
-                  :class="{ 'l2-card--active': route.name === r.name }"
+                  class="section-card"
+                  :class="{ 'section-card--active': route.name === r.name }"
                   @click="navigateTo(r.path)"
                 >
-                  <div class="l2-card__header">
-                    <v-icon size="16" class="l2-card__icon">{{ r.meta.icon }}</v-icon>
-                    <div class="l2-card__title">{{ r.meta.title }}</div>
+                  <div class="section-card__header d-flex align-center ga-2 mb-1">
+                    <v-icon size="16" class="section-card__icon flex-shrink-0">{{
+                      r.meta.icon
+                    }}</v-icon>
+                    <div class="section-card__title">{{ r.meta.title }}</div>
                   </div>
-                  <div v-if="r.meta.subtitle" class="l2-card__subtitle">{{ r.meta.subtitle }}</div>
+                  <div v-if="r.meta.subtitle" class="section-card__subtitle">
+                    {{ r.meta.subtitle }}
+                  </div>
                 </div>
               </div>
             </template>
@@ -112,44 +132,44 @@ const navRoutes = computed(() =>
     .filter((r): r is RouteRecordNormalized => !!r.meta.title && !r.redirect && !r.meta.hideInMenu),
 )
 
-/** 无分组的顶层页面（仪表盘等），点击直接导航 */
-const ungroupedRoutes = computed(() => navRoutes.value.filter((r) => !r.meta.group))
+/** 无面板的顶层页面（仪表盘等），点击直接导航 */
+const unpanelRoutes = computed(() => navRoutes.value.filter((r) => !r.meta.panel))
 
-/** 按 group 分组，保持路由定义顺序；L1 展示分组名 */
-const groupedRoutes = computed(() => {
+/** 按 panel 分组，保持路由定义顺序；L1 展示面板名 */
+const panelRoutes = computed(() => {
   const map = new Map<string, RouteRecordNormalized[]>()
   for (const r of navRoutes.value) {
-    const g = r.meta.group
-    if (!g) continue
-    if (!map.has(g)) map.set(g, [])
-    map.get(g)!.push(r)
+    const p = r.meta.panel
+    if (!p) continue
+    if (!map.has(p)) map.set(p, [])
+    map.get(p)!.push(r)
   }
   return map
 })
 
-/** 当前激活的 L1 分组名 */
-const activeGroup = ref<string | null>(null)
+/** 当前激活的 L1 面板名 */
+const activePanel = ref<string | null>(null)
 
-/** 激活分组下的全部路由 */
-const activeGroupRoutes = computed(() =>
-  activeGroup.value ? (groupedRoutes.value.get(activeGroup.value) ?? []) : [],
+/** 激活面板下的全部路由 */
+const activePanelRoutes = computed(() =>
+  activePanel.value ? (panelRoutes.value.get(activePanel.value) ?? []) : [],
 )
 
-/** 激活分组的右区面板标题（优先取 menuPanelTitles，回退到分组名） */
+/** 激活面板的右区标题（优先取 menuPanelTitles，回退到面板名） */
 const activePanelTitle = computed(() =>
-  activeGroup.value ? (menuPanelTitles[activeGroup.value] ?? activeGroup.value) : '',
+  activePanel.value ? (menuPanelTitles[activePanel.value] ?? activePanel.value) : '',
 )
 
-/** 激活分组下无 section 的路由（直接展示，兼容扁平分组） */
-const unsectionedRoutes = computed(() => activeGroupRoutes.value.filter((r) => !r.meta.section))
+/** 激活面板下无 section 的路由（直接展示，兼容扁平面板） */
+const unsectionedRoutes = computed(() => activePanelRoutes.value.filter((r) => !r.meta.section))
 
 /**
- * 激活分组下按 section 聚合的路由映射。
+ * 激活面板下按 section 聚合的路由映射。
  * 保持路由定义顺序（Map 插入顺序 = 迭代顺序）。
  */
 const sectionedRoutes = computed(() => {
   const map = new Map<string, RouteRecordNormalized[]>()
-  for (const r of activeGroupRoutes.value) {
+  for (const r of activePanelRoutes.value) {
     const s = r.meta.section
     if (!s) continue
     if (!map.has(s)) map.set(s, [])
@@ -158,33 +178,33 @@ const sectionedRoutes = computed(() => {
   return map
 })
 
-/** 菜单打开时自动定位到当前路由所属分组 */
+/** 菜单打开时自动定位到当前路由所属面板 */
 watch(
   () => props.open,
   (isOpen) => {
     if (!isOpen) return
     const currentNav = navRoutes.value.find((r) => r.name === route.name)
-    activeGroup.value = (currentNav?.meta.group as string | undefined) ?? null
+    activePanel.value = (currentNav?.meta.panel as string | undefined) ?? null
   },
 )
 
 let hoverTimer: ReturnType<typeof setTimeout> | null = null
 
-function onGroupMouseEnter(group: string): void {
+function onPanelMouseEnter(panel: string): void {
   if (hoverTimer) clearTimeout(hoverTimer)
   hoverTimer = setTimeout(() => {
-    activeGroup.value = group
+    activePanel.value = panel
   }, 200)
 }
 
-function onGroupMouseLeave(): void {
+function onPanelMouseLeave(): void {
   if (hoverTimer) clearTimeout(hoverTimer)
-  // 不重置 activeGroup，防止鼠标滑入 L2 区时内容抖动
+  // 不重置 activePanel，防止鼠标滑入 L2 区时内容抖动
 }
 
-function onGroupClick(group: string): void {
+function onPanelClick(panel: string): void {
   if (hoverTimer) clearTimeout(hoverTimer)
-  activeGroup.value = group
+  activePanel.value = panel
 }
 
 function navigateTo(path: string): void {
@@ -259,16 +279,15 @@ onUnmounted(() => {
   height: calc(100vh - var(--appbar-height, 64px));
   width: 50vw;
   min-width: 480px;
-  display: flex;
   background: rgb(var(--v-theme-surface));
   z-index: 201;
   box-shadow: 4px 0 32px rgba(var(--v-theme-on-surface), 0.15);
 }
 
 /* =====================
-   L1 左列
+   左侧面板导航列
    ===================== */
-.mega-menu-l1 {
+.panel-nav {
   width: 256px;
   flex-shrink: 0;
   border-right: 1px solid rgba(var(--v-theme-on-surface), 0.08);
@@ -276,7 +295,7 @@ onUnmounted(() => {
   background: rgb(var(--v-theme-surface));
 }
 
-.l1-group-header {
+.panel-nav__group-header {
   padding: 12px 16px 4px;
   font-size: 10px;
   font-weight: 700;
@@ -286,10 +305,7 @@ onUnmounted(() => {
   border-top: 1px solid rgba(var(--v-theme-on-surface), 0.06);
 }
 
-.l1-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+.panel-nav__item {
   padding: 10px 16px;
   cursor: pointer;
   border-right: 3px solid transparent;
@@ -298,81 +314,68 @@ onUnmounted(() => {
     border-color 0.15s;
 }
 
-.l1-item__arrow {
-  margin-left: auto;
+.panel-nav__item-arrow {
   opacity: 0.3;
-  flex-shrink: 0;
 }
 
-.l1-item--active .l1-item__arrow {
+.panel-nav__item--active .panel-nav__item-arrow {
   opacity: 0.7;
   color: rgb(var(--v-theme-primary));
 }
 
-.l1-item:hover {
+.panel-nav__item:hover {
   background: rgba(var(--v-theme-primary), 0.06);
 }
 
-.l1-item--active {
+.panel-nav__item--active {
   border-right-color: rgb(var(--v-theme-primary));
   background: rgba(var(--v-theme-primary), 0.08);
 }
 
-.l1-item--active .l1-item__label {
+.panel-nav__item--active .panel-nav__item-label {
   color: rgb(var(--v-theme-primary));
   font-weight: 600;
 }
 
-.l1-item__icon {
+.panel-nav__item-icon {
   opacity: 0.7;
-  flex-shrink: 0;
 }
 
-.l1-item--active .l1-item__icon {
+.panel-nav__item--active .panel-nav__item-icon {
   opacity: 1;
   color: rgb(var(--v-theme-primary));
 }
 
-.l1-item__label {
+.panel-nav__item-label {
   font-size: 13px;
   color: rgb(var(--v-theme-on-surface));
 }
 
-/* 顶层无分组页面与分组内容之间的分隔线 */
-.l1-item--direct {
+/* 顶层无分组页面与面板列表之间的分隔线 */
+.panel-nav__item--direct {
   border-bottom: 1px solid rgba(var(--v-theme-on-surface), 0.06);
   margin-bottom: 4px;
 }
 
 /* =====================
-   L2 右区
+   右侧面板内容区
    ===================== */
-.mega-menu-l2 {
-  flex: 1;
-  overflow-y: auto;
+.panel-content {
   padding: 16px 20px;
   background: rgb(var(--v-theme-surface));
 }
 
-.l2-empty {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
+.panel-content__empty {
   color: rgba(var(--v-theme-on-surface), 0.3);
   font-size: 13px;
 }
 
-.l2-title {
-  display: flex;
-  align-items: center;
+.section-title {
   font-size: 14px;
-  font-weight: 700;
   color: rgb(var(--v-theme-on-surface));
-  margin-bottom: 16px;
 }
 
-.l2-section-header {
+.section-header {
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 1.2px;
@@ -383,14 +386,18 @@ onUnmounted(() => {
   border-bottom: 1px solid rgba(var(--v-theme-on-surface), 0.06);
 }
 
-.l2-card-grid {
+.section-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 8px;
   margin-bottom: 4px;
 }
 
-.l2-card {
+.section-grid + .section-title {
+  margin-top: 20px;
+}
+
+.section-card {
   padding: 12px 14px;
   border-radius: 8px;
   border: 1px solid rgba(var(--v-theme-on-surface), 0.08);
@@ -401,45 +408,37 @@ onUnmounted(() => {
     box-shadow 0.15s;
 }
 
-.l2-card:hover {
+.section-card:hover {
   background: rgba(var(--v-theme-primary), 0.05);
   border-color: rgba(var(--v-theme-primary), 0.2);
   box-shadow: 0 2px 8px rgba(var(--v-theme-primary), 0.1);
 }
 
-.l2-card--active {
+.section-card--active {
   background: rgba(var(--v-theme-primary), 0.08);
   border-color: rgba(var(--v-theme-primary), 0.25);
 }
 
-.l2-card__header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 4px;
-}
-
-.l2-card__icon {
+.section-card__icon {
   opacity: 0.6;
-  flex-shrink: 0;
 }
 
-.l2-card--active .l2-card__icon {
+.section-card--active .section-card__icon {
   opacity: 1;
   color: rgb(var(--v-theme-primary));
 }
 
-.l2-card__title {
+.section-card__title {
   font-size: 12px;
   font-weight: 600;
   color: rgb(var(--v-theme-on-surface));
 }
 
-.l2-card--active .l2-card__title {
+.section-card--active .section-card__title {
   color: rgb(var(--v-theme-primary));
 }
 
-.l2-card__subtitle {
+.section-card__subtitle {
   font-size: 11px;
   color: rgba(var(--v-theme-on-surface), 0.45);
   line-height: 1.4;

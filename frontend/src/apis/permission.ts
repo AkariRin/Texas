@@ -14,7 +14,6 @@ export interface FeatureItem {
   description: string
   default_enabled: boolean
   enabled: boolean
-  private_mode: 'blacklist' | 'whitelist'
   is_active: boolean
   // 内存元数据注解字段（从装饰器同步）
   admin?: boolean
@@ -28,7 +27,6 @@ export interface GroupFeaturePermission {
   feature_name: string
   display_name: string
   enabled: boolean
-  is_explicit: boolean
   parent: string | null
 }
 
@@ -56,7 +54,6 @@ export interface MatrixControllerFeature {
 
 export interface PermissionMatrixGroup {
   group_id: number
-  group_name: string
   bot_enabled: boolean
   permissions: Record<string, boolean>
 }
@@ -68,11 +65,16 @@ export interface PermissionMatrix {
 
 export interface FeatureUpdateData {
   enabled?: boolean
-  private_mode?: 'blacklist' | 'whitelist'
 }
 
 export interface GroupFeatureSetData {
   features: { feature_name: string; enabled: boolean }[]
+}
+
+/** 私聊用户权限记录 */
+export interface PrivatePermission {
+  user_qq: number
+  enabled: boolean
 }
 
 // ── API 调用 ──
@@ -115,17 +117,21 @@ export async function setGroupSwitch(groupId: number, enabled: boolean): Promise
 
 // ── 私聊权限 ──
 
-export async function fetchPrivateUsers(featureName: string): Promise<number[]> {
-  const { data } = await http.get<ApiResponse<number[]>>(
+export async function fetchPrivateUsers(featureName: string): Promise<PrivatePermission[]> {
+  const { data } = await http.get<ApiResponse<PrivatePermission[]>>(
     `${BASE}/features/${encodeURIComponent(featureName)}/private-users`,
   )
   return data.data
 }
 
-export async function addPrivateUser(featureName: string, userQq: number): Promise<void> {
+export async function addPrivateUser(
+  featureName: string,
+  userQq: number,
+  enabled: boolean = true,
+): Promise<void> {
   await http.post<ApiResponse<null>>(
     `${BASE}/features/${encodeURIComponent(featureName)}/private-users`,
-    { user_qq: userQq },
+    { user_qq: userQq, enabled },
   )
 }
 

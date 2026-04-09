@@ -14,7 +14,7 @@ import {
   addPrivateUser,
   removePrivateUser,
 } from '@/apis/permission'
-import type { FeatureItem, PermissionMatrix } from '@/apis/permission'
+import type { FeatureItem, PermissionMatrix, PrivatePermission } from '@/apis/permission'
 import {
   updateFeatureInTree,
   applyGroupFeaturePermissions,
@@ -25,7 +25,7 @@ export const usePermissionStore = defineStore('permission', () => {
   // ── 状态 ──
   const features = ref<FeatureItem[]>([])
   const matrix = ref<PermissionMatrix | null>(null)
-  const privateUsers = ref<Record<string, number[]>>({})
+  const privateUsers = ref<Record<string, PrivatePermission[]>>({})
   const loading = ref(false)
   const error = ref<string | null>(null)
 
@@ -81,13 +81,12 @@ export const usePermissionStore = defineStore('permission', () => {
     }
   }
 
-  async function patchFeature(name: string, enabled?: boolean, privateMode?: string) {
+  async function patchFeature(name: string, enabled?: boolean) {
     const payload: Record<string, unknown> = {}
     if (enabled !== undefined) payload.enabled = enabled
-    if (privateMode !== undefined) payload.private_mode = privateMode
     try {
       await updateFeature(name, payload)
-      updateFeatureInTree(features.value, name, enabled, privateMode)
+      updateFeatureInTree(features.value, name, enabled)
     } catch (e: unknown) {
       error.value = e instanceof Error ? e.message : '更新功能配置失败'
       throw e
@@ -112,14 +111,18 @@ export const usePermissionStore = defineStore('permission', () => {
     privateUsers.value[featureName] = users
   }
 
-  async function addUser(featureName: string, userQq: number) {
+  async function addUser(featureName: string, userQq: number, enabled: boolean = true) {
     try {
-      await addPrivateUser(featureName, userQq)
+      await addPrivateUser(featureName, userQq, enabled)
       if (!privateUsers.value[featureName]) {
         privateUsers.value[featureName] = []
       }
-      if (!privateUsers.value[featureName].includes(userQq)) {
-        privateUsers.value[featureName].push(userQq)
+      const list = privateUsers.value[featureName]!
+      const existing = list.findIndex((p) => p.user_qq === userQq)
+      if (existing >= 0) {
+        list[existing]!.enabled = enabled
+      } else {
+        list.push({ user_qq: userQq, enabled })
       }
     } catch (e: unknown) {
       error.value = e instanceof Error ? e.message : '添加用户失败'
@@ -132,11 +135,27 @@ export const usePermissionStore = defineStore('permission', () => {
       await removePrivateUser(featureName, userQq)
       if (privateUsers.value[featureName]) {
         privateUsers.value[featureName] = privateUsers.value[featureName].filter(
-          (qq) => qq !== userQq,
+          (p) => p.user_qq !== userQq,
         )
       }
     } catch (e: unknown) {
       error.value = e instanceof Error ? e.message : '移除用户失败'
+      throw e
+    }
+  }
+
+  async function togglePrivateUser(featureName: string, userQq: number, enabled: boolean) {
+    try {
+      await addPrivateUser(featureName, userQq, enabled)
+      const list = privateUsers.value[featureName]
+      if (list) {
+        const existing = list.findIndex((p) => p.user_qq === userQq)
+        if (existing >= 0) {
+          list[existing]!.enabled = enabled
+        }
+      }
+    } catch (e: unknown) {
+      error.value = e instanceof Error ? e.message : '更新用户权限失败'
       throw e
     }
   }
@@ -159,5 +178,6 @@ export const usePermissionStore = defineStore('permission', () => {
     loadPrivateUsers,
     addUser,
     removeUser,
+    togglePrivateUser,
   }
 })

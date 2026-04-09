@@ -250,9 +250,3 @@ function onMemberClick(qq: number) {
   if (props.groupId) emit('open-user', qq, props.groupId)
 }
 </script>
-
-<style scoped>
-.cursor-pointer {
-  cursor: pointer;
-}
-</style>

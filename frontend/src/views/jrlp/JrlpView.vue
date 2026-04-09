@@ -81,7 +81,9 @@
                 </template>
               </v-img>
             </v-avatar>
-            <span class="text-caption">{{ item.group_name }}（{{ item.group_id }}）</span>
+            <span class="text-caption"
+              >{{ personnelStore.getGroupName(item.group_id) }}（{{ item.group_id }}）</span
+            >
           </div>
         </template>
 
@@ -98,7 +100,9 @@
                 </template>
               </v-img>
             </v-avatar>
-            <span class="text-caption">{{ item.user_nickname }}（{{ item.user_id }}）</span>
+            <span class="text-caption"
+              >{{ personnelStore.getUserName(item.user_id) }}（{{ item.user_id }}）</span
+            >
           </div>
         </template>
 
@@ -115,7 +119,9 @@
                 </template>
               </v-img>
             </v-avatar>
-            <span class="text-caption">{{ item.wife_nickname }}（{{ item.wife_qq }}）</span>
+            <span class="text-caption"
+              >{{ personnelStore.getUserName(item.wife_qq) }}（{{ item.wife_qq }}）</span
+            >
           </div>
         </template>
 
@@ -233,6 +239,9 @@ import PageLayout from '@/layouts/PageLayout.vue'
 import GroupInfoCard from '@/components/GroupInfoCard.vue'
 import UserInfoCard from '@/components/UserInfoCard.vue'
 import { formatTime } from '@/utils/format'
+import { usePersonnelStore } from '@/stores/personnel'
+
+const personnelStore = usePersonnelStore()
 
 // ── 记录列表 ──
 const page = ref(1)
@@ -268,6 +277,10 @@ async function loadRecords(p = page.value) {
     })
     items.value = result.items
     total.value = result.total
+    // 预取本页所有 ID，减少名称解析闪烁
+    const userIds = [...new Set(result.items.flatMap((r) => [r.user_id, r.wife_qq]))]
+    const groupIds = [...new Set(result.items.map((r) => r.group_id))]
+    personnelStore.prefetchIds(userIds, groupIds)
   } finally {
     loading.value = false
   }

@@ -104,6 +104,13 @@ onUnmounted(() => {
 })
 </script>
 
+<style>
+/* 全局光标工具类 */
+.cursor-pointer {
+  cursor: pointer;
+}
+</style>
+
 <style scoped>
 /* 放大在线状态 dot，去除白色描边 */
 :deep(.status-badge .v-badge__badge) {

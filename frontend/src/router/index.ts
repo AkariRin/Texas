@@ -5,8 +5,8 @@ declare module 'vue-router' {
     title?: string
     icon?: string
     subtitle?: string
-    group?: string // L1 分组 key，左列显示
-    section?: string // L2 分组标题，同一 group 下的子分类（纯文本 section header）
+    panel?: string // L1 面板 key，左列显示
+    section?: string // L2 区块标题，同一 panel 下的子分类（纯文本 section header）
     hideInMenu?: boolean // 设为 true 则不出现在大菜单导航中
   }
 }
@@ -35,7 +35,7 @@ const router = createRouter({
         title: '用户反馈',
         icon: 'mdi-message-alert',
         subtitle: '管理用户反馈和建议',
-        group: '功能模块',
+        panel: '功能模块',
       },
     },
     {
@@ -46,7 +46,7 @@ const router = createRouter({
         title: '今日老婆',
         icon: 'mdi-heart',
         subtitle: '管理群老婆抽取记录',
-        group: '功能模块',
+        panel: '功能模块',
       },
     },
     {
@@ -61,7 +61,7 @@ const router = createRouter({
         title: '用户管理',
         icon: 'mdi-account-group',
         subtitle: '管理和查看机器人用户信息',
-        group: '用户与群组',
+        panel: '用户与聊天',
         section: '人员管理',
       },
     },
@@ -73,7 +73,7 @@ const router = createRouter({
         title: '群聊管理',
         icon: 'mdi-forum',
         subtitle: '管理和查看机器人加入的群聊',
-        group: '用户与群组',
+        panel: '用户与聊天',
         section: '人员管理',
       },
     },
@@ -85,7 +85,7 @@ const router = createRouter({
         title: '超级管理员',
         icon: 'mdi-shield-crown',
         subtitle: '管理机器人超级管理员权限',
-        group: '用户与群组',
+        panel: '用户与聊天',
         section: '人员管理',
       },
     },
@@ -101,7 +101,7 @@ const router = createRouter({
         title: '群聊权限',
         icon: 'mdi-shield-check',
         subtitle: '管理各群对功能的启用/禁用状态',
-        group: '用户与群组',
+        panel: '用户与聊天',
         section: '权限管理',
       },
     },
@@ -113,7 +113,7 @@ const router = createRouter({
         title: '私聊权限',
         icon: 'mdi-account-lock',
         subtitle: '管理私聊功能的黑名单/白名单用户',
-        group: '用户与群组',
+        panel: '用户与聊天',
         section: '权限管理',
       },
     },
@@ -129,7 +129,7 @@ const router = createRouter({
         title: '提供商',
         icon: 'mdi-server-network',
         subtitle: '管理 LLM 服务提供商配置',
-        group: '大模型',
+        panel: '大模型',
       },
     },
     {
@@ -140,7 +140,7 @@ const router = createRouter({
         title: '模型管理',
         icon: 'mdi-brain',
         subtitle: '管理和配置 LLM 模型',
-        group: '大模型',
+        panel: '大模型',
       },
     },
     {
@@ -155,7 +155,8 @@ const router = createRouter({
         title: '消息记录',
         icon: 'mdi-message-text-outline',
         subtitle: '查看群聊和私聊消息记录',
-        group: '聊天记录',
+        panel: '用户与聊天',
+        section: '聊天记录',
       },
     },
     {
@@ -166,7 +167,8 @@ const router = createRouter({
         title: '归档管理',
         icon: 'mdi-archive-outline',
         subtitle: '查看和管理聊天记录归档',
-        group: '聊天记录',
+        panel: '用户与聊天',
+        section: '聊天记录',
       },
     },
     {
@@ -177,7 +179,7 @@ const router = createRouter({
         title: '任务队列',
         icon: 'mdi-tray-full',
         subtitle: '查看定时任务调度与消息队列状态',
-        group: '系统',
+        panel: '系统',
       },
     },
     {
@@ -188,7 +190,7 @@ const router = createRouter({
         title: '应用日志',
         icon: 'mdi-text-box-outline',
         subtitle: '实时日志流',
-        group: '系统',
+        panel: '系统',
       },
     },
     {
@@ -199,7 +201,7 @@ const router = createRouter({
         title: '设置',
         icon: 'mdi-cog',
         subtitle: 'Texas 机器人管理面板设置',
-        group: '系统',
+        panel: '系统',
       },
     },
     {

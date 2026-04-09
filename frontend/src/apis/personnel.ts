@@ -49,6 +49,20 @@ export interface GroupMembershipInfo {
   is_active: boolean
 }
 
+export interface ResolvedUser {
+  nickname: string
+  relation: string
+}
+
+export interface ResolvedGroup {
+  group_name: string
+}
+
+export interface ResolveResult {
+  users: Record<string, ResolvedUser>
+  groups: Record<string, ResolvedGroup>
+}
+
 export interface SyncStatus {
   last_sync_time: string | null
   duration_seconds: number | null
@@ -137,6 +151,17 @@ export async function fetchGroupMembers(
     `${BASE}/groups/${groupId}/members`,
     { params: query },
   )
+  return data.data
+}
+
+export async function resolvePersonnel(
+  userIds: number[],
+  groupIds: number[],
+): Promise<ResolveResult> {
+  const { data } = await http.post<ApiResponse<ResolveResult>>(`${BASE}/resolve`, {
+    user_ids: userIds,
+    group_ids: groupIds,
+  })
   return data.data
 }
 
