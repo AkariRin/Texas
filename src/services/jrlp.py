@@ -111,12 +111,7 @@ class JrlpService:
             total = count_result.scalar_one()
 
             result = await session.execute(
-                stmt.options(
-                    selectinload(WifeRecord.group),
-                    selectinload(WifeRecord.wife),
-                    selectinload(WifeRecord.user),
-                )
-                .order_by(WifeRecord.date.desc(), WifeRecord.id.desc())
+                stmt.order_by(WifeRecord.date.desc(), WifeRecord.id.desc())
                 .offset((page - 1) * page_size)
                 .limit(page_size)
             )
@@ -149,17 +144,8 @@ class JrlpService:
             )
             session.add(record)
             await session.commit()
-            # 提交后重查以加载 wife / user 关系
-            result = await session.execute(
-                select(WifeRecord)
-                .where(WifeRecord.id == record.id)
-                .options(
-                    selectinload(WifeRecord.group),
-                    selectinload(WifeRecord.wife),
-                    selectinload(WifeRecord.user),
-                )
-            )
-            return result.scalar_one()
+            await session.refresh(record)
+            return record
 
     async def update_record(self, record_id: int, *, wife_qq: int) -> WifeRecord | None:
         """修改记录的老婆（预设和已抽取均可修改）。"""
@@ -170,17 +156,8 @@ class JrlpService:
                 return None
             record.wife_qq = wife_qq
             await session.commit()
-            # 重查以加载 group / wife / user 关系
-            result = await session.execute(
-                select(WifeRecord)
-                .where(WifeRecord.id == record_id)
-                .options(
-                    selectinload(WifeRecord.group),
-                    selectinload(WifeRecord.wife),
-                    selectinload(WifeRecord.user),
-                )
-            )
-            return result.scalar_one_or_none()
+            await session.refresh(record)
+            return record
 
     async def delete_record(self, record_id: int) -> bool:
         """删除记录（预设和已抽取均可删除）。

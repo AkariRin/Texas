@@ -25,15 +25,12 @@ router = APIRouter(prefix="/jrlp", tags=["jrlp"])
 
 
 def _record_to_dict(r: Any) -> dict[str, Any]:
-    """将 WifeRecord 转为可序列化字典。"""
+    """将 WifeRecord 转为可序列化字典（只返回 ID，名称由前端通过公共接口解析）。"""
     return {
         "id": r.id,
         "group_id": r.group_id,
-        "group_name": r.group.group_name if r.group else str(r.group_id),
         "user_id": r.user_id,
-        "user_nickname": r.user.nickname if r.user else str(r.user_id),
         "wife_qq": r.wife_qq,
-        "wife_nickname": r.wife.nickname if r.wife else str(r.wife_qq),
         "date": r.date.isoformat(),
         "drawn_at": r.drawn_at.isoformat() if r.drawn_at else None,
     }

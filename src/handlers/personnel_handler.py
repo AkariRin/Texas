@@ -11,6 +11,7 @@ from src.core.framework.decorators import controller, on_notice
 if TYPE_CHECKING:
     from src.core.framework.context import Context
 
+from src.services.permission import FeaturePermissionService
 from src.services.personnel_events import PersonnelEventService
 
 logger = structlog.get_logger()
@@ -75,6 +76,12 @@ class PersonnelEventHandler:
         try:
             event_service = ctx.get_service(PersonnelEventService)
             await event_service.on_group_increase(group_id, user_id)
+
+            # Bot 自身加入新群时，初始化该群的全量权限记录
+            bot_qq: int = getattr(ctx.event, "self_id", 0)
+            if bot_qq and user_id == bot_qq and ctx.has_service(FeaturePermissionService):
+                perm_service = ctx.get_service(FeaturePermissionService)
+                await perm_service.sync_group_permissions(group_id)
         except Exception as exc:
             logger.error(
                 "处理群成员增加事件失败",

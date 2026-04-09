@@ -6,6 +6,7 @@ PersonnelQueryService 负责读操作（列表、详情），两者共享同一 
 
 from __future__ import annotations
 
+import asyncio
 from typing import TYPE_CHECKING, Any
 
 import structlog
@@ -224,6 +225,44 @@ class PersonnelQueryService:
                 "is_active": group.is_active,
                 "last_synced": group.last_synced.isoformat() if group.last_synced else None,
             }
+
+    async def resolve_batch(
+        self,
+        user_ids: list[int],
+        group_ids: list[int],
+    ) -> dict[str, Any]:
+        """批量解析用户和群 ID 到基本展示信息。
+
+        Args:
+            user_ids: 需要解析的 QQ 号列表，最多 200 个。
+            group_ids: 需要解析的群号列表，最多 200 个。
+
+        Returns:
+            ``{"users": {str(qq): {"nickname", "relation"}}, "groups": {str(gid): {"group_name"}}}``
+        """
+
+        async def _query_users() -> dict[str, dict[str, str]]:
+            if not user_ids:
+                return {}
+            async with self._session_factory() as session:
+                rows = await session.execute(
+                    select(User.qq, User.nickname, User.relation).where(User.qq.in_(user_ids))
+                )
+                return {
+                    str(r.qq): {"nickname": r.nickname, "relation": r.relation} for r in rows.all()
+                }
+
+        async def _query_groups() -> dict[str, dict[str, str]]:
+            if not group_ids:
+                return {}
+            async with self._session_factory() as session:
+                rows = await session.execute(
+                    select(Group.group_id, Group.group_name).where(Group.group_id.in_(group_ids))
+                )
+                return {str(r.group_id): {"group_name": r.group_name} for r in rows.all()}
+
+        users, groups = await asyncio.gather(_query_users(), _query_groups())
+        return {"users": users, "groups": groups}
 
     async def list_group_members(
         self,

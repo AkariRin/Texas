@@ -8,6 +8,9 @@ import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
+from src.api.schemas.personnel import (  # noqa: TC001 — FastAPI Body 参数运行时需要
+    ResolveRequest,
+)
 from src.core.dependencies import (
     get_personnel_query_service,
     get_personnel_service,
@@ -160,6 +163,22 @@ async def list_group_members(
     """分页获取群成员列表。"""
     result = await service.list_group_members(
         group_id=group_id, page=page, page_size=page_size, role=role, nickname=nickname, qq=qq
+    )
+    return ok(result)
+
+
+# ── 批量解析 API ──
+
+
+@router.post("/resolve")
+async def resolve_batch(
+    body: ResolveRequest,
+    service: PersonnelQueryService = Depends(get_personnel_query_service),
+) -> dict[str, Any]:
+    """批量解析用户和群 ID 到基本展示信息（昵称、群名等）。"""
+    result = await service.resolve_batch(
+        user_ids=body.user_ids,
+        group_ids=body.group_ids,
     )
     return ok(result)
 
