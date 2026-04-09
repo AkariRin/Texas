@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Any
 import structlog
 
 from src.core.framework.decorators import CONTROLLER_META, FEATURE_META, HANDLER_META
+from src.core.framework.feature_registry import FeatureRegistry, build_registry
 from src.core.framework.mapping import CompositeHandlerMapping, HandlerMethod
 from src.core.framework.session.decorators import SESSION_META
 
@@ -28,7 +29,7 @@ class ComponentScanner:
         self._mapping = mapping
         self._controllers: list[dict[str, Any]] = []
         self._standalone_features: list[dict[str, Any]] = []
-        self._feature_metadata: dict[str, dict[str, Any]] = {}
+        self._feature_registry: FeatureRegistry = FeatureRegistry({})
         self._session_classes: list[tuple[str, type]] = []  # (controller_name, session_cls)
         self._startup_entries: tuple[StartupEntry, ...] = ()
         self._shutdown_entries: tuple[ShutdownEntry, ...] = ()
@@ -45,13 +46,9 @@ class ComponentScanner:
         return list(self._standalone_features)
 
     @property
-    def feature_metadata(self) -> dict[str, dict[str, Any]]:
-        """返回所有功能的内存元数据字典 {feature_name: metadata}。
-
-        scan() 完成后可用，包含 display_name、description、admin、
-        message_scope、mapping_type、tags、children（仅 controller 级）。
-        """
-        return self._feature_metadata
+    def feature_registry(self) -> FeatureRegistry:
+        """返回不可变功能注册表单例，scan() 完成后可用。"""
+        return self._feature_registry
 
     @property
     def session_classes(self) -> list[tuple[str, type]]:
@@ -101,61 +98,8 @@ class ComponentScanner:
         self._cache_key_entries = get_all_cache_keys()
 
     def _build_feature_metadata(self) -> None:
-        """从 controllers 列表构建扁平化内存元数据 map，scan() 后调用。"""
-        metadata: dict[str, dict[str, Any]] = {}
-        for ctrl in self._controllers:
-            ctrl_name: str = ctrl["name"]
-            ctrl_admin: bool = ctrl.get("admin", False)
-            children: list[dict[str, Any]] = []
-
-            for method in ctrl.get("methods", []):
-                method_name = f"{ctrl_name}.{method['method']}"
-                # method 级 admin：None 表示跟随 controller
-                method_admin_raw = method.get("admin")
-                method_admin = ctrl_admin if method_admin_raw is None else method_admin_raw
-
-                child_meta = {
-                    "name": method_name,
-                    "display_name": method.get("display_name") or method["method"],
-                    "description": method.get("description", ""),
-                    "admin": method_admin,
-                    "message_scope": method.get("message_scope", "all"),
-                    "mapping_type": method.get("mapping_type", ""),
-                    "tags": [],
-                    "system": ctrl.get("system", False),
-                }
-                metadata[method_name] = child_meta
-                children.append(child_meta)
-
-            ctrl_meta = {
-                "name": ctrl_name,
-                "display_name": ctrl.get("display_name", ctrl_name),
-                "description": ctrl.get("description", ""),
-                "admin": ctrl_admin,
-                "message_scope": "all",
-                "mapping_type": "",
-                "tags": ctrl.get("tags", []),
-                "children": children,
-                "system": ctrl.get("system", False),
-            }
-            metadata[ctrl_name] = ctrl_meta
-
-        # 处理独立 @feature 功能
-        for feat in self._standalone_features:
-            feat_name: str = feat["name"]
-            metadata[feat_name] = {
-                "name": feat_name,
-                "display_name": feat.get("display_name", feat_name),
-                "description": feat.get("description", ""),
-                "admin": False,
-                "message_scope": "all",
-                "mapping_type": "",
-                "tags": feat.get("tags", []),
-                "children": [],
-                "system": feat.get("system", False),
-            }
-
-        self._feature_metadata = metadata
+        """从扫描结果构建不可变 FeatureRegistry，scan() 后调用。"""
+        self._feature_registry = build_registry(self._controllers, self._standalone_features)
 
     def _scan_package(self, package_name: str) -> None:
         """导入包中所有模块并发现控制器。"""

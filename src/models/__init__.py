@@ -15,7 +15,7 @@ from src.models.enums import FeedbackSource, FeedbackStatus, FeedbackType
 from src.models.feedback import Feedback
 from src.models.jrlp import WifeRecord
 from src.models.llm import LLM, LLMProvider
-from src.models.permission import Feature, GroupFeaturePermission, PrivateFeaturePermission
+from src.models.permission import GroupFeaturePermission, PrivateFeaturePermission
 from src.models.personnel import Group, GroupMembership, User
 
 __all__: list[str] = [
@@ -26,7 +26,6 @@ __all__: list[str] = [
     "LLMProvider",
     "LLM",
     "ChatArchiveLog",
-    "Feature",
     "GroupFeaturePermission",
     "PrivateFeaturePermission",
     "Feedback",

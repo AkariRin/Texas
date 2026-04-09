@@ -9,7 +9,6 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
 from src.core.utils.response import ok
-from src.models.enums import PrivateMode  # noqa: TC001 — Pydantic 运行时需要
 
 if TYPE_CHECKING:
     from src.services.permission import FeaturePermissionService
@@ -32,7 +31,6 @@ def get_permission_service(request: Request) -> FeaturePermissionService:
 
 class FeatureUpdateBody(BaseModel):
     enabled: bool | None = None
-    private_mode: PrivateMode | None = None
 
 
 class FeatureSetItem(BaseModel):
@@ -46,6 +44,7 @@ class GroupFeatureSetBody(BaseModel):
 
 class PrivateUserBody(BaseModel):
     user_qq: int
+    enabled: bool = True
 
 
 class PrivateUserRemoveBody(BaseModel):
@@ -74,12 +73,8 @@ async def update_feature(
     body: FeatureUpdateBody,
     service: FeaturePermissionService = Depends(get_permission_service),
 ) -> dict[str, Any]:
-    """更新功能全局设置（启用状态、私聊模式）。"""
-    result = await service.update_feature(
-        name,
-        enabled=body.enabled,
-        private_mode=body.private_mode,
-    )
+    """更新功能全局启用状态（写入全局哨兵行）。"""
+    result = await service.update_feature(name, enabled=body.enabled)
     if result is None:
         raise HTTPException(status_code=404, detail=f"Feature '{name}' not found")
     return ok(result)
@@ -128,8 +123,8 @@ async def get_private_users(
     name: str,
     service: FeaturePermissionService = Depends(get_permission_service),
 ) -> dict[str, Any]:
-    """获取私聊黑/白名单用户列表。"""
-    users = await service.get_private_users(name)
+    """获取私聊用户权限列表（含 enabled 状态）。"""
+    users = await service.get_private_permissions(name)
     return ok(users)
 
 
@@ -139,8 +134,8 @@ async def add_private_user(
     body: PrivateUserBody,
     service: FeaturePermissionService = Depends(get_permission_service),
 ) -> dict[str, Any]:
-    """添加用户到黑/白名单。"""
-    await service.add_private_user(name, body.user_qq)
+    """设置用户私聊权限（upsert）。"""
+    await service.set_private_permission(name, body.user_qq, body.enabled)
     return ok(None, message="ok")
 
 
@@ -150,7 +145,7 @@ async def remove_private_user(
     body: PrivateUserRemoveBody,
     service: FeaturePermissionService = Depends(get_permission_service),
 ) -> dict[str, Any]:
-    """从黑/白名单移除用户。"""
+    """删除用户私聊权限记录（恢复为全局默认）。"""
     await service.remove_private_user(name, body.user_qq)
     return ok(None, message="ok")
 

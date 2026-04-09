@@ -70,13 +70,3 @@ class ArchiveStatus(enum.StrEnum):
     partition_dropped = "partition_dropped"
     completed = "completed"
     failed = "failed"
-
-
-# ── 私聊权限模式 ──
-
-
-class PrivateMode(enum.StrEnum):
-    """私聊功能权限模式枚举（黑名单/白名单）。"""
-
-    blacklist = "blacklist"
-    whitelist = "whitelist"

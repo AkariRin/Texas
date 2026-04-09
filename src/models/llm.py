@@ -45,7 +45,7 @@ class LLMProvider(Base):
 class LLM(Base):
     """LLM 模型表 —— 提供商下的具体模型配置。"""
 
-    __tablename__ = "llms"
+    __tablename__ = "llm_models"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID, primary_key=True, default=uuid.uuid4)
     provider_id: Mapped[uuid.UUID] = mapped_column(
