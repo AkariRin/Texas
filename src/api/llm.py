@@ -210,7 +210,15 @@ async def chat(
             stream=req.stream,
         )
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        logger.warning(
+            "LLM 对话请求参数错误",
+            error=str(exc),
+            model_id=req.model_id,
+            event_type="llm.chat_value_error",
+        )
+        raise HTTPException(
+            status_code=400, detail="请求参数无效，请检查模型 ID 或消息格式"
+        ) from exc
 
     # 非流式：直接返回完整结果
     if not req.stream:
@@ -239,7 +247,13 @@ async def chat(
                     yield f"data: {data}\n\n"
             yield "data: [DONE]\n\n"
         except Exception as exc:
-            error_data = json.dumps({"error": str(exc)}, ensure_ascii=False)
+            logger.error(
+                "LLM 流式响应异常",
+                error=str(exc),
+                model_id=str(mid),
+                event_type="llm.stream_error",
+            )
+            error_data = json.dumps({"error": "流式响应中断，请稍后重试"}, ensure_ascii=False)
             yield f"data: {error_data}\n\n"
 
     return StreamingResponse(

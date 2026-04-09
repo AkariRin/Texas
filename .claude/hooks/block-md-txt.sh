@@ -25,7 +25,7 @@ if not fp.startswith(root + '/'):
 
 rel  = fp[len(root)+1:]
 
-ALLOWED_NAMES = {'README.md','CLAUDE.md','AGENTS.md','CONTRIBUTING.md','CHANGELOG.md','GEMINI.md'}
+ALLOWED_NAMES = {'README.md','CLAUDE.md','AGENTS.md','CONTRIBUTING.md','CHANGELOG.md','GEMINI.md','SECURITY.md'}
 ALLOWED_DIRS  = ('misc/', '.claude/rules/', '.claude/commands/', '.claude/plans/', '.claude/hooks/')
 
 if os.path.basename(rel) in ALLOWED_NAMES:
