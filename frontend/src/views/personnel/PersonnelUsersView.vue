@@ -125,12 +125,10 @@ import UserInfoCard from '@/components/UserInfoCard.vue'
 import GroupInfoCard from '@/components/GroupInfoCard.vue'
 import { formatTime } from '@/utils/format'
 import { relationColor, relationLabel, relationIcon } from '@/utils/personnel'
-import { debounce } from '@/utils/ui'
+import { usePagination } from '@/composables/usePagination'
 
 const store = usePersonnelStore()
 
-const page = ref(1)
-const pageSize = ref(20)
 const filterRelation = ref<string | null>(null)
 const filterQQ = ref<string | null>(null)
 const filterNickname = ref<string | null>(null)
@@ -166,23 +164,15 @@ const headers = [
   { title: '操作', key: 'actions', sortable: false, align: 'center' as const },
 ]
 
-const debouncedLoad = debounce(() => loadPage(1))
-
-function loadPage(p: number) {
-  page.value = p
+const { page, pageSize, loadPage, onPageSizeChange, debouncedLoad } = usePagination((p, size) =>
   store.loadUsers({
     page: p,
-    page_size: pageSize.value,
+    page_size: size,
     relation: filterRelation.value,
     qq: filterQQ.value ? Number(filterQQ.value) : null,
     nickname: filterNickname.value,
-  })
-}
-
-function onPageSizeChange(size: number) {
-  pageSize.value = size
-  loadPage(1)
-}
+  }),
+)
 
 function openDetail(qq: number) {
   detailQQ.value = qq

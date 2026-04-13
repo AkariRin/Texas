@@ -23,7 +23,7 @@
           clearable
           type="number"
           style="max-width: 160px"
-          @update:model-value="loadRecords(1)"
+          @update:model-value="loadPage(1)"
         />
         <v-text-field
           v-model.number="filter.user_id"
@@ -34,7 +34,7 @@
           clearable
           type="number"
           style="max-width: 160px"
-          @update:model-value="loadRecords(1)"
+          @update:model-value="loadPage(1)"
         />
         <v-text-field
           v-model="filter.date"
@@ -45,7 +45,7 @@
           clearable
           type="date"
           style="max-width: 180px"
-          @update:model-value="loadRecords(1)"
+          @update:model-value="loadPage(1)"
         />
       </v-card-title>
 
@@ -60,13 +60,8 @@
         :items-per-page="pageSize"
         :items-per-page-options="[10, 20, 50]"
         hover
-        @update:page="loadRecords"
-        @update:items-per-page="
-          (v: number) => {
-            pageSize = v
-            loadRecords(1)
-          }
-        "
+        @update:page="loadPage"
+        @update:items-per-page="onPageSizeChange"
       >
         <!-- 群聊列 -->
         <template #[`item.group_id`]="{ item }">
@@ -240,12 +235,11 @@ import GroupInfoCard from '@/components/GroupInfoCard.vue'
 import UserInfoCard from '@/components/UserInfoCard.vue'
 import { formatTime } from '@/utils/format'
 import { usePersonnelStore } from '@/stores/personnel'
+import { usePagination } from '@/composables/usePagination'
 
 const personnelStore = usePersonnelStore()
 
 // ── 记录列表 ──
-const page = ref(1)
-const pageSize = ref(20)
 const loading = ref(false)
 const items = ref<WifeRecord[]>([])
 const total = ref(0)
@@ -264,16 +258,15 @@ const headers = [
   { title: '操作', key: 'actions', sortable: false },
 ]
 
-async function loadRecords(p = page.value) {
+async function fetchRecords(p: number, size: number) {
   loading.value = true
-  page.value = p
   try {
     const result = await jrlpApi.listRecords({
       group_id: filter.value.group_id ?? undefined,
       user_id: filter.value.user_id ?? undefined,
       date: filter.value.date ?? undefined,
       page: p,
-      page_size: pageSize.value,
+      page_size: size,
     })
     items.value = result.items
     total.value = result.total
@@ -285,6 +278,8 @@ async function loadRecords(p = page.value) {
     loading.value = false
   }
 }
+
+const { page, pageSize, loadPage, refreshPage, onPageSizeChange } = usePagination(fetchRecords)
 
 // ── 公共表单校验 ──
 const required = (v: unknown) => !!v || '此字段为必填'
@@ -317,7 +312,7 @@ async function submitSetWife() {
       date: setWifeData.value.date,
     })
     setWifeDialog.value = false
-    await loadRecords(1)
+    await loadPage(1)
   } finally {
     setWifeLoading.value = false
   }
@@ -344,7 +339,7 @@ async function submitEdit() {
   try {
     await jrlpApi.updateRecord({ id: editingId.value, wife_qq: editData.value.wife_qq! })
     editDialog.value = false
-    await loadRecords()
+    await refreshPage()
   } finally {
     editLoading.value = false
   }
@@ -366,7 +361,7 @@ async function doDelete() {
   try {
     await jrlpApi.deleteRecord({ id: deleteTarget.value.id })
     deleteDialog.value = false
-    await loadRecords()
+    await refreshPage()
   } finally {
     deleteLoading.value = false
   }
@@ -393,6 +388,6 @@ function openGroupInfo(groupId: number) {
 }
 
 onMounted(() => {
-  loadRecords()
+  loadPage(1)
 })
 </script>

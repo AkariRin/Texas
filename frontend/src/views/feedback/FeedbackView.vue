@@ -142,7 +142,7 @@ import * as feedbackApi from '@/apis/feedback'
 import type { Feedback } from '@/apis/feedback'
 import PageLayout from '@/layouts/PageLayout.vue'
 import { formatTime } from '@/utils/format'
-import { debounce } from '@/utils/ui'
+import { usePagination } from '@/composables/usePagination'
 import {
   statusOptions,
   typeOptions,
@@ -158,8 +158,6 @@ import { usePersonnelStore } from '@/stores/personnel'
 
 const personnelStore = usePersonnelStore()
 
-const page = ref(1)
-const pageSize = ref(20)
 const loading = ref(false)
 const items = ref<Feedback[]>([])
 const total = ref(0)
@@ -185,15 +183,12 @@ const headers = [
   { title: '操作', key: 'actions', sortable: false, align: 'center' as const },
 ]
 
-const debouncedLoad = debounce(() => loadPage(1))
-
-async function loadPage(p: number) {
-  page.value = p
+async function fetchFeedbacks(p: number, size: number) {
   loading.value = true
   try {
     const result = await feedbackApi.list({
       page: p,
-      page_size: pageSize.value,
+      page_size: size,
       status: filterStatus.value,
       feedback_type: filterType.value,
       source: filterSource.value,
@@ -215,10 +210,7 @@ async function loadPage(p: number) {
   }
 }
 
-function onPageSizeChange(size: number) {
-  pageSize.value = size
-  loadPage(1)
-}
+const { page, pageSize, loadPage, onPageSizeChange, debouncedLoad } = usePagination(fetchFeedbacks)
 
 function openDetail(feedback: Feedback) {
   currentFeedback.value = feedback

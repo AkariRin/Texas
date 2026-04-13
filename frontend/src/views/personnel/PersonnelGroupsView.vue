@@ -115,12 +115,10 @@ import GroupInfoCard from '@/components/GroupInfoCard.vue'
 import UserInfoCard from '@/components/UserInfoCard.vue'
 import { formatTime } from '@/utils/format'
 import { activeColor, activeLabel } from '@/utils/personnel'
-import { debounce } from '@/utils/ui'
+import { usePagination } from '@/composables/usePagination'
 
 const store = usePersonnelStore()
 
-const page = ref(1)
-const pageSize = ref(20)
 const filterName = ref<string | null>(null)
 const filterActive = ref<boolean | null>(null)
 
@@ -149,22 +147,14 @@ const headers = [
   { title: '操作', key: 'actions', sortable: false, align: 'center' as const },
 ]
 
-const debouncedLoad = debounce(() => loadPage(1))
-
-function loadPage(p: number) {
-  page.value = p
+const { page, pageSize, loadPage, onPageSizeChange, debouncedLoad } = usePagination((p, size) =>
   store.loadGroups({
     page: p,
-    page_size: pageSize.value,
+    page_size: size,
     group_name: filterName.value,
     is_active: filterActive.value,
-  })
-}
-
-function onPageSizeChange(size: number) {
-  pageSize.value = size
-  loadPage(1)
-}
+  }),
+)
 
 function openMembers(group: GroupItem) {
   selectedGroup.value = group
