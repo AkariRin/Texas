@@ -159,9 +159,10 @@ secret:
   NAPCAT_ACCESS_TOKEN: ""
   DATABASE_URL: "postgresql+asyncpg://texas:texas@texas-postgresql:5432/texas"
   CHAT_DATABASE_URL: "postgresql+asyncpg://texas:texas@texas-postgresql:5432/chat_history"
-  CELERY_BROKER_URL: "redis://texas-redis-master:6379/0"
+  CELERY_BROKER_URL: "redis://texas-redis-master:6379/1"
   CELERY_REDBEAT_URL: "redis://texas-redis-master:6379/2"
-  CACHE_REDIS_URL: "redis://texas-redis-master:6379/1"
+  CACHE_REDIS_URL: "redis://texas-redis-cache-master:6379/0"
+  PERSISTENT_REDIS_URL: "redis://texas-redis-master:6379/0"
   # S3
   S3_ENDPOINT_URL: ""
   S3_ACCESS_KEY_ID: ""
@@ -204,7 +205,7 @@ postgresql:
       enabled: true
       size: 10Gi
 
-# ─── Bitnami Redis 子 chart ───
+# ─── Bitnami Redis 子 chart（持久化实例：会话、RPC、锁、Celery、RedBeat）───
 redis:
   enabled: true
   architecture: standalone
@@ -214,3 +215,16 @@ redis:
     persistence:
       enabled: true
       size: 2Gi
+
+# ─── Bitnami Redis 子 chart（缓存实例：易失缓存，无持久化）───
+redis-cache:
+  enabled: true
+  architecture: standalone
+  auth:
+    enabled: false
+  master:
+    persistence:
+      enabled: false
+    extraArgs:
+      - "--maxmemory-policy"
+      - "allkeys-lru"

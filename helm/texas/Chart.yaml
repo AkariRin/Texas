@@ -22,3 +22,8 @@ dependencies:
     version: "~20.6"
     repository: https://charts.bitnami.com/bitnami
     condition: redis.enabled
+  - name: redis
+    version: "~20.6"
+    repository: https://charts.bitnami.com/bitnami
+    alias: redis-cache
+    condition: redis-cache.enabled

@@ -21,11 +21,32 @@ services:
       - pgdata:/var/lib/postgresql/data
     ports:
       - "5432:5432"
-  redis:
+  redis-cache:
     image: redis:alpine
+    command:
+      - "redis-server"
+      - "--save"
+      - ""
+      - "--appendonly"
+      - "no"
+      - "--maxmemory-policy"
+      - "allkeys-lru"
     ports:
       - "6379:6379"
+  redis-persistent:
+    image: redis:alpine
+    command:
+      - "redis-server"
+      - "--save"
+      - "60 1"
+      - "--appendonly"
+      - "yes"
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis-data:/data
 volumes:
   pgdata:
   napcat-qq:
   napcat-config:
+  redis-data:
