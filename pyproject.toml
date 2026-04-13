@@ -36,7 +36,7 @@ db = "src.core.db.cli:main"
 
 [dependency-groups]
 dev = [
-    "ruff>=0.9",
+    "ruff>=0.15.10",
     "mypy>=1.14",
     "commitizen>=4.13.9",
     "pre-commit>=4.5.1",
