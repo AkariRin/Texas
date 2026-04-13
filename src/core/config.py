@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import sys
 from functools import lru_cache
-from typing import Literal
+from typing import Literal, Self
 
 import structlog
-from pydantic import Field, SecretStr, field_validator
+from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 logger = structlog.get_logger()
@@ -46,9 +46,13 @@ class Settings(BaseSettings):
     # 内部服务回调地址（供 Celery Worker 回调主进程）
     INTERNAL_API_BASE_URL: str = "http://localhost:8000"
 
-    # Redis - 缓存
+    # Redis - 缓存（易失，可丢失，无持久化）
     CACHE_REDIS_URL: str = "redis://localhost:6379/1"
     CACHE_DEFAULT_TTL: int = Field(default=300, ge=1)  # 缓存默认 TTL（秒），默认 5min
+
+    # Redis - 持久化存储（会话、RPC、分布式锁、打卡去重、同步状态）
+    # 留空时自动回退到 CACHE_REDIS_URL（单实例兼容模式）
+    PERSISTENT_REDIS_URL: str = ""
 
     # Prometheus
     METRICS_ENABLED: bool = True
@@ -114,6 +118,18 @@ class Settings(BaseSettings):
         if not v.startswith(("redis://", "rediss://")):
             raise ValueError(f"Redis URL 必须以 'redis://' 或 'rediss://' 开头，当前值: {v!r}")
         return v
+
+    @model_validator(mode="after")
+    def _default_persistent_redis(self) -> Self:
+        """未显式配置 PERSISTENT_REDIS_URL 时回退到 CACHE_REDIS_URL（单实例兼容模式）。"""
+        if not self.PERSISTENT_REDIS_URL:
+            self.PERSISTENT_REDIS_URL = self.CACHE_REDIS_URL
+        elif not self.PERSISTENT_REDIS_URL.startswith(("redis://", "rediss://")):
+            raise ValueError(
+                f"PERSISTENT_REDIS_URL 必须以 'redis://' 或 'rediss://' 开头，"
+                f"当前值: {self.PERSISTENT_REDIS_URL!r}"
+            )
+        return self
 
     @property
     def is_production(self) -> bool:

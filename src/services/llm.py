@@ -362,7 +362,7 @@ class LLMService:
             )
             return {
                 "success": False,
-                "message": str(exc),
+                "message": "连接失败，请检查提供商配置",
             }
 
     async def close(self) -> None:

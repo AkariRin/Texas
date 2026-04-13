@@ -34,7 +34,7 @@ class RPCBridge:
     """
 
     def __init__(self, redis_url: str | None = None) -> None:
-        url = redis_url or get_settings().CACHE_REDIS_URL
+        url = redis_url or get_settings().PERSISTENT_REDIS_URL
         self._redis = redis.from_url(url, decode_responses=True)  # type: ignore[no-untyped-call]
 
     def call(

@@ -64,7 +64,7 @@ class DailyCheckinService:
     __slots__ = (
         "_bot_api",
         "_conn_mgr",
-        "_cache",
+        "_persistent",
         "_permission_service",
         "_session_factory",
         "_current_task",
@@ -75,13 +75,13 @@ class DailyCheckinService:
         *,
         bot_api: BotAPI,
         conn_mgr: ConnectionManager,
-        cache: CacheClient,
+        persistent: CacheClient,
         permission_service: FeaturePermissionService,
         session_factory: async_sessionmaker[AsyncSession],
     ) -> None:
         self._bot_api = bot_api
         self._conn_mgr = conn_mgr
-        self._cache = cache
+        self._persistent = persistent  # 持久存储：打卡去重键不可丢失，否则会重复打卡
         self._permission_service = permission_service
         self._session_factory = session_factory
         self._current_task: asyncio.Task[None] | None = None
@@ -132,7 +132,7 @@ class DailyCheckinService:
         for group_id in group_ids:
             # Redis 去重：今日已打卡则跳过
             try:
-                already_done = await self._cache.exists(checkin_key(group_id, today))
+                already_done = await self._persistent.exists(checkin_key(group_id, today))
             except Exception:
                 logger.warning(
                     "Redis 查询失败，跳过该群",
@@ -178,7 +178,7 @@ class DailyCheckinService:
                     )
                     failed += 1
                 else:
-                    await self._cache.set(checkin_key(group_id, today), "1", ttl=_CHECKIN_TTL)
+                    await self._persistent.set(checkin_key(group_id, today), "1", ttl=_CHECKIN_TTL)
                     sent += 1
             except Exception:
                 logger.warning(
@@ -224,7 +224,7 @@ from src.core.lifecycle import startup  # noqa: E402
     provides=["checkin_service"],
     requires=[
         "session_factory",
-        "cache_client",
+        "persistent_client",
         "bot_api",
         "conn_mgr",
         "permission_service",
@@ -236,7 +236,7 @@ async def _lifecycle_start(deps: dict[str, Any]) -> dict[str, Any]:
     checkin_service = DailyCheckinService(
         bot_api=deps["bot_api"],
         conn_mgr=deps["conn_mgr"],
-        cache=deps["cache_client"],
+        persistent=deps["persistent_client"],
         permission_service=deps["permission_service"],
         session_factory=deps["session_factory"],
     )

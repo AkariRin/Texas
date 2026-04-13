@@ -146,6 +146,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
 
     engine, session_factory = await _startup_database(settings)
     cache_client = CacheClient(url=settings.CACHE_REDIS_URL, default_ttl=settings.CACHE_DEFAULT_TTL)
+    persistent_client = CacheClient(url=settings.PERSISTENT_REDIS_URL, default_ttl=0)
 
     composite_mapping = CompositeHandlerMapping(
         [
@@ -158,7 +159,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
             EventTypeHandlerMapping(),
         ]
     )
-    session_manager = SessionManager(cache=cache_client)
+    session_manager = SessionManager(cache=persistent_client)
     dispatcher = EventDispatcher(
         mapping=composite_mapping,
         interceptors=[
@@ -182,7 +183,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     # ── RPC 消费者（待 checkin 模块注册 handler 后再 start）──
     from src.core.rpc.consumer import RPCConsumer
 
-    rpc_consumer = RPCConsumer(redis_url=settings.CACHE_REDIS_URL)
+    rpc_consumer = RPCConsumer(redis_url=settings.PERSISTENT_REDIS_URL)
 
     # 框架扫描（含 src.services，触发 @startup / @shutdown 装饰器注册）
     _startup_framework(settings, scanner=scanner, composite_mapping=composite_mapping)
@@ -200,6 +201,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
             "session_factory": session_factory,
             "chat_engine": chat_engine,
             "cache_client": cache_client,
+            "persistent_client": persistent_client,
             "scanner": scanner,
             "dispatcher": dispatcher,
             "session_manager": session_manager,
@@ -215,6 +217,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
             "session_factory",
             "chat_engine",
             "cache_client",
+            "persistent_client",
             "scanner",
             "dispatcher",
             "session_manager",
@@ -244,6 +247,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     app.state.heartbeat = heartbeat
     app.state.access_token = settings.NAPCAT_ACCESS_TOKEN.get_secret_value()
     app.state.cache_client = cache_client
+    app.state.persistent_client = persistent_client
     app.state.scanner = scanner
     app.state.session_manager = session_manager
     app.state.rpc_consumer = rpc_consumer
@@ -277,6 +281,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     await rpc_consumer.stop()
     await session_manager.close()
     await cache_client.close()
+    await persistent_client.close()
     await chat_engine.dispose()
     await engine.dispose()
     heartbeat.stop()

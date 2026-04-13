@@ -85,10 +85,12 @@ class PersonnelService:
         self,
         session_factory: async_sessionmaker[AsyncSession],
         cache: CacheClient,
+        persistent: CacheClient,
         settings: Settings,
     ) -> None:
         self._session_factory = session_factory
-        self._cache = cache
+        self._cache = cache  # 易失缓存：用户关系、管理员集合（可丢失，TTL 短）
+        self._persistent = persistent  # 持久存储：同步状态、分布式锁（不可丢失）
         self._settings = settings
 
     # ── 批量 upsert 操作 ──
@@ -404,7 +406,7 @@ class PersonnelService:
             "groups_synced": groups_synced,
             "memberships_synced": memberships_synced,
         }
-        await self._cache.set(personnel_sync_status_key(), status_data, ttl=0)
+        await self._persistent.set(personnel_sync_status_key(), status_data, ttl=0)
 
         # 清除用户关系缓存（全量同步后失效）
         await self._invalidate_all_relation_cache()
@@ -503,7 +505,7 @@ class PersonnelService:
 
     async def get_sync_status(self) -> dict[str, Any]:
         """获取最近一次同步状态。"""
-        data = await self._cache.get(personnel_sync_status_key())
+        data = await self._persistent.get(personnel_sync_status_key())
         if data and isinstance(data, dict):
             return cast("dict[str, Any]", data)
         return {
@@ -613,7 +615,14 @@ from src.core.lifecycle import shutdown, startup  # noqa: E402
         "personnel_query_service",
         "sync_coordinator",
     ],
-    requires=["session_factory", "cache_client", "settings", "bot_api", "conn_mgr"],
+    requires=[
+        "session_factory",
+        "cache_client",
+        "persistent_client",
+        "settings",
+        "bot_api",
+        "conn_mgr",
+    ],
     dispatcher_services=["personnel_service", "personnel_event_service"],
 )
 async def _lifecycle_start(deps: dict[str, Any]) -> dict[str, Any]:
@@ -625,6 +634,7 @@ async def _lifecycle_start(deps: dict[str, Any]) -> dict[str, Any]:
     ps = PersonnelService(
         session_factory=deps["session_factory"],
         cache=deps["cache_client"],
+        persistent=deps["persistent_client"],
         settings=deps["settings"],
     )
     pe = PersonnelEventService(

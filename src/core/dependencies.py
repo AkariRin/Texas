@@ -42,6 +42,7 @@ class AppState:
     heartbeat: HeartbeatMonitor
     access_token: str
     cache_client: CacheClient
+    persistent_client: CacheClient
     scanner: ComponentScanner
     llm_service: LLMService
     chat_service: ChatHistoryService
@@ -99,8 +100,13 @@ def get_personnel_query_service(request: Request) -> PersonnelQueryService:
 
 
 def get_cache_client(request: Request) -> CacheClient:
-    """获取 Redis 缓存客户端。"""
+    """获取 Redis 缓存客户端（易失，可丢失）。"""
     return _state(request).cache_client
+
+
+def get_persistent_client(request: Request) -> CacheClient:
+    """获取 Redis 持久化存储客户端（会话、RPC、锁等重要数据）。"""
+    return _state(request).persistent_client
 
 
 def get_permission_service(request: Request) -> FeaturePermissionService:
