@@ -15,6 +15,7 @@ import structlog
 from sqlalchemy import delete, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
+from src.core.cache.key_registry import cache_key
 from src.models.permission import GroupFeaturePermission, PrivateFeaturePermission
 from src.models.personnel import Group
 
@@ -28,8 +29,26 @@ logger = structlog.get_logger()
 
 # 缓存 TTL（秒）
 _CACHE_TTL = 60
-_KEY_GROUP = "perm:group:{group_id}:{feature}"
-_KEY_PRIVATE = "perm:private:{feature}:{qq}"
+
+# 缓存键定义（遵循 texas: 命名空间前缀规范）
+_key_group = cache_key(
+    "perm.group",
+    "texas:perm:group:{group_id}:{feature}",
+    ttl_hint=60,
+    description="群功能权限缓存。",
+)
+_key_private = cache_key(
+    "perm.private",
+    "texas:perm:private:{feature}:{qq}",
+    ttl_hint=60,
+    description="私聊功能权限缓存。",
+)
+_key_group_enabled = cache_key(
+    "perm.group_enabled",
+    "texas:perm:group_enabled:{group_id}",
+    ttl_hint=60,
+    description="群 bot 总开关缓存。",
+)
 
 # group_id=0 哨兵值，代表功能全局默认启用状态
 _GLOBAL_GROUP_ID = 0
@@ -166,13 +185,13 @@ class FeaturePermissionService:
 
     async def _get_group_feature(self, group_id: int, feature_name: str) -> bool:
         """获取群聊某功能的启用状态（含缓存）。"""
-        cache_key = _KEY_GROUP.format(group_id=group_id, feature=feature_name)
-        cached = await self._cache.get(cache_key)
+        key = _key_group(group_id=group_id, feature=feature_name)
+        cached = await self._cache.get(key)
         if cached is not None:
             return bool(cached)
 
         result = await self._query_group_feature(group_id, feature_name)
-        await self._cache.set(cache_key, result, ttl=_CACHE_TTL)
+        await self._cache.set(key, result, ttl=_CACHE_TTL)
         return result
 
     async def _query_group_feature(self, group_id: int, feature_name: str) -> bool:
@@ -199,13 +218,13 @@ class FeaturePermissionService:
         user_qq: int,
     ) -> bool:
         """私聊权限查询（以 controller 级为粒度）。"""
-        cache_key = _KEY_PRIVATE.format(feature=ctrl_feature, qq=user_qq)
-        cached = await self._cache.get(cache_key)
+        key = _key_private(feature=ctrl_feature, qq=user_qq)
+        cached = await self._cache.get(key)
         if cached is not None:
             return bool(cached)
 
         result = await self._query_private_feature(ctrl_feature, user_qq)
-        await self._cache.set(cache_key, result, ttl=_CACHE_TTL)
+        await self._cache.set(key, result, ttl=_CACHE_TTL)
         return result
 
     async def _query_private_feature(self, feature_name: str, user_qq: int) -> bool:
@@ -284,14 +303,14 @@ class FeaturePermissionService:
             await session.commit()
 
         # 清全局缓存（group_id=0 哨兵行对应的缓存键）
-        await self._cache.delete(_KEY_GROUP.format(group_id=_GLOBAL_GROUP_ID, feature=name))
+        await self._cache.delete(_key_group(group_id=_GLOBAL_GROUP_ID, feature=name))
 
         return {"name": name, "enabled": enabled}
 
     async def is_group_enabled(self, group_id: int) -> bool:
         """查询群 bot 总开关（含缓存）。"""
-        cache_key = f"perm:group_enabled:{group_id}"
-        cached = await self._cache.get(cache_key)
+        key = _key_group_enabled(group_id=group_id)
+        cached = await self._cache.get(key)
         if cached is not None:
             return bool(cached)
 
@@ -300,7 +319,7 @@ class FeaturePermissionService:
             enabled = row.scalar_one_or_none()
             result = bool(enabled) if enabled is not None else True
 
-        await self._cache.set(cache_key, result, ttl=_CACHE_TTL)
+        await self._cache.set(key, result, ttl=_CACHE_TTL)
         return result
 
     async def set_group_enabled(self, group_id: int, enabled: bool) -> None:
@@ -310,7 +329,7 @@ class FeaturePermissionService:
                 update(Group).where(Group.group_id == group_id).values(bot_enabled=enabled)
             )
             await session.commit()
-        await self._cache.delete(f"perm:group_enabled:{group_id}")
+        await self._cache.delete(_key_group_enabled(group_id=group_id))
 
     async def get_group_permissions(self, group_id: int) -> list[dict[str, Any]]:
         """获取某群所有功能的权限状态（全量记录，无需回退）。"""
@@ -351,7 +370,7 @@ class FeaturePermissionService:
             await session.execute(stmt)
             await session.commit()
 
-        await self._cache.delete(_KEY_GROUP.format(group_id=group_id, feature=feature_name))
+        await self._cache.delete(_key_group(group_id=group_id, feature=feature_name))
 
     async def batch_set_group_features(self, group_id: int, features: list[dict[str, Any]]) -> None:
         """批量设置群功能状态（单事务原子操作）。features: [{feature_name, enabled}]"""
@@ -378,9 +397,7 @@ class FeaturePermissionService:
 
         await asyncio.gather(
             *[
-                self._cache.delete(
-                    _KEY_GROUP.format(group_id=group_id, feature=item["feature_name"])
-                )
+                self._cache.delete(_key_group(group_id=group_id, feature=item["feature_name"]))
                 for item in features
             ]
         )
@@ -417,7 +434,7 @@ class FeaturePermissionService:
             await session.execute(stmt)
             await session.commit()
 
-        await self._cache.delete(_KEY_PRIVATE.format(feature=feature_name, qq=user_qq))
+        await self._cache.delete(_key_private(feature=feature_name, qq=user_qq))
 
     async def remove_private_user(self, feature_name: str, user_qq: int) -> None:
         """删除用户私聊权限记录（恢复为全局默认）。"""
@@ -430,7 +447,7 @@ class FeaturePermissionService:
             )
             await session.commit()
 
-        await self._cache.delete(_KEY_PRIVATE.format(feature=feature_name, qq=user_qq))
+        await self._cache.delete(_key_private(feature=feature_name, qq=user_qq))
 
     async def get_permission_matrix(self) -> dict[str, Any]:
         """获取完整权限矩阵（所有活跃群 × 所有活跃功能，过滤系统功能）。"""

@@ -5,12 +5,23 @@ from __future__ import annotations
 import sys
 from functools import lru_cache
 from typing import Literal, Self
+from urllib.parse import urlparse, urlunparse
 
 import structlog
 from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 logger = structlog.get_logger()
+
+
+def _normalize_redis_url(url: str) -> str:
+    """规范化 Redis URL，强制使用 DB /0，忽略 URL 中填写的库索引。
+
+    允许运维人员在环境变量中省略 /0 后缀（如 redis://host:6379），
+    系统内部统一补齐，确保所有连接指向 DB 0（Redis Cluster 兼容要求）。
+    """
+    parsed = urlparse(url)
+    return urlunparse(parsed._replace(path="/0"))
 
 
 class Settings(BaseSettings):
@@ -37,20 +48,20 @@ class Settings(BaseSettings):
     # 连接池最大溢出连接数（总上限 = pool_size + max_overflow）
     DB_MAX_OVERFLOW: int = Field(default=20, ge=0)
 
-    # Redis - Celery Broker
-    CELERY_BROKER_URL: str = "redis://localhost:6379/0"
+    # Redis - Celery Broker（与应用数据共用同一 DB，通过 texas:queue 队列名区分）
+    CELERY_BROKER_URL: str = "redis://localhost:6379"
 
-    # Redis - Celery Beat（RedBeat 调度器存储）
-    CELERY_REDBEAT_URL: str = "redis://localhost:6379/2"
+    # Redis - Celery Beat（RedBeat 调度器存储，键前缀 texas:beat:）
+    CELERY_REDBEAT_URL: str = "redis://localhost:6379"
 
     # 内部服务回调地址（供 Celery Worker 回调主进程）
     INTERNAL_API_BASE_URL: str = "http://localhost:8000"
 
-    # Redis - 缓存（易失，可丢失，无持久化）
-    CACHE_REDIS_URL: str = "redis://localhost:6379/1"
+    # Redis - 缓存（易失，可丢失，无持久化；键前缀 texas:perm:* / texas:personnel:*）
+    CACHE_REDIS_URL: str = "redis://localhost:6379"
     CACHE_DEFAULT_TTL: int = Field(default=300, ge=1)  # 缓存默认 TTL（秒），默认 5min
 
-    # Redis - 持久化存储（会话、RPC、分布式锁、打卡去重、同步状态）
+    # Redis - 持久化存储（会话、RPC、分布式锁、打卡去重、同步状态；键前缀 texas:*）
     # 留空时自动回退到 CACHE_REDIS_URL（单实例兼容模式）
     PERSISTENT_REDIS_URL: str = ""
 
@@ -115,9 +126,10 @@ class Settings(BaseSettings):
     @field_validator("CELERY_BROKER_URL", "CELERY_REDBEAT_URL", "CACHE_REDIS_URL")
     @classmethod
     def validate_redis_url(cls, v: str) -> str:
+        """校验 Redis URL 格式并强制规范化到 DB /0。"""
         if not v.startswith(("redis://", "rediss://")):
             raise ValueError(f"Redis URL 必须以 'redis://' 或 'rediss://' 开头，当前值: {v!r}")
-        return v
+        return _normalize_redis_url(v)
 
     @model_validator(mode="after")
     def _default_persistent_redis(self) -> Self:
@@ -129,6 +141,8 @@ class Settings(BaseSettings):
                 f"PERSISTENT_REDIS_URL 必须以 'redis://' 或 'rediss://' 开头，"
                 f"当前值: {self.PERSISTENT_REDIS_URL!r}"
             )
+        else:
+            self.PERSISTENT_REDIS_URL = _normalize_redis_url(self.PERSISTENT_REDIS_URL)
         return self
 
     @property

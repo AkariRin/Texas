@@ -23,8 +23,10 @@ celery_app.conf.update(
     task_track_started=True,
     task_acks_late=True,
     worker_prefetch_multiplier=1,
+    # 使用命名空间前缀区分 Broker 队列，支持与应用键共存于同一 Redis DB
+    task_default_queue="texas:queue",
     # RedBeat：使用 Redis 作为 Beat 调度器存储
     beat_scheduler="redbeat.RedBeatScheduler",
     redbeat_redis_url=settings.CELERY_REDBEAT_URL,
-    redbeat_key_prefix="texas:",
+    redbeat_key_prefix="texas:beat:",
 )

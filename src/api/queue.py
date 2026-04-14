@@ -124,24 +124,31 @@ def _build_inspect_data() -> tuple[
     return active_tasks, reserved_tasks, workers
 
 
+def _get_default_queue_key() -> str:
+    """返回 Celery 默认队列在 Redis 中的键名。"""
+    return celery_app.conf.task_default_queue or "celery"
+
+
 def _build_queue_length() -> dict[str, Any]:
     """获取 Redis Broker 队列长度。"""
+    queue_key = _get_default_queue_key()
     try:
         with celery_app.connection_or_acquire() as conn:
             channel = conn.default_channel
-            return {"queue": "celery", "length": channel.client.llen("celery")}
+            return {"queue": queue_key, "length": channel.client.llen(queue_key)}
     except Exception as exc:
         logger.warning("获取队列长度失败", error=str(exc), event_type="queue.broker_error")
-        return {"queue": "celery", "length": None}
+        return {"queue": queue_key, "length": None}
 
 
 def _parse_pending_tasks(max_count: int = 200) -> list[dict[str, Any]]:
     """从 Redis Broker 队列中读取等待中的任务消息（不消费，只读取）。"""
     pending: list[dict[str, Any]] = []
     try:
+        queue_key = _get_default_queue_key()
         with celery_app.connection_or_acquire() as conn:
             channel = conn.default_channel
-            raw_messages = channel.client.lrange("celery", 0, max_count - 1)
+            raw_messages = channel.client.lrange(queue_key, 0, max_count - 1)
 
             for raw in raw_messages:
                 try:
