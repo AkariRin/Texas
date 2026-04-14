@@ -89,7 +89,7 @@ docker build -t texas:latest .
 - **主库** (`DATABASE_URL`): 用户、群聊、LLM 配置、管理员等核心业务数据
 - **聊天库** (`CHAT_DATABASE_URL`): 独立 PostgreSQL 存储聊天记录，按月自动分区
 - 注册表驱动的迁移系统：`src/core/db/migration_registry.py` 统一管理所有库迁移目标
-- 迁移文件分别位于 `src/core/db/migrations/`（主库）和 `src/core/db/chat_migrations/`（聊天库）
+- 迁移文件统一位于 `src/core/db/migrations/{库名}/`：主库 `migrations/main/`，聊天库 `migrations/chat/`
 - 统一 CLI 入口：`python -m src.core.db.cli`（详见 `misc/db-migration.md`）
 
 ### 事件驱动框架 (`src/core/framework/`)

@@ -8,17 +8,19 @@ Create Date: 2026-04-14 11:18:42.742044
 
 from __future__ import annotations
 
-from typing import Sequence, Union
+from typing import TYPE_CHECKING
 
-from alembic import op
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+
 import sqlalchemy as sa
-
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "99895e523017"
-down_revision: Union[str, None] = "b7a85e8cab15"
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | None = "b7a85e8cab15"
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:

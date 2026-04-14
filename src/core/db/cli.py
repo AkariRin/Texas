@@ -36,7 +36,7 @@ _SAFE_IDENTIFIER_RE = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]{0,63}$")
 def _load_registries() -> None:
     """触发所有模块的迁移目标注册（通过各模块 __init__.py 的 register_migration_target 调用）。"""
     importlib.import_module("src.core.db")
-    importlib.import_module("src.core.db.chat_migrations")
+    importlib.import_module("src.core.db.migrations.chat")
 
 
 def _get_settings() -> Settings:

@@ -169,7 +169,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     )
     scanner = ComponentScanner(mapping=composite_mapping)
 
-    import src.core.db.chat_migrations  # noqa: F401 — 触发聊天库迁移目标注册
+    import src.core.db.migrations.chat  # noqa: F401 — 触发聊天库迁移目标注册
 
     chat_engine = create_engine(
         settings.CHAT_DATABASE_URL,
