@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import argparse
 import importlib
+import re
 import sys
 from typing import TYPE_CHECKING
 
@@ -24,6 +25,9 @@ if TYPE_CHECKING:
 
     from src.core.config import Settings
     from src.core.db.migration_registry import MigrationTarget
+
+# 与 migration.py 保持一致的标识符校验正则
+_SAFE_IDENTIFIER_RE = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]{0,63}$")
 
 
 # ─────────────────────── 内部工具 ───────────────────────
@@ -68,6 +72,41 @@ def _build_cfg(target: MigrationTarget, settings: Settings | None = None) -> Con
     return build_alembic_config(target, settings)
 
 
+def _prepare_target(target: MigrationTarget, settings: Settings) -> None:
+    """迁移前置准备：导入模型、连接预检、确保 schema 存在。
+
+    与 migration.py 的 run_startup_migration 保持对齐，
+    修复 CLI 长期缺失的前置步骤导致的报错问题。
+    """
+    from sqlalchemy import create_engine, text
+
+    # 1. 确保 ORM 模型注册到 metadata（autogenerate 需要）
+    if target.model_import:
+        importlib.import_module(target.model_import)
+
+    sync_url = target.get_db_url(settings).replace("+asyncpg", "+psycopg")
+    engine = create_engine(sync_url, pool_pre_ping=True)
+    try:
+        # 2. 连接预检：提前给出友好错误而非晦涩的底层异常
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+        print(f"[{target.name}] 数据库连接正常")
+
+        # 3. 确保专属 schema 存在（chat 目标需要 chat schema）
+        if target.schema:
+            if not _SAFE_IDENTIFIER_RE.match(target.schema):
+                print(f"错误：非法 schema 名称 {target.schema!r}", file=sys.stderr)
+                sys.exit(1)
+            with engine.begin() as conn:
+                conn.execute(text(f"CREATE SCHEMA IF NOT EXISTS {target.schema}"))
+            print(f"[{target.name}] schema '{target.schema}' 已就绪")
+    except Exception as exc:
+        print(f"错误：[{target.name}] 无法连接数据库 —— {exc}", file=sys.stderr)
+        sys.exit(1)
+    finally:
+        engine.dispose()
+
+
 # ─────────────────────── 子命令实现 ───────────────────────
 
 
@@ -76,20 +115,27 @@ def cmd_migrate(args: argparse.Namespace) -> None:
     settings = _get_settings()
     targets = [_get_target(args.target)] if args.target else _get_all_targets()
     for t in targets:
+        _prepare_target(t, settings)
         print(f"\n[{t.name}] upgrade head ...")
         command.upgrade(_build_cfg(t, settings), "head")
 
 
 def cmd_revision(args: argparse.Namespace) -> None:
     """创建手动迁移脚本。"""
+    settings = _get_settings()
     target = _get_target(args.target)
-    command.revision(_build_cfg(target), message=args.message or "manual")
+    _prepare_target(target, settings)
+    command.revision(_build_cfg(target, settings), message=args.message or "manual")
 
 
 def cmd_autogenerate(args: argparse.Namespace) -> None:
     """自动检测 ORM 与数据库差异并生成迁移脚本。"""
+    settings = _get_settings()
     target = _get_target(args.target)
-    command.revision(_build_cfg(target), message=args.message or "auto", autogenerate=True)
+    _prepare_target(target, settings)
+    command.revision(
+        _build_cfg(target, settings), message=args.message or "auto", autogenerate=True
+    )
 
 
 def cmd_current(args: argparse.Namespace) -> None:

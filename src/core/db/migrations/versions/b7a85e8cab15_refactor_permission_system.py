@@ -26,7 +26,7 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    """迁移步骤（严格有序）：数据迁移 → schema 变更 → DROP TABLE。"""
+    """迁移步骤（严格有序）：先删 FK 约束 → 数据迁移 → schema 变更 → DROP TABLE。"""
     conn = op.get_bind()
 
     # ── 步骤 1：为 permission_private 添加 enabled 列（data migration 前需要列存在）──
@@ -48,22 +48,7 @@ def upgrade() -> None:
         """)
     )
 
-    # ── 步骤 3：将 feature_registry 中的全局 enabled 写入 permission_group group_id=0 哨兵行 ──
-    conn.execute(
-        sa.text("""
-            INSERT INTO permission_group (id, group_id, feature_name, enabled)
-            SELECT
-                gen_random_uuid(),
-                0,
-                name,
-                enabled
-            FROM feature_registry
-            WHERE is_active = true
-            ON CONFLICT (group_id, feature_name) DO NOTHING
-        """)
-    )
-
-    # ── 步骤 4：删除 permission_group 上指向 feature_registry 的 FK 约束 ──
+    # ── 步骤 3：删除 permission_group 上指向 feature_registry 的 FK 约束 ──
     # 需要先找到约束名，PostgreSQL 自动生成的约束名
     # 通过 pg_constraint 查询实际约束名
     result = conn.execute(
@@ -77,7 +62,8 @@ def upgrade() -> None:
     for row in result:
         op.drop_constraint(row[0], "permission_group", type_="foreignkey")
 
-    # ── 步骤 5：删除 permission_group 上指向 groups 的 FK 约束（允许 group_id=0 哨兵值）──
+    # ── 步骤 4：删除 permission_group 上指向 groups 的 FK 约束（允许 group_id=0 哨兵值）──
+    # 必须在插入 group_id=0 哨兵行之前删除，否则 FK 校验会拒绝不存在于 groups 表的值
     result = conn.execute(
         sa.text("""
             SELECT conname FROM pg_constraint
@@ -88,6 +74,22 @@ def upgrade() -> None:
     ).fetchall()
     for row in result:
         op.drop_constraint(row[0], "permission_group", type_="foreignkey")
+
+    # ── 步骤 5：将 feature_registry 中的全局 enabled 写入 permission_group group_id=0 哨兵行 ──
+    # 此时 groups FK 约束已删除，group_id=0 可合法插入
+    conn.execute(
+        sa.text("""
+            INSERT INTO permission_group (id, group_id, feature_name, enabled)
+            SELECT
+                gen_random_uuid(),
+                0,
+                name,
+                enabled
+            FROM feature_registry
+            WHERE is_active = true
+            ON CONFLICT (group_id, feature_name) DO NOTHING
+        """)
+    )
 
     # ── 步骤 6：删除 permission_private 上指向 feature_registry 的 FK 约束 ──
     result = conn.execute(
