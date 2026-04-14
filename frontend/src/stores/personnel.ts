@@ -109,8 +109,10 @@ export const usePersonnelStore = defineStore('personnel', () => {
   // ── 会话选择器专用列表（不影响人员管理页面的分页状态） ──
   const sessionGroups = ref<GroupItem[]>([])
   const sessionUsers = ref<UserItem[]>([])
+  const sessionLoading = ref(false)
 
   async function loadSessionData() {
+    sessionLoading.value = true
     try {
       const [groupResult, userResult] = await Promise.all([
         api.fetchGroups({ page: 1, page_size: 100 }),
@@ -120,6 +122,8 @@ export const usePersonnelStore = defineStore('personnel', () => {
       sessionUsers.value = userResult.items
     } catch {
       // 静默失败，列表保持空状态（非关键数据，不阻断主流程）
+    } finally {
+      sessionLoading.value = false
     }
   }
 
@@ -293,6 +297,7 @@ export const usePersonnelStore = defineStore('personnel', () => {
     // 会话选择器
     sessionGroups,
     sessionUsers,
+    sessionLoading,
     loadSessionData,
     // 同步
     syncStatus,

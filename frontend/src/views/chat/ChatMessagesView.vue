@@ -8,6 +8,7 @@
           :active-id="currentSession?.id ?? null"
           :groups="personnelStore.sessionGroups"
           :users="personnelStore.sessionUsers"
+          :loading="personnelStore.sessionLoading"
           @select="onSessionSelect"
         />
       </v-col>

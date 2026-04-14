@@ -35,59 +35,71 @@
       style="min-height: 0"
     >
       <template v-if="tab === 'groups'">
-        <v-list-item
-          v-for="group in filteredGroups"
-          :key="group.group_id"
-          :active="activeType === 'group' && activeId === group.group_id"
-          rounded="lg"
-          @click="emit('select', 'group', group.group_id, group.group_name)"
-        >
-          <template #prepend>
-            <v-avatar size="32">
-              <v-img :src="`https://p.qlogo.cn/gh/${group.group_id}/${group.group_id}/100`">
-                <template #error>
-                  <v-icon>mdi-account-group</v-icon>
-                </template>
-              </v-img>
-            </v-avatar>
-          </template>
-          <v-list-item-title class="text-body-2">{{ group.group_name }}</v-list-item-title>
-          <v-list-item-subtitle class="text-caption">
-            {{ group.group_id }} &middot; {{ group.member_count }} 人
-          </v-list-item-subtitle>
-        </v-list-item>
-        <v-list-item v-if="filteredGroups.length === 0">
-          <v-list-item-title class="text-medium-emphasis text-center text-caption">
-            {{ searchQuery ? '无匹配结果' : '暂无群聊数据' }}
-          </v-list-item-title>
-        </v-list-item>
+        <!-- 骨架屏：数据加载中且列表为空 -->
+        <template v-if="loading && props.groups.length === 0">
+          <v-skeleton-loader v-for="n in 6" :key="n" type="list-item-avatar-two-line" />
+        </template>
+        <template v-else>
+          <v-list-item
+            v-for="group in filteredGroups"
+            :key="group.group_id"
+            :active="activeType === 'group' && activeId === group.group_id"
+            rounded="lg"
+            @click="emit('select', 'group', group.group_id, group.group_name)"
+          >
+            <template #prepend>
+              <v-avatar size="32">
+                <v-img :src="`https://p.qlogo.cn/gh/${group.group_id}/${group.group_id}/100`">
+                  <template #error>
+                    <v-icon>mdi-account-group</v-icon>
+                  </template>
+                </v-img>
+              </v-avatar>
+            </template>
+            <v-list-item-title class="text-body-2">{{ group.group_name }}</v-list-item-title>
+            <v-list-item-subtitle class="text-caption">
+              {{ group.group_id }} &middot; {{ group.member_count }} 人
+            </v-list-item-subtitle>
+          </v-list-item>
+          <v-list-item v-if="filteredGroups.length === 0">
+            <v-list-item-title class="text-medium-emphasis text-center text-caption">
+              {{ searchQuery ? '无匹配结果' : '暂无群聊数据' }}
+            </v-list-item-title>
+          </v-list-item>
+        </template>
       </template>
 
       <template v-else>
-        <v-list-item
-          v-for="user in filteredUsers"
-          :key="user.qq"
-          :active="activeType === 'private' && activeId === user.qq"
-          rounded="lg"
-          @click="emit('select', 'private', user.qq, user.nickname)"
-        >
-          <template #prepend>
-            <v-avatar size="32">
-              <v-img :src="`https://q1.qlogo.cn/g?b=qq&nk=${user.qq}&s=100`">
-                <template #error>
-                  <v-icon>mdi-account</v-icon>
-                </template>
-              </v-img>
-            </v-avatar>
-          </template>
-          <v-list-item-title class="text-body-2">{{ user.nickname }}</v-list-item-title>
-          <v-list-item-subtitle class="text-caption">{{ user.qq }}</v-list-item-subtitle>
-        </v-list-item>
-        <v-list-item v-if="filteredUsers.length === 0">
-          <v-list-item-title class="text-medium-emphasis text-center text-caption">
-            {{ searchQuery ? '无匹配结果' : '暂无私聊数据' }}
-          </v-list-item-title>
-        </v-list-item>
+        <!-- 骨架屏：数据加载中且列表为空 -->
+        <template v-if="loading && props.users.length === 0">
+          <v-skeleton-loader v-for="n in 6" :key="n" type="list-item-avatar-two-line" />
+        </template>
+        <template v-else>
+          <v-list-item
+            v-for="user in filteredUsers"
+            :key="user.qq"
+            :active="activeType === 'private' && activeId === user.qq"
+            rounded="lg"
+            @click="emit('select', 'private', user.qq, user.nickname)"
+          >
+            <template #prepend>
+              <v-avatar size="32">
+                <v-img :src="`https://q1.qlogo.cn/g?b=qq&nk=${user.qq}&s=100`">
+                  <template #error>
+                    <v-icon>mdi-account</v-icon>
+                  </template>
+                </v-img>
+              </v-avatar>
+            </template>
+            <v-list-item-title class="text-body-2">{{ user.nickname }}</v-list-item-title>
+            <v-list-item-subtitle class="text-caption">{{ user.qq }}</v-list-item-subtitle>
+          </v-list-item>
+          <v-list-item v-if="filteredUsers.length === 0">
+            <v-list-item-title class="text-medium-emphasis text-center text-caption">
+              {{ searchQuery ? '无匹配结果' : '暂无私聊数据' }}
+            </v-list-item-title>
+          </v-list-item>
+        </template>
       </template>
     </v-list>
   </div>
@@ -102,6 +114,7 @@ const props = defineProps<{
   activeId: number | null
   groups: GroupItem[]
   users: UserItem[]
+  loading?: boolean
 }>()
 
 const emit = defineEmits<{

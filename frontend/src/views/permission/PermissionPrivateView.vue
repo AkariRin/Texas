@@ -132,7 +132,12 @@
               </div>
 
               <!-- 用户权限列表 -->
-              <v-list density="compact">
+              <v-skeleton-loader
+                v-if="permStore.privateUsersLoading"
+                type="list-item-two-line, list-item-two-line, list-item-two-line"
+                class="pa-2"
+              />
+              <v-list v-else density="compact">
                 <v-list-item
                   v-for="perm in currentUsers"
                   :key="perm.user_qq"

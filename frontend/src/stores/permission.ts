@@ -14,47 +14,12 @@ import {
   addPrivateUser,
   removePrivateUser,
 } from '@/apis/permission'
-import type {
-  FeatureItem,
-  PermissionMatrix,
-  PermissionMatrixGroup,
-  PrivatePermission,
-} from '@/apis/permission'
-
-// ── 内部树操作工具（仅限本模块使用） ──
-
-/** 在功能树中找到指定名称的节点并原地更新其字段，支持多级 children 递归。 */
-function updateFeatureInTree(features: FeatureItem[], name: string, enabled?: boolean): void {
-  for (const f of features) {
-    if (f.name === name) {
-      if (enabled !== undefined) f.enabled = enabled
-    }
-    if (f.children?.length) updateFeatureInTree(f.children, name, enabled)
-  }
-}
-
-/** 将功能权限批量写入群组的 permissions 映射。 */
-function applyGroupFeaturePermissions(
-  groups: PermissionMatrixGroup[],
-  groupId: number,
-  items: { feature_name: string; enabled: boolean }[],
-): void {
-  const group = groups.find((g) => g.group_id === groupId)
-  if (!group) return
-  for (const item of items) {
-    group.permissions[item.feature_name] = item.enabled
-  }
-}
-
-/** 更新群组的 bot_enabled 开关状态。 */
-function applyGroupSwitchUtil(
-  groups: PermissionMatrixGroup[],
-  groupId: number,
-  enabled: boolean,
-): void {
-  const group = groups.find((g) => g.group_id === groupId)
-  if (group) group.bot_enabled = enabled
-}
+import type { FeatureItem, PermissionMatrix, PrivatePermission } from '@/apis/permission'
+import {
+  updateFeatureInTree,
+  applyGroupFeaturePermissions,
+  applyGroupSwitch as applyGroupSwitchUtil,
+} from '@/utils/tree'
 
 export const usePermissionStore = defineStore('permission', () => {
   // ── 状态 ──
@@ -62,6 +27,7 @@ export const usePermissionStore = defineStore('permission', () => {
   const matrix = ref<PermissionMatrix | null>(null)
   const privateUsers = ref<Record<string, PrivatePermission[]>>({})
   const loading = ref(false)
+  const privateUsersLoading = ref(false)
   const error = ref<string | null>(null)
 
   // ── 计算属性 ──
@@ -142,8 +108,13 @@ export const usePermissionStore = defineStore('permission', () => {
   }
 
   async function loadPrivateUsers(featureName: string) {
-    const users = await fetchPrivateUsers(featureName)
-    privateUsers.value[featureName] = users
+    privateUsersLoading.value = true
+    try {
+      const users = await fetchPrivateUsers(featureName)
+      privateUsers.value[featureName] = users
+    } finally {
+      privateUsersLoading.value = false
+    }
   }
 
   async function addUser(featureName: string, userQq: number, enabled: boolean = true) {
@@ -200,6 +171,7 @@ export const usePermissionStore = defineStore('permission', () => {
     matrix,
     privateUsers,
     loading,
+    privateUsersLoading,
     error,
     controllerFeatures,
     allMatrixFeatureNames,
