@@ -142,7 +142,7 @@
     </v-card>
 
     <!-- 手动设置老婆弹窗 -->
-    <v-dialog v-model="setWifeDialog" max-width="480" persistent>
+    <v-dialog v-model="setWifeDialog" max-width="480">
       <v-card>
         <v-card-title>手动设置老婆</v-card-title>
         <v-card-text>
@@ -180,7 +180,7 @@
     </v-dialog>
 
     <!-- 编辑老婆弹窗 -->
-    <v-dialog v-model="editDialog" max-width="400" persistent>
+    <v-dialog v-model="editDialog" max-width="400">
       <v-card>
         <v-card-title>修改老婆</v-card-title>
         <v-card-text>

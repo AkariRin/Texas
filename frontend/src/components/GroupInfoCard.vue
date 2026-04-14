@@ -125,13 +125,6 @@
           </span>
         </template>
       </v-data-table-server>
-
-      <v-card-actions>
-        <v-spacer />
-        <v-btn color="red" variant="elevated" @click="$emit('update:modelValue', false)">
-          关闭
-        </v-btn>
-      </v-card-actions>
     </v-card>
   </v-dialog>
 </template>
