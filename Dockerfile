@@ -15,6 +15,11 @@ COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-dev --no-editable
 COPY src/ src/
 
+# 在构建阶段下载 Chromium 二进制（与 Python 包版本绑定，.venv 不变则缓存命中）
+# 系统运行时库（libnss3 等）仅 runtime 阶段需要，此处只下载浏览器二进制
+ENV PLAYWRIGHT_BROWSERS_PATH=/build/.playwright-browsers
+RUN /build/.venv/bin/playwright install chromium
+
 # 阶段 3：运行时
 FROM python:3.14-slim AS runtime
 WORKDIR /app
@@ -22,8 +27,17 @@ WORKDIR /app
 # 创建非 root 用户
 RUN groupadd -r texas && useradd -r -g texas texas
 
-# 复制后端文件
+# 复制 Python 虚拟环境和 Chromium 二进制（均来自 builder，已与 playwright 版本绑定）
 COPY --from=backend-builder /build/.venv /app/.venv
+COPY --from=backend-builder /build/.playwright-browsers /app/.playwright-browsers
+
+# 由 playwright 自行管理 Chromium 运行时系统库 + CJK 字体，确保与当前 Chromium 版本精确匹配
+# （手动写死 apt 包列表会在 playwright 升级 Chromium 时出现依赖漏包或冗余）
+RUN /app/.venv/bin/playwright install-deps chromium \
+    && apt-get install -y --no-install-recommends fonts-noto-cjk fonts-noto-color-emoji \
+    && rm -rf /var/lib/apt/lists/*
+
+# 复制业务代码
 COPY --from=backend-builder /build/src /app/src
 COPY --from=backend-builder /build/pyproject.toml /app/pyproject.toml
 
@@ -32,6 +46,7 @@ COPY --from=frontend-builder /build/dist /app/frontend/dist
 
 ENV PATH="/app/.venv/bin:$PATH"
 ENV PYTHONUNBUFFERED=1
+ENV PLAYWRIGHT_BROWSERS_PATH=/app/.playwright-browsers
 
 # 复制启动脚本
 COPY entrypoint.sh /app/entrypoint.sh
@@ -40,7 +55,5 @@ RUN chmod +x /app/entrypoint.sh
 USER texas
 EXPOSE 8000
 
-# 通过子命令参数控制启动角色：bot（默认）| worker | beat
-# 用法：docker run texas:latest [bot|worker|beat] [额外参数...]
 ENTRYPOINT ["/app/entrypoint.sh"]
 CMD ["bot"]

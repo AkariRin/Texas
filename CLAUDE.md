@@ -25,8 +25,8 @@ Texas 是基于 NapCat / OneBot 11 协议的 QQ 机器人框架，采用 Python 
 ### 后端 (Python / uv)
 
 ```bash
-# 启动开发服务器
-uvicorn src.core.main:app --host 0.0.0.0 --port 8000 --reload
+# 启动开发服务器（--loop none 防止 Windows 上 reload 模式覆盖为 SelectorEventLoop，Playwright 需要 ProactorEventLoop）
+uvicorn src.core.main:app --host 0.0.0.0 --port 8000 --reload --loop none
 
 # Lint 和格式化
 ruff check src --fix
