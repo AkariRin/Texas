@@ -106,6 +106,28 @@ docker build -t texas:latest .
 - 全局实例（`DatabaseEngine`、`RedisClient`、各 Service）挂载到 `app.state`
 - 路由层通过 `Depends()` 获取依赖，避免全局变量
 
+### 生命周期编排（`src/core/lifecycle/`）
+
+新服务通过装饰器声明式注册，`LifecycleOrchestrator` 负责拓扑排序后按序启动/关闭：
+
+```python
+@startup(name="my_svc", provides=["my_svc"], requires=["browser"])
+async def _start(deps: dict[str, Any]) -> dict[str, Any]:
+    svc = MyService(deps["browser"])
+    return {"my_svc": svc}
+
+@shutdown(name="my_svc")
+async def _stop(services: dict[str, Any]) -> None:
+    await services["my_svc"].close()
+```
+
+`ComponentScanner` 扫描 `src.services` 时触发模块 import，装饰器自动注册到注册表。
+
+### 浏览器渲染（`src/core/browser/`）
+
+`BrowserService` 封装 Playwright Chromium 实例，通过 `LifecycleOrchestrator` 管理生命周期。
+`MarkdownRenderer`（`src/core/utils/md2img.py`）基于 `BrowserService` 将 Markdown 渲染为 PNG 图片。
+
 ### 分层架构（Spring-like）
 
 ```
@@ -124,12 +146,21 @@ src/
 |------|------|------|
 | `chat.py` | `ChatHistoryService` | 聊天记录存储、查询 |
 | `chat_archive.py` | `ArchiveService` | 按月分区、S3 归档 |
-| `personnel.py` | `PersonnelService` | 用户/群聊 CRUD |
+| `archive_exporter.py` | `ArchiveExporter` | Parquet 流式导出 |
+| `archive_s3.py` | `ArchiveS3` | S3 归档上传 |
+| `personnel.py` | `PersonnelService` | 用户/群聊写操作（upsert、管理员管理）|
+| `personnel_query.py` | `PersonnelQueryService` | 用户/群聊只读查询（SRP 拆分）|
+| `personnel_events.py` | `PersonnelEventsService` | 好友/群成员增量事件处理 |
 | `personnel_sync.py` | `SyncCoordinator` | 定时从 NapCat 同步用户数据 |
 | `llm.py` | `LLMService` | LLM 提供商和模型配置管理 |
 | `llm_client.py` | `LLMClient` | OpenAI 兼容客户端封装 |
 | `llm_completion.py` | `llm_complete/llm_stream` | 高层 LLM 调用接口 |
 | `permission.py` | `FeaturePermissionService` | 功能级权限管理 |
+| `feedback.py` | `FeedbackService` | 用户反馈创建、查询、状态更新 |
+| `jrlp.py` | `JrlpService` | 今日老婆随机抽取与记录 |
+| `daily_checkin.py` | `DailyCheckinService` | 群签到（Celery Beat 零点触发，RPC 桥接）|
+| `browser.py` | 生命周期注册 | `BrowserService` 启动/关闭（Playwright Chromium）|
+| `md_renderer.py` | 生命周期注册 | `MarkdownRenderer` 启动（Markdown→PNG 渲染）|
 
 ### WebSocket 连接管理 (`src/core/ws/`)
 
@@ -139,6 +170,8 @@ NapCat 主动反向连接 Texas，`ConnectionManager` 管理连接池，`Heartbe
 
 Celery + RedBeat（Redis 存储调度状态），当前主要任务为聊天记录归档（`chat_archive.py`）。
 用户同步已改为 `SyncCoordinator`（`src/services/personnel_sync.py`）内置 asyncio 调度，不再依赖 Celery。
+
+**跨进程 RPC（`src/core/rpc/`）：** Celery Worker 运行在同步上下文，通过 `RPCBridge` 经 Redis pub/sub 调用主进程功能（如每日打卡）。新增需要调用主进程能力的 Celery 任务，应通过 `RPCBridge` 而非直接实例化 Service。
 
 ### 前端架构
 
