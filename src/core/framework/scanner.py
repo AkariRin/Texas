@@ -22,6 +22,42 @@ if TYPE_CHECKING:
 logger = structlog.get_logger()
 
 
+def _compute_trigger(meta: dict[str, Any]) -> str:
+    """根据 handler 元数据计算用户可感知的触发方式描述。
+
+    Args:
+        meta: _handler_decorator 生成的元数据 dict。
+
+    Returns:
+        触发方式描述字符串，不适合展示时返回空字符串。
+    """
+    mapping_type = meta.get("mapping_type", "")
+
+    if mapping_type == "command":
+        cmd: str = meta.get("cmd") or ""
+        aliases: set[str] = meta.get("aliases") or set()
+        parts = [cmd, *sorted(aliases)]
+        return " | ".join(p for p in parts if p)
+
+    if mapping_type == "keyword":
+        keywords: set[str] = meta.get("keywords") or set()
+        return " | ".join(sorted(keywords))
+
+    if mapping_type == "fullmatch":
+        return meta.get("text") or ""
+
+    if mapping_type == "startswith":
+        prefix: str = meta.get("prefix") or ""
+        return f"{prefix}..." if prefix else ""
+
+    if mapping_type == "endswith":
+        suffix: str = meta.get("suffix") or ""
+        return f"...{suffix}" if suffix else ""
+
+    # regex / event_type 等：不适合直接展示给用户，返回空字符串
+    return ""
+
+
 class ComponentScanner:
     """扫描包中的 @controller 装饰类并注册处理器。"""
 
@@ -218,6 +254,7 @@ class ComponentScanner:
                         "description": meta.get("description", ""),
                         "admin": meta.get("admin"),
                         "message_scope": meta.get("message_scope", "all"),
+                        "trigger": _compute_trigger(meta),
                     }
                 )
 

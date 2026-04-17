@@ -40,6 +40,12 @@ class FeatureMetadata:
     """父 controller 名称，None 表示顶层。"""
     children: tuple[str, ...]
     """子功能 name 列表，仅 controller 级非空。"""
+    trigger: str = ""
+    """用户可感知的触发方式描述。controller 级为空字符串，method 级由 Scanner 计算。
+
+    默认值 "" 保证现有所有实例化站点无需强制更新；Scanner 会为 method 级显式传入计算值。
+    示例："/反馈 | /feedback"、"jrlp | 今日老婆 | 抽老婆"
+    """
 
 
 class FeatureRegistry:
@@ -120,6 +126,7 @@ class FeatureRegistry:
                         "is_active": True,
                         "system": child.system,
                         "children": [],
+                        "trigger": child.trigger,
                     }
                 )
             tree.append(
@@ -137,6 +144,7 @@ class FeatureRegistry:
                     "is_active": True,
                     "system": ctrl.system,
                     "children": children,
+                    "trigger": ctrl.trigger,
                 }
             )
         return tree
@@ -180,6 +188,7 @@ def build_registry(
                 system=ctrl_system,
                 parent=ctrl_name,
                 children=(),
+                trigger=method.get("trigger", ""),
             )
             child_names.append(method_name)
 
@@ -195,6 +204,7 @@ def build_registry(
             system=ctrl_system,
             parent=None,
             children=tuple(child_names),
+            trigger="",  # controller 级无触发方式，trigger 由 method 级承载
         )
 
     for feat in standalone_features or []:
@@ -211,6 +221,7 @@ def build_registry(
             system=feat.get("system", False),
             parent=None,
             children=(),
+            trigger=feat.get("trigger", ""),
         )
 
     return FeatureRegistry(metadata)

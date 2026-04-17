@@ -67,6 +67,11 @@ class FeaturePermissionService:
         self._cache = cache
         self._registry = registry
 
+    @property
+    def registry(self) -> FeatureRegistry:
+        """只读访问内存功能注册表。"""
+        return self._registry
+
     # ─────────────────────── 权限同步 ───────────────────────
 
     async def sync_permissions(self) -> None:
@@ -448,6 +453,173 @@ class FeaturePermissionService:
             await session.commit()
 
         await self._cache.delete(_key_private(feature=feature_name, qq=user_qq))
+
+    async def get_help_features_for_group(
+        self,
+        group_id: int,
+        is_admin: bool,
+    ) -> list[dict[str, Any]]:
+        """批量查询群聊帮助功能列表（仅返回该群已启用的功能）。
+
+        Args:
+            group_id: 群号。
+            is_admin: 请求者是否为超级管理员，为 False 时过滤 admin=True 的功能。
+
+        Returns:
+            controller 级功能列表，每项含 tag / display_name / description / admin / methods。
+            methods 为通过权限检查的子命令列表，每项含 display_name / description / trigger。
+
+        注意：此方法直接查 DB，绕过单条功能的缓存层（_get_group_feature）。
+        帮助页一次性批量获取，单次查询比 N 次缓存命中更高效；权限变更后的缓存不一致
+        对帮助页展示可接受（帮助卡不是安全边界，权限执行在 FeaturePermissionChecker）。
+        群聊权限行由 sync_permissions 启动时预填充，无需回退到全局哨兵（group_id=0）；
+        私聊则需三级合并（用户显式 → 全局哨兵 → registry 默认）。
+        """
+        # ── 单次批量查询权限记录（含 controller 和 method 两级） ──
+        async with self._factory() as session:
+            perm_rows = await session.execute(
+                select(
+                    GroupFeaturePermission.feature_name,
+                    GroupFeaturePermission.enabled,
+                ).where(GroupFeaturePermission.group_id == group_id)
+            )
+            perms: dict[str, bool] = {r.feature_name: r.enabled for r in perm_rows.all()}
+
+        result: list[dict[str, Any]] = []
+        _group_scopes = frozenset(("all", "group"))
+
+        for fname in sorted(self._registry.non_system_names()):
+            meta = self._registry.get(fname)
+            if meta is None or meta.parent is not None:
+                # 跳过 method 级条目，只处理 controller 级
+                continue
+            if meta.message_scope not in _group_scopes:
+                continue
+            if not is_admin and meta.admin:
+                continue
+
+            # controller 启用状态
+            ctrl_enabled = perms.get(fname, meta.default_enabled)
+            if not ctrl_enabled:
+                continue
+
+            # 收集通过权限检查的子命令
+            methods: list[dict[str, Any]] = []
+            for child_name in meta.children:
+                child = self._registry.get(child_name)
+                if child is None:
+                    continue
+                if not is_admin and child.admin:
+                    continue
+                if child.message_scope not in _group_scopes:
+                    continue
+                child_enabled = perms.get(child_name, child.default_enabled)
+                if not child_enabled:
+                    continue
+                methods.append(
+                    {
+                        "display_name": child.display_name,
+                        "description": child.description,
+                        "trigger": child.trigger,
+                    }
+                )
+
+            result.append(
+                {
+                    "tag": meta.tags[0] if meta.tags else "",
+                    "display_name": meta.display_name,
+                    "description": meta.description,
+                    "admin": meta.admin,
+                    "methods": methods,
+                }
+            )
+
+        return result
+
+    async def get_help_features_for_private(
+        self,
+        user_qq: int,
+        is_admin: bool,
+    ) -> list[dict[str, Any]]:
+        """批量查询私聊帮助功能列表（仅返回该用户可使用的私聊功能）。
+
+        Args:
+            user_qq: 用户 QQ 号。
+            is_admin: 请求者是否为超级管理员。
+
+        Returns:
+            格式与 get_help_features_for_group 相同，message_scope 过滤为 all/private。
+        """
+        # ── 顺序执行两次查询（AsyncSession 单连接不支持并发 execute） ──
+        # 用户显式权限 + 全局哨兵行（group_id=0），两次 I/O 均 < 1ms，无需并发
+        async with self._factory() as session:
+            user_result = await session.execute(
+                select(
+                    PrivateFeaturePermission.feature_name,
+                    PrivateFeaturePermission.enabled,
+                ).where(PrivateFeaturePermission.user_qq == user_qq)
+            )
+            global_result = await session.execute(
+                select(
+                    GroupFeaturePermission.feature_name,
+                    GroupFeaturePermission.enabled,
+                ).where(GroupFeaturePermission.group_id == _GLOBAL_GROUP_ID)
+            )
+            user_perms: dict[str, bool] = {r.feature_name: r.enabled for r in user_result.all()}
+            global_perms: dict[str, bool] = {r.feature_name: r.enabled for r in global_result.all()}
+
+        def _is_enabled(feature_name: str, default: bool) -> bool:
+            """合并优先级：用户显式 > 全局哨兵 > registry 默认。"""
+            if feature_name in user_perms:
+                return user_perms[feature_name]
+            if feature_name in global_perms:
+                return global_perms[feature_name]
+            return default
+
+        result: list[dict[str, Any]] = []
+        _private_scopes = frozenset(("all", "private"))
+
+        for fname in sorted(self._registry.non_system_names()):
+            meta = self._registry.get(fname)
+            if meta is None or meta.parent is not None:
+                continue
+            if meta.message_scope not in _private_scopes:
+                continue
+            if not is_admin and meta.admin:
+                continue
+            if not _is_enabled(fname, meta.default_enabled):
+                continue
+
+            methods: list[dict[str, Any]] = []
+            for child_name in meta.children:
+                child = self._registry.get(child_name)
+                if child is None:
+                    continue
+                if not is_admin and child.admin:
+                    continue
+                if child.message_scope not in _private_scopes:
+                    continue
+                if not _is_enabled(child_name, child.default_enabled):
+                    continue
+                methods.append(
+                    {
+                        "display_name": child.display_name,
+                        "description": child.description,
+                        "trigger": child.trigger,
+                    }
+                )
+
+            result.append(
+                {
+                    "tag": meta.tags[0] if meta.tags else "",
+                    "display_name": meta.display_name,
+                    "description": meta.description,
+                    "admin": meta.admin,
+                    "methods": methods,
+                }
+            )
+
+        return result
 
     async def get_permission_matrix(self) -> dict[str, Any]:
         """获取完整权限矩阵（所有活跃群 × 所有活跃功能，过滤系统功能）。"""
