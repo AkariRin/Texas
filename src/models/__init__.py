@@ -12,6 +12,12 @@
 from src.models.chat import ChatMessage
 from src.models.chat_archive import ChatArchiveLog
 from src.models.checkin import CheckinRecord
+from src.models.drift_bottle import (
+    DRIFT_BOTTLE_DEFAULT_POOL_ID,
+    DriftBottleGroupPool,
+    DriftBottleItem,
+    DriftBottlePool,
+)
 from src.models.enums import FeedbackSource, FeedbackStatus, FeedbackType
 from src.models.feedback import Feedback
 from src.models.jrlp import WifeRecord
@@ -34,6 +40,10 @@ __all__: list[str] = [
     "FeedbackStatus",
     "FeedbackSource",
     "CheckinRecord",
+    "DRIFT_BOTTLE_DEFAULT_POOL_ID",
+    "DriftBottleGroupPool",
+    "DriftBottleItem",
+    "DriftBottlePool",
     "WifeRecord",
     # 聊天库
     "ChatMessage",

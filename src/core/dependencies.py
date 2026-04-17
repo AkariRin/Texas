@@ -24,6 +24,7 @@ if TYPE_CHECKING:
     from src.services.chat_archive import ArchiveService
     from src.services.checkin import CheckinService
     from src.services.daily_checkin import DailyCheckinService
+    from src.services.drift_bottle import DriftBottleService
     from src.services.feedback import FeedbackService
     from src.services.jrlp import JrlpService
     from src.services.llm import LLMService
@@ -55,6 +56,7 @@ class AppState:
     user_checkin_service: CheckinService
     feedback_service: FeedbackService
     jrlp_service: JrlpService
+    drift_bottle_service: DriftBottleService
     session_manager: SessionManager
     event_dispatch_callback: Callable[[Any], Coroutine[Any, Any, None]] | None
 
@@ -144,6 +146,11 @@ def get_jrlp_service(request: Request) -> JrlpService:
 def get_user_checkin_service(request: Request) -> CheckinService:
     """获取用户签到服务。"""
     return _state(request).user_checkin_service
+
+
+def get_drift_bottle_service(request: Request) -> DriftBottleService:
+    """获取漂流瓶服务。"""
+    return _state(request).drift_bottle_service
 
 
 # ── WebSocket 端点辅助函数 ──
