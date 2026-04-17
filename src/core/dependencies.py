@@ -22,6 +22,7 @@ if TYPE_CHECKING:
     from src.core.ws.heartbeat import HeartbeatMonitor
     from src.services.chat import ChatHistoryService
     from src.services.chat_archive import ArchiveService
+    from src.services.checkin import CheckinService
     from src.services.daily_checkin import DailyCheckinService
     from src.services.feedback import FeedbackService
     from src.services.jrlp import JrlpService
@@ -51,6 +52,7 @@ class AppState:
     personnel_query_service: PersonnelQueryService
     sync_coordinator: SyncCoordinator
     checkin_service: DailyCheckinService
+    user_checkin_service: CheckinService
     feedback_service: FeedbackService
     jrlp_service: JrlpService
     session_manager: SessionManager
@@ -137,6 +139,11 @@ def get_feedback_service(request: Request) -> FeedbackService:
 def get_jrlp_service(request: Request) -> JrlpService:
     """获取今日老婆服务。"""
     return _state(request).jrlp_service
+
+
+def get_user_checkin_service(request: Request) -> CheckinService:
+    """获取用户签到服务。"""
+    return _state(request).user_checkin_service
 
 
 # ── WebSocket 端点辅助函数 ──

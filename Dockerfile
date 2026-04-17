@@ -33,7 +33,7 @@ COPY --from=backend-builder /build/.playwright-browsers /app/.playwright-browser
 
 # 由 playwright 自行管理 Chromium 运行时系统库 + CJK 字体，确保与当前 Chromium 版本精确匹配
 # （手动写死 apt 包列表会在 playwright 升级 Chromium 时出现依赖漏包或冗余）
-RUN /app/.venv/bin/playwright install-deps chromium \
+RUN /app/.venv/bin/python -m playwright install-deps chromium \
     && apt-get install -y --no-install-recommends fonts-noto-cjk fonts-noto-color-emoji \
     && rm -rf /var/lib/apt/lists/*
 

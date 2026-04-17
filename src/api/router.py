@@ -6,6 +6,7 @@ from fastapi import APIRouter
 
 from src.api.bot import router as bot_router
 from src.api.chat import router as chat_router
+from src.api.checkin import router as checkin_router
 from src.api.feedback import router as feedback_router
 from src.api.handlers import router as handlers_router
 from src.api.jrlp import router as jrlp_router
@@ -26,3 +27,4 @@ api_router.include_router(chat_router)
 api_router.include_router(permission_router)
 api_router.include_router(feedback_router)
 api_router.include_router(jrlp_router)
+api_router.include_router(checkin_router)

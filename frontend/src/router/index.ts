@@ -28,6 +28,34 @@ const router = createRouter({
       },
     },
     {
+      path: '/checkin',
+      redirect: '/checkin/records',
+    },
+    {
+      path: '/checkin/records',
+      name: 'checkin-records',
+      component: () => import('@/views/checkin/CheckinRecordsView.vue'),
+      meta: {
+        title: '签到记录',
+        icon: 'mdi-calendar-check',
+        subtitle: '查看群签到历史记录',
+        panel: '功能模块',
+        section: '群签到',
+      },
+    },
+    {
+      path: '/checkin/stats',
+      name: 'checkin-stats',
+      component: () => import('@/views/checkin/CheckinStatsView.vue'),
+      meta: {
+        title: '签到统计',
+        icon: 'mdi-chart-line',
+        subtitle: '群签到汇总、排行榜与趋势分析',
+        panel: '功能模块',
+        section: '群签到',
+      },
+    },
+    {
       path: '/feedback',
       name: 'feedback',
       component: () => import('@/views/feedback/FeedbackView.vue'),
