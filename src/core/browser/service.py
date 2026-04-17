@@ -10,6 +10,12 @@ import structlog
 if TYPE_CHECKING:
     from playwright.async_api import Browser, Playwright, Route
 
+
+async def _abort_route(route: Route) -> None:
+    """Playwright route handler：中止所有匹配的网络请求。"""
+    await route.abort()
+
+
 logger = structlog.get_logger()
 
 # Chromium 启动参数（容器/CI 环境兼容）
@@ -123,11 +129,6 @@ class BrowserService:
             )
             await self._launch_browser()
 
-    @staticmethod
-    async def _abort_route(route: Route) -> None:
-        """Playwright route handler：中止所有匹配的网络请求。"""
-        await route.abort()
-
     async def render_html(
         self,
         html: str,
@@ -185,7 +186,7 @@ class BrowserService:
                     java_script_enabled=js_enabled,
                 )
                 if block_network:
-                    await context.route("**/*", BrowserService._abort_route)
+                    await context.route("**/*", _abort_route)
                 page = await context.new_page()
                 await page.set_content(html, wait_until="domcontentloaded")
                 element = page.locator(selector)

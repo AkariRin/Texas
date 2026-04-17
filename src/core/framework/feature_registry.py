@@ -56,6 +56,11 @@ class FeatureRegistry:
 
     def __init__(self, metadata: dict[str, FeatureMetadata]) -> None:
         self._data: MappingProxyType[str, FeatureMetadata] = MappingProxyType(metadata)
+        # 启动时预计算，运行期只读，避免每次调用重建集合或重新排序
+        self._non_system_names: frozenset[str] = frozenset(
+            name for name, m in metadata.items() if not m.system
+        )
+        self._sorted_non_system_names: tuple[str, ...] = tuple(sorted(self._non_system_names))
 
     def get(self, name: str) -> FeatureMetadata | None:
         """按名称获取功能元数据，不存在时返回 None。"""
@@ -79,7 +84,11 @@ class FeatureRegistry:
 
     def non_system_names(self) -> frozenset[str]:
         """返回所有非系统功能名称集合。"""
-        return frozenset(name for name, m in self._data.items() if not m.system)
+        return self._non_system_names
+
+    def sorted_non_system_names(self) -> tuple[str, ...]:
+        """返回按名称排序后的非系统功能名称序列。"""
+        return self._sorted_non_system_names
 
     def non_system_tree(
         self,

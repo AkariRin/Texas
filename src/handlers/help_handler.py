@@ -13,6 +13,8 @@ from src.core.utils.md2img import MarkdownRenderError
 
 if TYPE_CHECKING:
     from src.core.framework.context import Context
+    from src.core.utils.md2img import MarkdownRenderer
+    from src.services.permission import FeaturePermissionService
 
 logger = structlog.get_logger()
 
@@ -111,6 +113,11 @@ def _paginate(items: list[_HelpItem], page: int) -> tuple[list[_HelpCategory], i
     return categories, total_pages
 
 
+def _fmt_trigger(trigger: str) -> str:
+    """格式化触发方式：转义 Markdown 表格分隔符，为空时返回占位符。"""
+    return trigger.replace("|", r"\|") if trigger else "—"
+
+
 def _build_list_markdown(
     categories: list[_HelpCategory],
     page: int,
@@ -124,9 +131,8 @@ def _build_list_markdown(
         lines.append("| 功能 | 说明 | 触发方式 |")
         lines.append("|------|------|----------|")
         for item in cat.items:
-            trigger = item.trigger.replace("|", r"\|") if item.trigger else "—"
             desc = item.description or "—"
-            lines.append(f"| {item.display_name} | {desc} | {trigger} |")
+            lines.append(f"| {item.display_name} | {desc} | {_fmt_trigger(item.trigger)} |")
         lines.append("")
 
     lines.append("---")
@@ -158,9 +164,8 @@ def _build_detail_markdown(
         "|------|------|----------|",
     ]
     for m in methods:
-        trigger = m["trigger"].replace("|", r"\|") if m.get("trigger") else "—"
         desc = m.get("description") or "—"
-        lines.append(f"| {m['display_name']} | {desc} | {trigger} |")
+        lines.append(f"| {m['display_name']} | {desc} | {_fmt_trigger(m.get('trigger', ''))} |")
 
     return "\n".join(lines)
 
@@ -196,6 +201,9 @@ class HelpHandler:
         if not ctx.has_service(MarkdownRenderer):
             return False
 
+        perm_svc = ctx.get_service(FeaturePermissionService)
+        renderer = ctx.get_service(MarkdownRenderer)
+
         # ── 超管身份判断（PersonnelService 不可用时降级为 False） ──
         is_admin = False
         if ctx.has_service(PersonnelService):
@@ -206,11 +214,17 @@ class HelpHandler:
         arg = ctx.get_arg_str().strip()
 
         if not arg:
-            await self._handle_list(ctx, page=1, is_admin=is_admin)
+            await self._handle_list(
+                ctx, page=1, is_admin=is_admin, perm_svc=perm_svc, renderer=renderer
+            )
         elif arg.isdigit():
-            await self._handle_list(ctx, page=int(arg), is_admin=is_admin)
+            await self._handle_list(
+                ctx, page=int(arg), is_admin=is_admin, perm_svc=perm_svc, renderer=renderer
+            )
         else:
-            await self._handle_detail(ctx, feature_query=arg, is_admin=is_admin)
+            await self._handle_detail(
+                ctx, feature_query=arg, is_admin=is_admin, perm_svc=perm_svc, renderer=renderer
+            )
 
         return True
 
@@ -219,14 +233,10 @@ class HelpHandler:
         ctx: Context,
         page: int,
         is_admin: bool,
+        perm_svc: FeaturePermissionService,
+        renderer: MarkdownRenderer,
     ) -> None:
         """列表模式：渲染当前页功能列表为图片。"""
-        from src.core.utils.md2img import MarkdownRenderer
-        from src.services.permission import FeaturePermissionService
-
-        perm_svc = ctx.get_service(FeaturePermissionService)
-        renderer = ctx.get_service(MarkdownRenderer)
-
         if ctx.is_group and ctx.group_id is not None:
             raw = await perm_svc.get_help_features_for_group(ctx.group_id, is_admin)
         else:
@@ -243,7 +253,6 @@ class HelpHandler:
         if page < 1 or page > total_pages:
             await ctx.reply(f"共 {total_pages} 页，请输入有效页码")
             return
-
         md = _build_list_markdown(page_categories, page, total_pages)
 
         try:
@@ -263,13 +272,10 @@ class HelpHandler:
         ctx: Context,
         feature_query: str,
         is_admin: bool,
+        perm_svc: FeaturePermissionService,
+        renderer: MarkdownRenderer,
     ) -> None:
         """详情模式：渲染指定功能的子命令详情为图片。"""
-        from src.core.utils.md2img import MarkdownRenderer
-        from src.services.permission import FeaturePermissionService
-
-        perm_svc = ctx.get_service(FeaturePermissionService)
-        renderer = ctx.get_service(MarkdownRenderer)
         registry = perm_svc.registry
 
         # 先按 name 精确匹配，再按 display_name 精确匹配

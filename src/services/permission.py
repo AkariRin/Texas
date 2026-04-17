@@ -9,17 +9,20 @@ from __future__ import annotations
 
 import asyncio
 import uuid
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Final
 
 import structlog
 from sqlalchemy import delete, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from src.core.cache.key_registry import cache_key
+from src.core.framework.decorators import MessageScope
 from src.models.permission import GroupFeaturePermission, PrivateFeaturePermission
 from src.models.personnel import Group
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
     from src.core.cache.client import CacheClient
@@ -52,6 +55,10 @@ _key_group_enabled = cache_key(
 
 # group_id=0 哨兵值，代表功能全局默认启用状态
 _GLOBAL_GROUP_ID = 0
+
+# 帮助查询用消息范围常量
+_GROUP_SCOPES: Final = frozenset((MessageScope.all, MessageScope.group))
+_PRIVATE_SCOPES: Final = frozenset((MessageScope.all, MessageScope.private))
 
 
 class FeaturePermissionService:
@@ -345,7 +352,7 @@ class FeaturePermissionService:
             perms: dict[str, bool] = {p.feature_name: p.enabled for p in perm_rows.scalars().all()}
 
         result = []
-        for fname in sorted(self._registry.non_system_names()):
+        for fname in self._registry.sorted_non_system_names():
             meta = self._registry.get(fname)
             if meta is None:
                 continue
@@ -454,6 +461,62 @@ class FeaturePermissionService:
 
         await self._cache.delete(_key_private(feature=feature_name, qq=user_qq))
 
+    def _build_help_entries(
+        self,
+        scope_set: frozenset[str],
+        is_admin: bool,
+        is_enabled: Callable[[str, bool], bool],
+    ) -> list[dict[str, Any]]:
+        """从注册表构建帮助功能列表（controller 级，已过滤权限）。
+
+        Args:
+            scope_set: 允许的消息范围集合（MessageScope 值的 frozenset）。
+            is_admin: 请求者是否为超级管理员。
+            is_enabled: 权限判断回调，签名 (feature_name, default) -> bool。
+        """
+        result: list[dict[str, Any]] = []
+        for fname in self._registry.sorted_non_system_names():
+            meta = self._registry.get(fname)
+            if meta is None or meta.parent is not None:
+                continue
+            if meta.message_scope not in scope_set:
+                continue
+            if not is_admin and meta.admin:
+                continue
+            if not is_enabled(fname, meta.default_enabled):
+                continue
+
+            methods: list[dict[str, Any]] = []
+            for child_name in meta.children:
+                child = self._registry.get(child_name)
+                if child is None:
+                    continue
+                if not is_admin and child.admin:
+                    continue
+                if child.message_scope not in scope_set:
+                    continue
+                if not is_enabled(child_name, child.default_enabled):
+                    continue
+                methods.append(
+                    {
+                        "display_name": child.display_name,
+                        "description": child.description,
+                        "trigger": child.trigger,
+                    }
+                )
+
+            result.append(
+                {
+                    "tag": meta.tags[0] if meta.tags else "",
+                    "display_name": meta.display_name,
+                    "description": meta.description,
+                    "admin": meta.admin,
+                    "methods": methods,
+                }
+            )
+
+        return result
+
     async def get_help_features_for_group(
         self,
         group_id: int,
@@ -475,7 +538,6 @@ class FeaturePermissionService:
         群聊权限行由 sync_permissions 启动时预填充，无需回退到全局哨兵（group_id=0）；
         私聊则需三级合并（用户显式 → 全局哨兵 → registry 默认）。
         """
-        # ── 单次批量查询权限记录（含 controller 和 method 两级） ──
         async with self._factory() as session:
             perm_rows = await session.execute(
                 select(
@@ -485,56 +547,11 @@ class FeaturePermissionService:
             )
             perms: dict[str, bool] = {r.feature_name: r.enabled for r in perm_rows.all()}
 
-        result: list[dict[str, Any]] = []
-        _group_scopes = frozenset(("all", "group"))
-
-        for fname in sorted(self._registry.non_system_names()):
-            meta = self._registry.get(fname)
-            if meta is None or meta.parent is not None:
-                # 跳过 method 级条目，只处理 controller 级
-                continue
-            if meta.message_scope not in _group_scopes:
-                continue
-            if not is_admin and meta.admin:
-                continue
-
-            # controller 启用状态
-            ctrl_enabled = perms.get(fname, meta.default_enabled)
-            if not ctrl_enabled:
-                continue
-
-            # 收集通过权限检查的子命令
-            methods: list[dict[str, Any]] = []
-            for child_name in meta.children:
-                child = self._registry.get(child_name)
-                if child is None:
-                    continue
-                if not is_admin and child.admin:
-                    continue
-                if child.message_scope not in _group_scopes:
-                    continue
-                child_enabled = perms.get(child_name, child.default_enabled)
-                if not child_enabled:
-                    continue
-                methods.append(
-                    {
-                        "display_name": child.display_name,
-                        "description": child.description,
-                        "trigger": child.trigger,
-                    }
-                )
-
-            result.append(
-                {
-                    "tag": meta.tags[0] if meta.tags else "",
-                    "display_name": meta.display_name,
-                    "description": meta.description,
-                    "admin": meta.admin,
-                    "methods": methods,
-                }
-            )
-
-        return result
+        return self._build_help_entries(
+            _GROUP_SCOPES,
+            is_admin,
+            lambda name, default: perms.get(name, default),
+        )
 
     async def get_help_features_for_private(
         self,
@@ -576,50 +593,7 @@ class FeaturePermissionService:
                 return global_perms[feature_name]
             return default
 
-        result: list[dict[str, Any]] = []
-        _private_scopes = frozenset(("all", "private"))
-
-        for fname in sorted(self._registry.non_system_names()):
-            meta = self._registry.get(fname)
-            if meta is None or meta.parent is not None:
-                continue
-            if meta.message_scope not in _private_scopes:
-                continue
-            if not is_admin and meta.admin:
-                continue
-            if not _is_enabled(fname, meta.default_enabled):
-                continue
-
-            methods: list[dict[str, Any]] = []
-            for child_name in meta.children:
-                child = self._registry.get(child_name)
-                if child is None:
-                    continue
-                if not is_admin and child.admin:
-                    continue
-                if child.message_scope not in _private_scopes:
-                    continue
-                if not _is_enabled(child_name, child.default_enabled):
-                    continue
-                methods.append(
-                    {
-                        "display_name": child.display_name,
-                        "description": child.description,
-                        "trigger": child.trigger,
-                    }
-                )
-
-            result.append(
-                {
-                    "tag": meta.tags[0] if meta.tags else "",
-                    "display_name": meta.display_name,
-                    "description": meta.description,
-                    "admin": meta.admin,
-                    "methods": methods,
-                }
-            )
-
-        return result
+        return self._build_help_entries(_PRIVATE_SCOPES, is_admin, _is_enabled)
 
     async def get_permission_matrix(self) -> dict[str, Any]:
         """获取完整权限矩阵（所有活跃群 × 所有活跃功能，过滤系统功能）。"""
