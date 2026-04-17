@@ -13,8 +13,8 @@ from src.core.db.base import Base
 
 DRIFT_BOTTLE_DEFAULT_POOL_ID: Final = 0
 
-# OneBot array 格式消息段，每个元素形如 {"type": "text", "data": {...}}
-type MessageSegment = dict[str, Any]
+# OneBot array 格式原始消息段，每个元素形如 {"type": "text", "data": {...}}
+type RawSegment = dict[str, Any]
 
 
 class DriftBottlePool(Base):
@@ -93,7 +93,7 @@ class DriftBottleItem(Base):
         nullable=False,
         comment="来源群号",
     )
-    content: Mapped[list[MessageSegment]] = mapped_column(
+    content: Mapped[list[RawSegment]] = mapped_column(
         JSONB,
         nullable=False,
         comment="过滤后消息段（仅 text/image，OneBot array 格式）",

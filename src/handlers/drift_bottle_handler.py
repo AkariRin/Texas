@@ -15,11 +15,11 @@ from src.core.framework.decorators import (
 )
 from src.core.protocol.models.base import MessageSegment
 from src.core.protocol.models.events import MessageEvent
-from src.core.protocol.segment import MessageBuilder
+from src.core.protocol.segment import MessageBuilder, Seg
+from src.services.drift_bottle import DriftBottleService
 
 if TYPE_CHECKING:
     from src.core.framework.context import Context
-    from src.services.drift_bottle import DriftBottleService
 
 logger = structlog.get_logger()
 
@@ -57,6 +57,12 @@ def _filter_content(segments: list[Any] | str, trigger: str) -> list[dict[str, A
 class DriftBottleHandler:
     """漂流瓶处理器。"""
 
+    def _get_svc(self, ctx: Context) -> tuple[DriftBottleService, int] | None:
+        """获取漂流瓶服务与当前群 id；前置条件（服务未注册或非群聊）不满足时返回 None。"""
+        if not ctx.has_service(DriftBottleService) or ctx.group_id is None:
+            return None
+        return ctx.get_service(DriftBottleService), ctx.group_id
+
     @on_startswith(
         _TRIGGER_THROW,
         permission=Permission.ANYONE,
@@ -66,12 +72,10 @@ class DriftBottleHandler:
     )
     async def handle_throw(self, ctx: Context) -> bool:
         """处理扔漂流瓶请求。"""
-        from src.services.drift_bottle import DriftBottleService
-
-        if not ctx.has_service(DriftBottleService) or ctx.group_id is None:
+        result = self._get_svc(ctx)
+        if result is None:
             return False
-
-        svc: DriftBottleService = ctx.get_service(DriftBottleService)
+        svc, group_id = result
 
         if not isinstance(ctx.event, MessageEvent):
             return False
@@ -81,11 +85,11 @@ class DriftBottleHandler:
             return True
 
         try:
-            pool_id = await svc.get_pool_id(ctx.group_id)
+            pool_id = await svc.get_pool_id(group_id)
             await svc.throw_bottle(
                 pool_id=pool_id,
                 sender_id=ctx.user_id,
-                sender_group_id=ctx.group_id,
+                sender_group_id=group_id,
                 content=content,
             )
         except Exception:
@@ -111,15 +115,13 @@ class DriftBottleHandler:
     )
     async def handle_pick(self, ctx: Context) -> bool:
         """处理捞漂流瓶请求。"""
-        from src.services.drift_bottle import DriftBottleService
-
-        if not ctx.has_service(DriftBottleService) or ctx.group_id is None:
+        result = self._get_svc(ctx)
+        if result is None:
             return False
-
-        svc: DriftBottleService = ctx.get_service(DriftBottleService)
+        svc, group_id = result
 
         try:
-            pool_id = await svc.get_pool_id(ctx.group_id)
+            pool_id = await svc.get_pool_id(group_id)
             bottle = await svc.pick_bottle(pool_id=pool_id, user_id=ctx.user_id)
         except Exception:
             logger.exception(
@@ -135,10 +137,10 @@ class DriftBottleHandler:
             await ctx.reply("池子里暂时没有漂流瓶，快去扔一个吧~")
             return True
 
-        # 将 content 组装为 Bot 消息段
-        reply_segs = [MessageSegment(type="text", data={"text": "捞到了一个漂流瓶：\n"})]
-        for seg in bottle.content:
-            reply_segs.append(MessageSegment(type=seg["type"], data=seg["data"]))
+        reply_segs = [
+            Seg.text("捞到了一个漂流瓶：\n"),
+            *[MessageSegment(type=s["type"], data=s["data"]) for s in bottle.content],
+        ]
 
         await ctx.reply(reply_segs)
         return True

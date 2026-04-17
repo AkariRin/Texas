@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Any, Final
+from typing import TYPE_CHECKING, Any
 
 import structlog
 from sqlalchemy import func, select, update
@@ -21,8 +21,6 @@ if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 logger = structlog.get_logger()
-
-_DEFAULT_POOL_ID: Final[int] = DRIFT_BOTTLE_DEFAULT_POOL_ID
 
 
 @dataclass(frozen=True)
@@ -58,7 +56,7 @@ class DriftBottleService:
         """查询群所属池 id，无记录返回默认池 id。"""
         async with self._session_factory() as session:
             row = await session.get(DriftBottleGroupPool, group_id)
-            return row.pool_id if row is not None else _DEFAULT_POOL_ID
+            return row.pool_id if row is not None else DRIFT_BOTTLE_DEFAULT_POOL_ID
 
     # ── Bot 核心功能 ──
 
@@ -176,7 +174,7 @@ class DriftBottleService:
             ValueError: 尝试删除默认池（id=0）或池不存在。
             RuntimeError: 池下仍有群归属（RESTRICT 约束触发 IntegrityError）。
         """
-        if pool_id == _DEFAULT_POOL_ID:
+        if pool_id == DRIFT_BOTTLE_DEFAULT_POOL_ID:
             raise ValueError("默认漂流瓶池不可删除")
         async with self._session_factory() as session:
             pool = await session.get(DriftBottlePool, pool_id)
@@ -204,14 +202,14 @@ class DriftBottleService:
             ValueError: pool_id 不存在（非 0）。
         """
         async with self._session_factory() as session:
-            if pool_id != _DEFAULT_POOL_ID:
+            if pool_id != DRIFT_BOTTLE_DEFAULT_POOL_ID:
                 pool = await session.get(DriftBottlePool, pool_id)
                 if pool is None:
                     raise ValueError(f"漂流瓶池不存在：{pool_id}")
 
             existing = await session.get(DriftBottleGroupPool, group_id)
 
-            if pool_id == _DEFAULT_POOL_ID:
+            if pool_id == DRIFT_BOTTLE_DEFAULT_POOL_ID:
                 # 移回默认池 = 删除映射记录
                 if existing is not None:
                     await session.delete(existing)
