@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 from datetime import date  # noqa: TC003
-from typing import TYPE_CHECKING, Any, Literal, cast
+from typing import TYPE_CHECKING, Any, Literal
 
 import structlog
 from fastapi import APIRouter, Depends, Query
 
 from src.core.dependencies import get_user_checkin_service
+from src.core.utils.helpers import ceil_div
 from src.core.utils.response import ok
 
 if TYPE_CHECKING:
@@ -47,7 +48,7 @@ async def list_records(
         page=page,
         page_size=page_size,
     )
-    pages = (total + page_size - 1) // page_size
+    pages = ceil_div(total, page_size)
     return ok(
         {
             "items": [_record_to_dict(r) for r in records],
@@ -62,14 +63,12 @@ async def list_records(
 @router.get("/leaderboard")
 async def get_leaderboard(
     group_id: int = Query(..., description="群号（必填）"),
-    by: str = Query("total", pattern="^(total|streak)$"),
+    by: Literal["total", "streak"] = Query("total"),
     limit: int = Query(20, ge=1, le=50),
     service: CheckinService = Depends(get_user_checkin_service),
 ) -> dict[str, Any]:
     """查询排行榜（累计或连续）。"""
-    entries = await service.get_leaderboard(
-        group_id=group_id, by=cast("Literal['total', 'streak']", by), limit=limit
-    )
+    entries = await service.get_leaderboard(group_id=group_id, by=by, limit=limit)
     return ok(
         [{"rank": i + 1, "user_id": e.user_id, "value": e.value} for i, e in enumerate(entries)]
     )

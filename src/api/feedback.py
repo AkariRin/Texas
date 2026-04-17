@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
 from src.core.dependencies import get_feedback_service
+from src.core.utils.helpers import ceil_div
 from src.core.utils.response import ok
 
 if TYPE_CHECKING:
@@ -83,7 +84,7 @@ async def list_feedbacks(
         search=search,
     )
 
-    pages = (total + page_size - 1) // page_size
+    pages = ceil_div(total, page_size)
     items = [
         {
             "id": str(f.id),

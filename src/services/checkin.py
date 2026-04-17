@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
 from typing import TYPE_CHECKING, Any, Final, Literal
@@ -174,36 +173,46 @@ class CheckinService:
     async def rebuild_cache(self, group_id: int, user_id: int) -> dict[str, Any]:
         """从 DB 重建用户在某群的签到缓存。
 
-        查询历史所有签到日期，逆序遍历计算 streak 和 total，回写 Redis。
+        先 COUNT 获取总数，再流式扫描最近日期遇到第一个断点即停（early-exit），
+        避免将全量历史记录加载到内存。
 
         Returns:
             包含 last_date / streak / total 的 dict。
         """
+        base_where = (
+            CheckinRecord.group_id == group_id,
+            CheckinRecord.user_id == user_id,
+        )
         async with self._session_factory() as session:
-            result = await session.execute(
+            total: int = (
+                await session.execute(select(func.count()).where(*base_where))
+            ).scalar_one()
+
+            if total == 0:
+                return {"last_date": "", "streak": 0, "total": 0}
+
+            last_date: date | None = None
+            streak = 0
+            stream = await session.stream_scalars(
                 select(CheckinRecord.checkin_date)
-                .where(
-                    CheckinRecord.group_id == group_id,
-                    CheckinRecord.user_id == user_id,
-                )
+                .where(*base_where)
                 .order_by(CheckinRecord.checkin_date.desc())
-                .limit(3650)  # 最多取 10 年的签到记录，避免无界查询
             )
-            dates = [row[0] for row in result.all()]
-
-        if not dates:
-            return {"last_date": "", "streak": 0, "total": 0}
-
-        total = len(dates)
-        streak = 1
-        for i in range(len(dates) - 1):
-            if (dates[i] - dates[i + 1]).days == 1:
-                streak += 1
-            else:
-                break
+            try:
+                async for d in stream:
+                    if last_date is None:
+                        last_date = d
+                        streak = 1
+                    elif (last_date - d).days == 1:
+                        streak += 1
+                        last_date = d
+                    else:
+                        break
+            finally:
+                await stream.close()
 
         cache_data: dict[str, Any] = {
-            "last_date": dates[0].isoformat(),
+            "last_date": last_date.isoformat() if last_date else "",
             "streak": streak,
             "total": total,
         }
@@ -312,36 +321,31 @@ class CheckinService:
             )
             return [DayCount(date=row[0].isoformat(), count=row[1]) for row in result.all()]
 
-    async def _count_scalar(self, stmt: Any) -> int:
-        """执行单值 COUNT 查询，返回整数结果。"""
-        async with self._session_factory() as session:
-            result = await session.execute(stmt)
-            return int(result.scalar_one())
-
     async def get_summary(self, group_id: int) -> SummaryData:
         """查询汇总卡片数据。"""
         today = datetime.now(SHANGHAI_TZ).date()
         cutoff = today - timedelta(days=30)
 
-        total_stmt = select(func.count()).where(CheckinRecord.group_id == group_id)
-        today_stmt = select(func.count()).where(
-            CheckinRecord.group_id == group_id,
-            CheckinRecord.checkin_date == today,
-        )
-        active_stmt = select(func.count(CheckinRecord.user_id.distinct())).where(
-            CheckinRecord.group_id == group_id,
-            CheckinRecord.checkin_date >= cutoff,
-        )
+        async with self._session_factory() as session:
+            # 三个聚合合并为一次 SQL 查询，避免多次 round-trip
+            row = (
+                await session.execute(
+                    select(
+                        func.count().label("total"),
+                        func.count()
+                        .filter(CheckinRecord.checkin_date == today)
+                        .label("today_count"),
+                        func.count(CheckinRecord.user_id.distinct())
+                        .filter(CheckinRecord.checkin_date >= cutoff)
+                        .label("active"),
+                    ).where(CheckinRecord.group_id == group_id)
+                )
+            ).one()
 
-        total_checkins, today_checkins, active_users = await asyncio.gather(
-            self._count_scalar(total_stmt),
-            self._count_scalar(today_stmt),
-            self._count_scalar(active_stmt),
-        )
         return SummaryData(
-            total_checkins=total_checkins,
-            today_checkins=today_checkins,
-            active_users=active_users,
+            total_checkins=row.total,
+            today_checkins=row.today_count,
+            active_users=row.active,
         )
 
 

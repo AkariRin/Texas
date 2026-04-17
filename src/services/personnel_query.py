@@ -13,6 +13,7 @@ import structlog
 from sqlalchemy import ColumnElement, func, select
 
 from src.core.db.utils import escape_like
+from src.core.utils.helpers import ceil_div
 from src.models.personnel import Group, GroupMembership, User
 
 if TYPE_CHECKING:
@@ -124,7 +125,7 @@ class PersonnelQueryService:
                 for u in users
             ]
 
-            pages = (total + page_size - 1) // page_size
+            pages = ceil_div(total, page_size)
             return {
                 "items": items,
                 "total": total,
@@ -202,7 +203,7 @@ class PersonnelQueryService:
                 for g in groups
             ]
 
-            pages = (total + page_size - 1) // page_size
+            pages = ceil_div(total, page_size)
             return {
                 "items": items,
                 "total": total,
@@ -327,7 +328,7 @@ class PersonnelQueryService:
                 for membership, user in rows
             ]
 
-            pages = (total + page_size - 1) // page_size
+            pages = ceil_div(total, page_size)
             return {
                 "items": items,
                 "total": total,

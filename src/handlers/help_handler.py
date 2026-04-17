@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-import math
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Final
 
 import structlog
 
 from src.core.framework.decorators import MessageScope, controller, on_command
+from src.core.utils.helpers import ceil_div
 from src.core.utils.md2img import MarkdownRenderError
 
 if TYPE_CHECKING:
@@ -100,7 +100,7 @@ def _paginate(items: list[_HelpItem], page: int) -> tuple[list[_HelpCategory], i
         (当前页的分类列表, 总页数)
     """
     total = len(items)
-    total_pages = max(1, math.ceil(total / HELP_PAGE_SIZE))
+    total_pages = max(1, ceil_div(total, HELP_PAGE_SIZE))
     start = (page - 1) * HELP_PAGE_SIZE
     page_items = items[start : start + HELP_PAGE_SIZE]
 

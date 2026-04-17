@@ -14,6 +14,7 @@ from src.api.schemas.jrlp import (  # noqa: TC001 — FastAPI Body 参数运行�
     UpdateRecordRequest,
 )
 from src.core.dependencies import get_jrlp_service
+from src.core.utils.helpers import ceil_div
 from src.core.utils.response import fail, ok
 
 if TYPE_CHECKING:
@@ -53,7 +54,7 @@ async def list_records(
         page=page,
         page_size=page_size,
     )
-    pages = (total + page_size - 1) // page_size
+    pages = ceil_div(total, page_size)
     return ok(
         {
             "items": [_record_to_dict(r) for r in records],

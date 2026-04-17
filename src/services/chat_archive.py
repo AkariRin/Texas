@@ -13,6 +13,7 @@ from sqlalchemy import func, select, text, update
 from sqlalchemy.sql import quoted_name
 
 from src.core.utils import SHANGHAI_TZ
+from src.core.utils.helpers import ceil_div
 from src.models.chat_archive import ChatArchiveLog
 from src.models.enums import ArchiveStatus
 from src.services.archive_exporter import ParquetExporter
@@ -350,7 +351,7 @@ class ArchiveService:
                 "total": total,
                 "page": page,
                 "page_size": page_size,
-                "pages": (total + page_size - 1) // page_size,
+                "pages": ceil_div(total, page_size),
             }
 
     async def query_archived_messages(
