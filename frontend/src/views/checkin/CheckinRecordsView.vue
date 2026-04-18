@@ -135,7 +135,7 @@ async function fetchRecords(p: number, size: number) {
   loading.value = true
   try {
     const result = await checkinApi.listRecords({
-      group_id: filter.value.group_id,
+      group_id: filter.value.group_id ?? undefined,
       user_id: filter.value.user_id ?? undefined,
       date: filter.value.date ?? undefined,
       page: p,

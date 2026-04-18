@@ -26,6 +26,7 @@ interface Props {
   hideDetails?: boolean | 'auto'
   clearable?: boolean
   rules?: ((v: unknown) => boolean | string)[]
+  autofocus?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -36,6 +37,7 @@ const props = withDefaults(defineProps<Props>(), {
   hideDetails: true,
   clearable: true,
   rules: () => [],
+  autofocus: false,
 })
 
 const emit = defineEmits<{
@@ -47,6 +49,8 @@ const suggestions = ref<GroupItem[]>([])
 const loading = ref(false)
 let debounceTimer: ReturnType<typeof setTimeout> | null = null
 let justSelected = false
+let requestSeq = 0
+let watchSeq = 0
 
 /** 通过 group_id 快速查找 GroupItem，用于 #item slot 渲染 */
 const suggestionMap = computed<Map<number, GroupItem>>(() => {
@@ -65,16 +69,14 @@ watch(
     if (suggestions.value.some((g) => g.group_id === id)) return
     const local = store.sessionGroups.find((g) => g.group_id === id)
     if (local) {
-      if (!suggestions.value.some((g) => g.group_id === local.group_id)) {
-        suggestions.value = [local, ...suggestions.value]
-      }
+      suggestions.value = [local, ...suggestions.value]
       return
     }
+    const seq = ++watchSeq
     try {
       const group = await fetchGroup(id)
-      if (!suggestions.value.some((g) => g.group_id === group.group_id)) {
-        suggestions.value = [group, ...suggestions.value]
-      }
+      if (watchSeq !== seq) return
+      suggestions.value = [group, ...suggestions.value]
     } catch {
       // 静默失败，Vuetify 会 fallback 显示原始数字
     }
@@ -113,6 +115,7 @@ function onSearch(input: string | undefined | null) {
     debounceTimer = null
   }
   if (localResults.length < 5) {
+    const seq = ++requestSeq
     debounceTimer = setTimeout(async () => {
       loading.value = true
       try {
@@ -120,12 +123,14 @@ function onSearch(input: string | undefined | null) {
         if (numericId !== null) {
           // 纯数字：精确查询单条群组
           const exactGroup = await fetchGroup(numericId).catch(() => null)
+          if (requestSeq !== seq) return
           if (exactGroup && !suggestions.value.some((g) => g.group_id === exactGroup.group_id)) {
             suggestions.value = [...suggestions.value, exactGroup].slice(0, 10)
           }
         } else {
           // 文字：按群名模糊搜索
           const result = await fetchGroups({ group_name: q, page_size: 10 })
+          if (requestSeq !== seq) return
           const existingIds = new Set(suggestions.value.map((g) => g.group_id))
           const newItems = result.items.filter((g) => !existingIds.has(g.group_id))
           suggestions.value = [...suggestions.value, ...newItems].slice(0, 10)
@@ -133,9 +138,11 @@ function onSearch(input: string | undefined | null) {
       } catch {
         // 静默失败，本地结果仍可用
       } finally {
-        loading.value = false
+        if (requestSeq === seq) loading.value = false
       }
     }, 300)
+  } else {
+    loading.value = false
   }
 }
 
@@ -157,6 +164,7 @@ function onSelect(value: unknown) {
     :hide-details="hideDetails"
     :clearable="clearable"
     :rules="rules"
+    :autofocus="autofocus"
     item-value="group_id"
     :item-title="(item: GroupItem) => `${item.group_name}（${item.group_id}）`"
     no-filter

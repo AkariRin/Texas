@@ -26,6 +26,7 @@ interface Props {
   hideDetails?: boolean | 'auto'
   clearable?: boolean
   rules?: ((v: unknown) => boolean | string)[]
+  autofocus?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -36,6 +37,7 @@ const props = withDefaults(defineProps<Props>(), {
   hideDetails: true,
   clearable: true,
   rules: () => [],
+  autofocus: false,
 })
 
 const emit = defineEmits<{
@@ -47,6 +49,8 @@ const suggestions = ref<UserItem[]>([])
 const loading = ref(false)
 let debounceTimer: ReturnType<typeof setTimeout> | null = null
 let justSelected = false
+let requestSeq = 0
+let watchSeq = 0
 
 /** 通过 qq 快速查找 UserItem，用于 #item slot 渲染 */
 const suggestionMap = computed<Map<number, UserItem>>(() => {
@@ -65,16 +69,14 @@ watch(
     if (suggestions.value.some((u) => u.qq === qq)) return
     const local = store.sessionUsers.find((u) => u.qq === qq)
     if (local) {
-      if (!suggestions.value.some((u) => u.qq === local.qq)) {
-        suggestions.value = [local, ...suggestions.value]
-      }
+      suggestions.value = [local, ...suggestions.value]
       return
     }
+    const seq = ++watchSeq
     try {
       const user = await fetchUser(qq)
-      if (!suggestions.value.some((u) => u.qq === user.qq)) {
-        suggestions.value = [user, ...suggestions.value]
-      }
+      if (watchSeq !== seq) return
+      suggestions.value = [user, ...suggestions.value]
     } catch {
       // 静默失败，Vuetify 会 fallback 显示原始数字
     }
@@ -113,31 +115,24 @@ function onSearch(input: string | undefined | null) {
     debounceTimer = null
   }
   if (localResults.length < 5) {
+    const seq = ++requestSeq
     debounceTimer = setTimeout(async () => {
       loading.value = true
       try {
         const isNumeric = /^\d+$/.test(q)
         if (isNumeric) {
-          // 纯数字：昵称搜索 + QQ 精确搜索两路并行合并去重
-          const [nicknameResult, qqResult] = await Promise.all([
-            fetchUsers({ nickname: q, page_size: 10 }).catch(() => null),
-            fetchUsers({ qq: Number(q), page_size: 10 }).catch(() => null),
-          ])
-          const existingQqs = new Set(suggestions.value.map((u) => u.qq))
-          const merged: UserItem[] = []
-          for (const result of [nicknameResult, qqResult]) {
-            if (!result) continue
-            for (const u of result.items) {
-              if (!existingQqs.has(u.qq)) {
-                existingQqs.add(u.qq)
-                merged.push(u)
-              }
-            }
+          // 纯数字：QQ 精确查询
+          const result = await fetchUsers({ qq: Number(q), page_size: 10 }).catch(() => null)
+          if (requestSeq !== seq) return
+          if (result) {
+            const existingQqs = new Set(suggestions.value.map((u) => u.qq))
+            const newItems = result.items.filter((u) => !existingQqs.has(u.qq))
+            suggestions.value = [...suggestions.value, ...newItems].slice(0, 10)
           }
-          suggestions.value = [...suggestions.value, ...merged].slice(0, 10)
         } else {
           // 文字：按昵称模糊搜索
           const result = await fetchUsers({ nickname: q, page_size: 10 })
+          if (requestSeq !== seq) return
           const existingQqs = new Set(suggestions.value.map((u) => u.qq))
           const newItems = result.items.filter((u) => !existingQqs.has(u.qq))
           suggestions.value = [...suggestions.value, ...newItems].slice(0, 10)
@@ -145,9 +140,11 @@ function onSearch(input: string | undefined | null) {
       } catch {
         // 静默失败，本地结果仍可用
       } finally {
-        loading.value = false
+        if (requestSeq === seq) loading.value = false
       }
     }, 300)
+  } else {
+    loading.value = false
   }
 }
 
@@ -169,6 +166,7 @@ function onSelect(value: unknown) {
     :hide-details="hideDetails"
     :clearable="clearable"
     :rules="rules"
+    :autofocus="autofocus"
     item-value="qq"
     :item-title="(item: UserItem) => `${item.nickname}（${item.qq}）`"
     no-filter

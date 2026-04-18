@@ -58,6 +58,7 @@
             label="用户 QQ 号"
             variant="outlined"
             :hide-details="false"
+            autofocus
           />
           <div v-if="createError" class="text-error text-caption mt-1">{{ createError }}</div>
         </v-card-text>
