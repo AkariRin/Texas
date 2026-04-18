@@ -53,14 +53,13 @@
       <v-card>
         <v-card-title>新增定时点赞任务</v-card-title>
         <v-card-text>
-          <v-text-field
-            v-model.number="newQq"
+          <UserAutocomplete
+            v-model="newQq"
             label="用户 QQ 号"
-            type="number"
             variant="outlined"
-            :error-messages="createError"
-            autofocus
+            :hide-details="false"
           />
+          <div v-if="createError" class="text-error text-caption mt-1">{{ createError }}</div>
         </v-card-text>
         <v-card-actions>
           <v-spacer />
@@ -93,6 +92,7 @@ import { ref, onMounted } from 'vue'
 
 import PageLayout from '@/layouts/PageLayout.vue'
 import { listTasks, createTask, cancelTask, type LikeTask } from '@/apis/like'
+import UserAutocomplete from '@/components/UserAutocomplete.vue'
 import { usePagination } from '@/composables/usePagination'
 import { formatTime } from '@/utils/format'
 

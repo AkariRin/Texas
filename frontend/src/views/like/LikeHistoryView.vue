@@ -3,15 +3,10 @@
     <v-card flat>
       <!-- 筛选栏 -->
       <v-card-title class="d-flex align-center flex-wrap ga-2 pt-3">
-        <v-text-field
-          v-model.number="filter.qq"
+        <UserAutocomplete
+          v-model="filter.qq"
           label="QQ 号"
-          density="compact"
-          variant="solo-filled"
-          hide-details
-          clearable
-          type="number"
-          style="max-width: 160px"
+          style="max-width: 200px"
           @update:model-value="debouncedLoad"
         />
         <v-select
@@ -98,6 +93,7 @@ import { ref, reactive, onMounted } from 'vue'
 
 import PageLayout from '@/layouts/PageLayout.vue'
 import { listHistory, type LikeHistory, type LikeSource } from '@/apis/like'
+import UserAutocomplete from '@/components/UserAutocomplete.vue'
 import { usePagination } from '@/composables/usePagination'
 import { formatTime } from '@/utils/format'
 

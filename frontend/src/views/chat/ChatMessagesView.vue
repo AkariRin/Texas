@@ -63,15 +63,7 @@
                 ></v-text-field>
               </v-col>
               <v-col cols="3">
-                <v-text-field
-                  v-model="filterUserId"
-                  density="compact"
-                  variant="solo-filled"
-                  placeholder="按 QQ 号筛选"
-                  hide-details
-                  clearable
-                  type="number"
-                ></v-text-field>
+                <UserAutocomplete v-model="filterUserId" label="按 QQ 号筛选" />
               </v-col>
               <v-col cols="2">
                 <v-btn
@@ -162,6 +154,7 @@ import SessionSelector from '@/components/chat/SessionSelector.vue'
 import MessageBubble from '@/components/chat/MessageBubble.vue'
 import MessageDetailDialog from '@/components/chat/MessageDetailDialog.vue'
 import UserInfoCard from '@/components/UserInfoCard.vue'
+import UserAutocomplete from '@/components/UserAutocomplete.vue'
 import ImagePreviewDialog from '@/components/chat/ImagePreviewDialog.vue'
 
 const store = useChatStore()
@@ -173,7 +166,7 @@ const reversedMessages = computed(() => [...store.messages].reverse())
 
 const currentSession = ref<{ type: 'group' | 'private'; id: number; name: string } | null>(null)
 const searchKeyword = ref('')
-const filterUserId = ref<string>('')
+const filterUserId = ref<number | null>(null)
 const messageContainer = ref<HTMLElement | null>(null)
 
 // ── 弹窗状态 ──
@@ -225,7 +218,7 @@ function openImagePreview(src: string) {
 function onSessionSelect(type: 'group' | 'private', id: number, name: string) {
   currentSession.value = { type, id, name }
   searchKeyword.value = ''
-  filterUserId.value = ''
+  filterUserId.value = null
   store.clearMessages()
   loadMessages(true)
 }
@@ -241,7 +234,7 @@ async function loadMessages(scrollBottom = false) {
   if (!currentSession.value) return
   const params: { keyword?: string; userId?: number; limit?: number } = { limit: 50 }
   if (searchKeyword.value) params.keyword = searchKeyword.value
-  if (filterUserId.value) params.userId = Number(filterUserId.value)
+  if (filterUserId.value) params.userId = filterUserId.value
 
   if (currentSession.value.type === 'group') {
     await store.loadGroupMessages(currentSession.value.id, params)
@@ -262,7 +255,7 @@ function loadMore() {
       before,
       limit: 50,
       ...(searchKeyword.value ? { keyword: searchKeyword.value } : {}),
-      ...(filterUserId.value ? { userId: Number(filterUserId.value) } : {}),
+      ...(filterUserId.value ? { userId: filterUserId.value } : {}),
     }
     void store.loadGroupMessages(currentSession.value.id, params)
   } else {
@@ -277,7 +270,7 @@ function doSearch() {
 
 function clearSearch() {
   searchKeyword.value = ''
-  filterUserId.value = ''
+  filterUserId.value = null
   store.clearMessages()
   loadMessages()
 }

@@ -3,26 +3,16 @@
     <v-card flat>
       <!-- 筛选栏 -->
       <v-card-title class="d-flex align-center flex-wrap ga-2 pt-3">
-        <v-text-field
-          v-model.number="filter.group_id"
+        <GroupAutocomplete
+          v-model="filter.group_id"
           label="群号"
-          density="compact"
-          variant="solo-filled"
-          hide-details
-          clearable
-          type="number"
-          style="max-width: 160px"
+          style="max-width: 200px"
           @update:model-value="loadPage(1)"
         />
-        <v-text-field
-          v-model.number="filter.user_id"
+        <UserAutocomplete
+          v-model="filter.user_id"
           label="用户 QQ"
-          density="compact"
-          variant="solo-filled"
-          hide-details
-          clearable
-          type="number"
-          style="max-width: 160px"
+          style="max-width: 200px"
           @update:model-value="loadPage(1)"
         />
         <v-text-field
@@ -116,6 +106,8 @@ import type { CheckinRecord } from '@/apis/checkin'
 import PageLayout from '@/layouts/PageLayout.vue'
 import GroupInfoCard from '@/components/GroupInfoCard.vue'
 import UserInfoCard from '@/components/UserInfoCard.vue'
+import GroupAutocomplete from '@/components/GroupAutocomplete.vue'
+import UserAutocomplete from '@/components/UserAutocomplete.vue'
 import { formatTime } from '@/utils/format'
 import { usePersonnelStore } from '@/stores/personnel'
 import { usePagination } from '@/composables/usePagination'

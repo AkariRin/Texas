@@ -14,26 +14,16 @@
     <v-card flat>
       <!-- 筛选栏 -->
       <v-card-title class="d-flex align-center flex-wrap ga-2 pt-3">
-        <v-text-field
-          v-model.number="filter.group_id"
+        <GroupAutocomplete
+          v-model="filter.group_id"
           label="群号"
-          density="compact"
-          variant="solo-filled"
-          hide-details
-          clearable
-          type="number"
-          style="max-width: 160px"
+          style="max-width: 200px"
           @update:model-value="loadPage(1)"
         />
-        <v-text-field
-          v-model.number="filter.user_id"
+        <UserAutocomplete
+          v-model="filter.user_id"
           label="用户 QQ"
-          density="compact"
-          variant="solo-filled"
-          hide-details
-          clearable
-          type="number"
-          style="max-width: 160px"
+          style="max-width: 200px"
           @update:model-value="loadPage(1)"
         />
         <v-text-field
@@ -147,24 +137,24 @@
         <v-card-title>手动设置老婆</v-card-title>
         <v-card-text>
           <v-form ref="setWifeFormRef">
-            <v-text-field
-              v-model.number="setWifeData.group_id"
+            <GroupAutocomplete
+              v-model="setWifeData.group_id"
               label="群号"
-              type="number"
+              :hide-details="false"
               :rules="[required]"
               class="mb-2"
             />
-            <v-text-field
-              v-model.number="setWifeData.user_id"
+            <UserAutocomplete
+              v-model="setWifeData.user_id"
               label="抽取者 QQ"
-              type="number"
+              :hide-details="false"
               :rules="[required]"
               class="mb-2"
             />
-            <v-text-field
-              v-model.number="setWifeData.wife_qq"
+            <UserAutocomplete
+              v-model="setWifeData.wife_qq"
               label="老婆 QQ"
-              type="number"
+              :hide-details="false"
               :rules="[required]"
               class="mb-2"
             />
@@ -185,10 +175,10 @@
         <v-card-title>修改老婆</v-card-title>
         <v-card-text>
           <v-form ref="editFormRef">
-            <v-text-field
-              v-model.number="editData.wife_qq"
+            <UserAutocomplete
+              v-model="editData.wife_qq"
               label="新老婆 QQ"
-              type="number"
+              :hide-details="false"
               :rules="[required]"
             />
           </v-form>
@@ -233,6 +223,8 @@ import type { WifeRecord } from '@/apis/jrlp'
 import PageLayout from '@/layouts/PageLayout.vue'
 import GroupInfoCard from '@/components/GroupInfoCard.vue'
 import UserInfoCard from '@/components/UserInfoCard.vue'
+import GroupAutocomplete from '@/components/GroupAutocomplete.vue'
+import UserAutocomplete from '@/components/UserAutocomplete.vue'
 import { formatTime } from '@/utils/format'
 import { usePersonnelStore } from '@/stores/personnel'
 import { usePagination } from '@/composables/usePagination'
