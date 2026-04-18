@@ -70,3 +70,13 @@ class ArchiveStatus(enum.StrEnum):
     partition_dropped = "partition_dropped"
     completed = "completed"
     failed = "failed"
+
+
+# ── 点赞来源 ──
+
+
+class LikeSource(enum.StrEnum):
+    """点赞触发来源枚举。"""
+
+    manual = "manual"
+    scheduled = "scheduled"

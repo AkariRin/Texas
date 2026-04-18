@@ -78,6 +78,34 @@ const router = createRouter({
       },
     },
     {
+      path: '/like',
+      redirect: '/like/tasks',
+    },
+    {
+      path: '/like/tasks',
+      name: 'like-tasks',
+      component: () => import('@/views/like/LikeTasksView.vue'),
+      meta: {
+        title: '点赞任务',
+        icon: 'mdi-thumb-up',
+        subtitle: '管理每日定时点赞任务',
+        panel: '功能模块',
+        section: '点赞',
+      },
+    },
+    {
+      path: '/like/history',
+      name: 'like-history',
+      component: () => import('@/views/like/LikeHistoryView.vue'),
+      meta: {
+        title: '点赞历史',
+        icon: 'mdi-history',
+        subtitle: '查看点赞执行记录',
+        panel: '功能模块',
+        section: '点赞',
+      },
+    },
+    {
       path: '/personnel',
       redirect: '/personnel/users',
     },

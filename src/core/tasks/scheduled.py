@@ -44,6 +44,16 @@ def setup_periodic_tasks() -> None:
     )
     checkin_entry.save()
 
+    # ── 每日点赞（每天零点 Asia/Shanghai） ──
+    like_entry = RedBeatSchedulerEntry(
+        name="schedule-daily-like",
+        task="src.core.tasks.daily_like.trigger_daily_like",
+        schedule=crontab(hour=0, minute=0),
+        app=celery_app,
+        options={"expires": 3600},
+    )
+    like_entry.save()
+
 
 # 模块加载时自动注册
 setup_periodic_tasks()

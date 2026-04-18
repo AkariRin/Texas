@@ -27,6 +27,7 @@ if TYPE_CHECKING:
     from src.services.drift_bottle import DriftBottleService
     from src.services.feedback import FeedbackService
     from src.services.jrlp import JrlpService
+    from src.services.like import LikeService
     from src.services.llm import LLMService
     from src.services.permission import FeaturePermissionService
     from src.services.personnel import PersonnelService
@@ -57,6 +58,7 @@ class AppState:
     feedback_service: FeedbackService
     jrlp_service: JrlpService
     drift_bottle_service: DriftBottleService
+    like_service: LikeService
     session_manager: SessionManager
     event_dispatch_callback: Callable[[Any], Coroutine[Any, Any, None]] | None
 
@@ -151,6 +153,11 @@ def get_user_checkin_service(request: Request) -> CheckinService:
 def get_drift_bottle_service(request: Request) -> DriftBottleService:
     """获取漂流瓶服务。"""
     return _state(request).drift_bottle_service
+
+
+def get_like_service(request: Request) -> LikeService:
+    """获取点赞服务。"""
+    return _state(request).like_service
 
 
 # ── WebSocket 端点辅助函数 ──
