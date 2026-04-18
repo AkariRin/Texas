@@ -113,7 +113,7 @@ import { ref, onMounted } from 'vue'
 import { useLLMStore } from '@/stores/llm'
 import type { ProviderItem } from '@/apis/llm'
 import PageLayout from '@/layouts/PageLayout.vue'
-import ProviderFormDialog from './ProviderFormDialog.vue'
+import ProviderFormDialog from '@/components/llm/ProviderFormDialog.vue'
 
 const store = useLLMStore()
 

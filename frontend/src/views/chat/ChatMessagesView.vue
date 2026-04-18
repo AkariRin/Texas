@@ -158,11 +158,11 @@ import { ref, computed, nextTick, onMounted } from 'vue'
 import { useChatStore } from '@/stores/chat'
 import { usePersonnelStore } from '@/stores/personnel'
 import type { ChatMessage } from '@/apis/chat'
-import SessionSelector from './components/SessionSelector.vue'
-import MessageBubble from './components/MessageBubble.vue'
-import MessageDetailDialog from './components/MessageDetailDialog.vue'
+import SessionSelector from '@/components/chat/SessionSelector.vue'
+import MessageBubble from '@/components/chat/MessageBubble.vue'
+import MessageDetailDialog from '@/components/chat/MessageDetailDialog.vue'
 import UserInfoCard from '@/components/UserInfoCard.vue'
-import ImagePreviewDialog from './components/ImagePreviewDialog.vue'
+import ImagePreviewDialog from '@/components/chat/ImagePreviewDialog.vue'
 
 const store = useChatStore()
 const personnelStore = usePersonnelStore()

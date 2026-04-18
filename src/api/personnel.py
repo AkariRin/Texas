@@ -56,6 +56,7 @@ class GroupMemberResponse(BaseModel):
     join_time: int
     last_active_time: int
     title: str
+    level: str
 
 
 class SyncStatusResponse(BaseModel):

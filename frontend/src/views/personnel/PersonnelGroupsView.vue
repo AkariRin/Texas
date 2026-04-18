@@ -109,7 +109,7 @@
 import { ref, onMounted } from 'vue'
 import { usePersonnelStore } from '@/stores/personnel'
 import type { GroupItem } from '@/apis/personnel'
-import SyncDialog from './SyncDialog.vue'
+import SyncDialog from '@/components/personnel/SyncDialog.vue'
 import PageLayout from '@/layouts/PageLayout.vue'
 import GroupInfoCard from '@/components/GroupInfoCard.vue'
 import UserInfoCard from '@/components/UserInfoCard.vue'

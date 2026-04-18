@@ -13,7 +13,6 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-import sqlalchemy as sa
 from alembic import op
 
 revision: str = "d3f1a9c72e05"
@@ -23,72 +22,37 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
+    # 使用原生 SQL 绕过 SQLAlchemy Enum 事件系统，避免 ORM 模型导入时注册的
+    # _on_table_create 监听器与显式 CREATE TYPE 产生竞争导致 DuplicateObjectError
+
     # 点赞来源枚举类型
     op.execute("CREATE TYPE likesource AS ENUM ('manual', 'scheduled')")
 
     # 定时点赞任务表
-    op.create_table(
-        "like_tasks",
-        sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
-        sa.Column(
-            "qq",
-            sa.BigInteger(),
-            nullable=False,
-            comment="被点赞用户 QQ（无外键约束，全局唯一）",
-        ),
-        sa.Column(
-            "registered_at",
-            sa.DateTime(timezone=True),
-            server_default=sa.text("NOW()"),
-            nullable=False,
-            comment="注册时间（UTC）",
-        ),
-        sa.Column(
-            "registered_group_id",
-            sa.BigInteger(),
-            nullable=True,
-            comment="注册时所在群（私聊注册为 null）",
-        ),
-        sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint("qq", name="uq_like_tasks_qq"),
-    )
+    op.execute("""
+        CREATE TABLE like_tasks (
+            id         SERIAL        PRIMARY KEY,
+            qq         BIGINT        NOT NULL,
+            registered_at        TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+            registered_group_id  BIGINT
+        )
+    """)
+    op.execute("ALTER TABLE like_tasks ADD CONSTRAINT uq_like_tasks_qq UNIQUE (qq)")
 
     # 点赞执行历史表
-    op.create_table(
-        "like_history",
-        sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
-        sa.Column(
-            "qq",
-            sa.BigInteger(),
-            nullable=False,
-            comment="被点赞对象 QQ（无外键约束）",
-        ),
-        sa.Column("times", sa.SmallInteger(), nullable=False, comment="本次点赞次数"),
-        sa.Column(
-            "triggered_at",
-            sa.DateTime(timezone=True),
-            server_default=sa.text("NOW()"),
-            nullable=False,
-            comment="执行时间（UTC）",
-        ),
-        sa.Column(
-            "source",
-            sa.Enum("manual", "scheduled", name="likesource"),
-            nullable=False,
-            comment="触发来源",
-        ),
-        sa.Column("success", sa.Boolean(), nullable=False, comment="是否成功"),
-        sa.PrimaryKeyConstraint("id"),
-    )
-    op.create_index(
-        "ix_like_history_qq_triggered_at",
-        "like_history",
-        ["qq", "triggered_at"],
-    )
-    op.create_index(
-        "ix_like_history_source_triggered_at",
-        "like_history",
-        ["source", "triggered_at"],
+    op.execute("""
+        CREATE TABLE like_history (
+            id           SERIAL      PRIMARY KEY,
+            qq           BIGINT      NOT NULL,
+            times        SMALLINT    NOT NULL,
+            triggered_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            source       likesource  NOT NULL,
+            success      BOOLEAN     NOT NULL
+        )
+    """)
+    op.execute("CREATE INDEX ix_like_history_qq_triggered_at ON like_history (qq, triggered_at)")
+    op.execute(
+        "CREATE INDEX ix_like_history_source_triggered_at ON like_history (source, triggered_at)"
     )
 
 

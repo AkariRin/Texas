@@ -51,13 +51,45 @@
               <div v-if="memberData.card" class="text-body-2 text-medium-emphasis">
                 昵称: {{ memberData.nickname }}
               </div>
-              <div class="d-flex align-center ga-2 mt-1">
-                <v-chip size="small" variant="elevated" :color="roleColor(memberData.role)">
-                  {{ roleLabel(memberData.role) }}
-                </v-chip>
-                <v-chip size="small" variant="outlined" color="grey">
-                  {{ relationLabel(memberData.relation) }}
-                </v-chip>
+              <div class="d-flex align-center flex-wrap ga-2 mt-1">
+                <v-tooltip text="群角色" location="top">
+                  <template #activator="{ props }">
+                    <v-chip
+                      v-bind="props"
+                      size="small"
+                      variant="elevated"
+                      :color="roleColor(memberData.role)"
+                    >
+                      {{ roleLabel(memberData.role) }}
+                    </v-chip>
+                  </template>
+                </v-tooltip>
+                <v-tooltip text="关系" location="top">
+                  <template #activator="{ props }">
+                    <v-chip
+                      v-bind="props"
+                      size="small"
+                      variant="elevated"
+                      :color="relationColor(memberData.relation)"
+                    >
+                      {{ relationLabel(memberData.relation) }}
+                    </v-chip>
+                  </template>
+                </v-tooltip>
+                <v-tooltip v-if="memberData.title" text="专属头衔" location="top">
+                  <template #activator="{ props }">
+                    <v-chip v-bind="props" size="small" variant="elevated" color="purple">
+                      {{ memberData.title }}
+                    </v-chip>
+                  </template>
+                </v-tooltip>
+                <v-tooltip v-if="memberData.level" text="群聊等级" location="top">
+                  <template #activator="{ props }">
+                    <v-chip v-bind="props" size="small" variant="elevated" color="teal">
+                      {{ memberData.level }}
+                    </v-chip>
+                  </template>
+                </v-tooltip>
               </div>
             </div>
           </div>
@@ -87,6 +119,10 @@
               <tr>
                 <td class="text-caption font-weight-bold">专属头衔</td>
                 <td class="text-caption">{{ memberData.title || '-' }}</td>
+              </tr>
+              <tr>
+                <td class="text-caption font-weight-bold">群聊等级</td>
+                <td class="text-caption">{{ memberData.level || '-' }}</td>
               </tr>
               <tr>
                 <td class="text-caption font-weight-bold">入群时间</td>

@@ -7,6 +7,8 @@ import type { ApiResponse, PaginatedResult } from './types'
 
 // ── 类型定义 ──
 
+export type LikeSource = 'manual' | 'scheduled'
+
 export interface LikeTask {
   id: number
   qq: number
@@ -19,7 +21,7 @@ export interface LikeHistory {
   qq: number
   times: number
   triggered_at: string
-  source: 'manual' | 'scheduled'
+  source: LikeSource
   success: boolean
 }
 
@@ -30,7 +32,7 @@ export interface ListTasksParams {
 
 export interface ListHistoryParams {
   qq?: number | null
-  source?: 'manual' | 'scheduled' | null
+  source?: LikeSource | null
   date_from?: string | null
   date_to?: string | null
   page?: number
@@ -66,8 +68,8 @@ export async function listHistory(
   if (params.source) query.source = params.source
   if (params.date_from) query.date_from = params.date_from
   if (params.date_to) query.date_to = params.date_to
-  if (params.page) query.page = params.page
-  if (params.page_size) query.page_size = params.page_size
+  if (params.page != null) query.page = params.page
+  if (params.page_size != null) query.page_size = params.page_size
 
   const { data } = await http.get<ApiResponse<PaginatedResult<LikeHistory>>>(`${BASE}/history`, {
     params: query,

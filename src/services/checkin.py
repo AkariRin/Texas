@@ -225,15 +225,17 @@ class CheckinService:
     async def list_records(
         self,
         *,
-        group_id: int,
+        group_id: int | None = None,
         user_id: int | None = None,
         record_date: date | None = None,
         page: int = 1,
         page_size: int = 20,
     ) -> tuple[list[CheckinRecord], int]:
-        """分页查询签到记录。"""
+        """分页查询签到记录。group_id 为 None 时查询所有群。"""
         async with self._session_factory() as session:
-            stmt = select(CheckinRecord).where(CheckinRecord.group_id == group_id)
+            stmt = select(CheckinRecord)
+            if group_id is not None:
+                stmt = stmt.where(CheckinRecord.group_id == group_id)
             if user_id is not None:
                 stmt = stmt.where(CheckinRecord.user_id == user_id)
             if record_date is not None:
@@ -251,38 +253,42 @@ class CheckinService:
 
     async def get_leaderboard(
         self,
-        group_id: int,
+        group_id: int | None = None,
         by: Literal["total", "streak"] = "total",
         limit: int = 20,
     ) -> list[LeaderEntry]:
-        """查询排行榜。
+        """查询排行榜。group_id 为 None 时统计所有群。
 
         Args:
-            group_id: 群号。
+            group_id: 群号，None 表示全局。
             by: "total"（累计签到天数）或 "streak"（当前连续天数）。
             limit: 返回条数，最大 50。
         """
         limit = min(limit, 50)
         async with self._session_factory() as session:
             if by == "total":
+                stmt = select(CheckinRecord.user_id, func.count().label("value"))
+                if group_id is not None:
+                    stmt = stmt.where(CheckinRecord.group_id == group_id)
                 result = await session.execute(
-                    select(CheckinRecord.user_id, func.count().label("value"))
-                    .where(CheckinRecord.group_id == group_id)
-                    .group_by(CheckinRecord.user_id)
-                    .order_by(func.count().desc())
-                    .limit(limit)
+                    stmt.group_by(CheckinRecord.user_id).order_by(func.count().desc()).limit(limit)
                 )
                 return [LeaderEntry(user_id=row[0], value=row[1]) for row in result.all()]
 
             # by == "streak"：使用窗口函数计算当前连续天数
-            streak_sql = text("""
-                WITH gaps AS (
+            # 跨群时先 DISTINCT 去重同一用户同一天多群签到，避免重复计数
+            group_filter = "WHERE group_id = :group_id" if group_id is not None else ""
+            streak_sql = text(f"""
+                WITH distinct_dates AS (
+                    SELECT DISTINCT user_id, checkin_date FROM checkin {group_filter}
+                ),
+                gaps AS (
                     SELECT user_id, checkin_date,
                            CASE WHEN LAG(checkin_date)
                                          OVER (PARTITION BY user_id ORDER BY checkin_date)
                                      = checkin_date - INTERVAL '1 day'
                                 THEN 0 ELSE 1 END AS new_streak
-                    FROM checkin WHERE group_id = :group_id
+                    FROM distinct_dates
                 ),
                 streak_groups AS (
                     SELECT user_id, checkin_date,
@@ -298,49 +304,46 @@ class CheckinService:
                     FROM streak_lengths ORDER BY user_id, last_day DESC
                 )
                 SELECT user_id, streak FROM current_streaks ORDER BY streak DESC LIMIT :limit
-            """)  # nosec — 参数化查询（:group_id/:limit），无字符串拼接风险
-            result = await session.execute(streak_sql, {"group_id": group_id, "limit": limit})
+            """)  # nosec — group_filter 为硬编码结构，:group_id/:limit 均为参数化绑定
+            params: dict[str, Any] = {"limit": limit}
+            if group_id is not None:
+                params["group_id"] = group_id
+            result = await session.execute(streak_sql, params)
             return [LeaderEntry(user_id=row[0], value=row[1]) for row in result.all()]
 
-    async def get_daily_trend(self, group_id: int, days: int = 30) -> list[DayCount]:
-        """查询最近 N 天每日签到人数。"""
+    async def get_daily_trend(self, group_id: int | None = None, days: int = 30) -> list[DayCount]:
+        """查询最近 N 天每日签到人数。group_id 为 None 时统计所有群。"""
         days = min(days, 90)
         cutoff = datetime.now(SHANGHAI_TZ).date() - timedelta(days=days)
         async with self._session_factory() as session:
+            stmt = select(
+                CheckinRecord.checkin_date,
+                func.count().label("cnt"),
+            ).where(CheckinRecord.checkin_date >= cutoff)
+            if group_id is not None:
+                stmt = stmt.where(CheckinRecord.group_id == group_id)
             result = await session.execute(
-                select(
-                    CheckinRecord.checkin_date,
-                    func.count().label("cnt"),
-                )
-                .where(
-                    CheckinRecord.group_id == group_id,
-                    CheckinRecord.checkin_date >= cutoff,
-                )
-                .group_by(CheckinRecord.checkin_date)
-                .order_by(CheckinRecord.checkin_date)
+                stmt.group_by(CheckinRecord.checkin_date).order_by(CheckinRecord.checkin_date)
             )
             return [DayCount(date=row[0].isoformat(), count=row[1]) for row in result.all()]
 
-    async def get_summary(self, group_id: int) -> SummaryData:
-        """查询汇总卡片数据。"""
+    async def get_summary(self, group_id: int | None = None) -> SummaryData:
+        """查询汇总卡片数据。group_id 为 None 时统计所有群。"""
         today = datetime.now(SHANGHAI_TZ).date()
         cutoff = today - timedelta(days=30)
 
         async with self._session_factory() as session:
             # 三个聚合合并为一次 SQL 查询，避免多次 round-trip
-            row = (
-                await session.execute(
-                    select(
-                        func.count().label("total"),
-                        func.count()
-                        .filter(CheckinRecord.checkin_date == today)
-                        .label("today_count"),
-                        func.count(CheckinRecord.user_id.distinct())
-                        .filter(CheckinRecord.checkin_date >= cutoff)
-                        .label("active"),
-                    ).where(CheckinRecord.group_id == group_id)
-                )
-            ).one()
+            stmt = select(
+                func.count().label("total"),
+                func.count().filter(CheckinRecord.checkin_date == today).label("today_count"),
+                func.count(CheckinRecord.user_id.distinct())
+                .filter(CheckinRecord.checkin_date >= cutoff)
+                .label("active"),
+            )
+            if group_id is not None:
+                stmt = stmt.where(CheckinRecord.group_id == group_id)
+            row = (await session.execute(stmt)).one()
 
         return SummaryData(
             total_checkins=row.total,

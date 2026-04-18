@@ -141,8 +141,6 @@ const trendLabels = computed(() =>
 
 // ── 数据加载 ──
 async function loadAll() {
-  if (groupId.value == null) return
-
   summaryLoading.value = true
   leaderLoading.value = true
   trendLoading.value = true
@@ -169,7 +167,6 @@ async function loadAll() {
 }
 
 async function loadLeaderboard() {
-  if (groupId.value == null) return
   leaderLoading.value = true
   try {
     leaderboard.value = await checkinApi.getLeaderboard(groupId.value, leaderBy.value)
@@ -181,7 +178,7 @@ async function loadLeaderboard() {
 }
 
 function onGroupChange() {
-  if (groupId.value != null) loadAll()
+  loadAll()
 }
 
 watch(leaderBy, () => loadLeaderboard())

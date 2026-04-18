@@ -31,7 +31,7 @@
 
         <!-- 注册时间列 -->
         <template #[`item.registered_at`]="{ item }">
-          {{ formatDate(item.registered_at) }}
+          {{ formatTime(item.registered_at) }}
         </template>
 
         <!-- 操作列 -->
@@ -94,6 +94,7 @@ import { ref, onMounted } from 'vue'
 import PageLayout from '@/layouts/PageLayout.vue'
 import { listTasks, createTask, cancelTask, type LikeTask } from '@/apis/like'
 import { usePagination } from '@/composables/usePagination'
+import { formatTime } from '@/utils/format'
 
 // ── 列表状态 ──
 const loading = ref(false)
@@ -106,10 +107,6 @@ const headers = [
   { title: '来源群', key: 'registered_group_id', sortable: false },
   { title: '操作', key: 'actions', sortable: false, align: 'end' as const },
 ]
-
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleString('zh-CN', { hour12: false })
-}
 
 async function fetchTasks(p: number, size: number) {
   loading.value = true

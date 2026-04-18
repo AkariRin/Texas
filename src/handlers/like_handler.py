@@ -60,7 +60,6 @@ class LikeHandler:
         args = ctx.get_args()
         sub = args[0].lower() if args else ""
 
-        # ── 子命令分发 ──
         if sub in ("schedule", "定时"):
             await self._handle_schedule(ctx, svc, qq)
         elif sub in ("cancel", "取消"):

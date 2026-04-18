@@ -324,6 +324,7 @@ class PersonnelQueryService:
                     "join_time": membership.join_time,
                     "last_active_time": membership.last_active_time,
                     "title": membership.title,
+                    "level": membership.level,
                 }
                 for membership, user in rows
             ]

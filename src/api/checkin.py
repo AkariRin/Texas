@@ -33,7 +33,7 @@ def _record_to_dict(r: Any) -> dict[str, Any]:
 
 @router.get("/records")
 async def list_records(
-    group_id: int = Query(..., description="群号（必填）"),
+    group_id: int | None = Query(None, description="群号，不填则查询所有群"),
     user_id: int | None = Query(None),
     record_date: date | None = Query(None, alias="date"),
     page: int = Query(1, ge=1),
@@ -62,7 +62,7 @@ async def list_records(
 
 @router.get("/leaderboard")
 async def get_leaderboard(
-    group_id: int = Query(..., description="群号（必填）"),
+    group_id: int | None = Query(None, description="群号，不填则查询所有群"),
     by: Literal["total", "streak"] = Query("total"),
     limit: int = Query(20, ge=1, le=50),
     service: CheckinService = Depends(get_user_checkin_service),
@@ -76,7 +76,7 @@ async def get_leaderboard(
 
 @router.get("/trend")
 async def get_daily_trend(
-    group_id: int = Query(..., description="群号（必填）"),
+    group_id: int | None = Query(None, description="群号，不填则查询所有群"),
     days: int = Query(30, ge=7, le=90),
     service: CheckinService = Depends(get_user_checkin_service),
 ) -> dict[str, Any]:
@@ -87,7 +87,7 @@ async def get_daily_trend(
 
 @router.get("/summary")
 async def get_summary(
-    group_id: int = Query(..., description="群号（必填）"),
+    group_id: int | None = Query(None, description="群号，不填则查询所有群"),
     service: CheckinService = Depends(get_user_checkin_service),
 ) -> dict[str, Any]:
     """查询汇总卡片数据。"""

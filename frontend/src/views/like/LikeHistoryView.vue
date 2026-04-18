@@ -83,7 +83,7 @@
 
         <!-- 时间列 -->
         <template #[`item.triggered_at`]="{ item }">
-          {{ formatDate(item.triggered_at) }}
+          {{ formatTime(item.triggered_at) }}
         </template>
       </v-data-table>
     </v-card>
@@ -97,8 +97,9 @@
 import { ref, reactive, onMounted } from 'vue'
 
 import PageLayout from '@/layouts/PageLayout.vue'
-import { listHistory, type LikeHistory } from '@/apis/like'
+import { listHistory, type LikeHistory, type LikeSource } from '@/apis/like'
 import { usePagination } from '@/composables/usePagination'
+import { formatTime } from '@/utils/format'
 
 // ── 列表状态 ──
 const loading = ref(false)
@@ -107,7 +108,7 @@ const total = ref(0)
 
 const filter = reactive({
   qq: null as number | null,
-  source: null as 'manual' | 'scheduled' | null,
+  source: null as LikeSource | null,
   date_from: null as string | null,
   date_to: null as string | null,
 })
@@ -124,10 +125,6 @@ const headers = [
   { title: '成功', key: 'success', sortable: false },
   { title: '执行时间', key: 'triggered_at', sortable: false },
 ]
-
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleString('zh-CN', { hour12: false })
-}
 
 async function fetchHistory(p: number, size: number) {
   loading.value = true

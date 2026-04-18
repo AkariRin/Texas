@@ -39,6 +39,7 @@ export interface GroupMemberItem {
   join_time: number
   last_active_time: number
   title: string
+  level: string
 }
 
 export interface GroupMembershipInfo {

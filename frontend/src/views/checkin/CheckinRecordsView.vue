@@ -140,11 +140,6 @@ const headers = [
 ]
 
 async function fetchRecords(p: number, size: number) {
-  if (filter.value.group_id == null) {
-    items.value = []
-    total.value = 0
-    return
-  }
   loading.value = true
   try {
     const result = await checkinApi.listRecords({

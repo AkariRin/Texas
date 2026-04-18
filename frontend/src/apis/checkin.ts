@@ -33,7 +33,7 @@ export interface Summary {
 }
 
 export interface ListRecordsParams {
-  group_id: number
+  group_id?: number | null
   user_id?: number | null
   date?: string | null
   page?: number
@@ -47,7 +47,8 @@ const BASE = '/api/checkin'
 export async function listRecords(
   params: ListRecordsParams,
 ): Promise<PaginatedResult<CheckinRecord>> {
-  const query: Record<string, string | number> = { group_id: params.group_id }
+  const query: Record<string, string | number> = {}
+  if (params.group_id != null) query.group_id = params.group_id
   if (params.user_id != null) query.user_id = params.user_id
   if (params.date) query.date = params.date
   if (params.page) query.page = params.page
@@ -60,26 +61,29 @@ export async function listRecords(
 }
 
 export async function getLeaderboard(
-  groupId: number,
+  groupId: number | null | undefined,
   by: 'total' | 'streak' = 'total',
   limit = 20,
 ): Promise<LeaderEntry[]> {
-  const { data } = await http.get<ApiResponse<LeaderEntry[]>>(`${BASE}/leaderboard`, {
-    params: { group_id: groupId, by, limit },
-  })
+  const params: Record<string, string | number> = { by, limit }
+  if (groupId != null) params.group_id = groupId
+  const { data } = await http.get<ApiResponse<LeaderEntry[]>>(`${BASE}/leaderboard`, { params })
   return data.data
 }
 
-export async function getDailyTrend(groupId: number, days = 30): Promise<DayCount[]> {
-  const { data } = await http.get<ApiResponse<DayCount[]>>(`${BASE}/trend`, {
-    params: { group_id: groupId, days },
-  })
+export async function getDailyTrend(
+  groupId: number | null | undefined,
+  days = 30,
+): Promise<DayCount[]> {
+  const params: Record<string, string | number> = { days }
+  if (groupId != null) params.group_id = groupId
+  const { data } = await http.get<ApiResponse<DayCount[]>>(`${BASE}/trend`, { params })
   return data.data
 }
 
-export async function getSummary(groupId: number): Promise<Summary> {
-  const { data } = await http.get<ApiResponse<Summary>>(`${BASE}/summary`, {
-    params: { group_id: groupId },
-  })
+export async function getSummary(groupId: number | null | undefined): Promise<Summary> {
+  const params: Record<string, string | number> = {}
+  if (groupId != null) params.group_id = groupId
+  const { data } = await http.get<ApiResponse<Summary>>(`${BASE}/summary`, { params })
   return data.data
 }

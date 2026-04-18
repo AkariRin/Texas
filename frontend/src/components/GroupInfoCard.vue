@@ -13,7 +13,7 @@
 
       <!-- 群信息头部 -->
       <v-card-title v-else-if="groupInfo" class="d-flex align-center ga-3 pa-4">
-        <v-avatar size="48" rounded="lg">
+        <v-avatar size="48">
           <v-img :src="`https://p.qlogo.cn/gh/${groupInfo.group_id}/${groupInfo.group_id}/100`">
             <template #error>
               <v-icon size="32">mdi-account-group</v-icon>
@@ -111,6 +111,14 @@
           </v-chip>
         </template>
 
+        <!-- 专属头衔 -->
+        <template #[`item.title`]="{ item }">
+          <v-chip v-if="item.title" color="purple" size="x-small" variant="elevated">
+            {{ item.title }}
+          </v-chip>
+          <span v-else class="text-caption text-medium-emphasis">-</span>
+        </template>
+
         <!-- 入群时间 -->
         <template #[`item.join_time`]="{ item }">
           <span class="text-caption">
@@ -177,7 +185,7 @@ const memberHeaders = [
   { title: '昵称', key: 'nickname', sortable: false },
   { title: '群名片', key: 'card', sortable: false },
   { title: '群角色', key: 'role', sortable: false, align: 'center' as const },
-  { title: '系统关系', key: 'relation', sortable: false, align: 'center' as const },
+  { title: '关系', key: 'relation', sortable: false, align: 'center' as const },
   { title: '头衔', key: 'title', sortable: false },
   { title: '入群时间', key: 'join_time', sortable: false },
 ]

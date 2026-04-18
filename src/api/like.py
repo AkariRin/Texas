@@ -5,10 +5,13 @@ from __future__ import annotations
 from datetime import date  # noqa: TC003 — FastAPI Query 参数运行时需要
 from typing import TYPE_CHECKING, Any
 
-import structlog
 from fastapi import APIRouter, Depends, HTTPException, Path, Query
 
-from src.api.schemas.like import CreateLikeTaskRequest  # noqa: TC001 — FastAPI Body 参数运行时需要
+from src.api.schemas.like import (  # noqa: TC001 — FastAPI Body 参数运行时需要
+    CreateLikeTaskRequest,
+    LikeHistoryResponse,
+    LikeTaskResponse,
+)
 from src.core.dependencies import get_like_service
 from src.core.utils.helpers import ceil_div
 from src.core.utils.response import ok
@@ -17,31 +20,7 @@ from src.models.enums import LikeSource  # noqa: TC001 — FastAPI Query 枚举�
 if TYPE_CHECKING:
     from src.services.like import LikeService
 
-logger = structlog.get_logger()
-
 router = APIRouter(prefix="/like", tags=["like"])
-
-
-def _task_to_dict(t: Any) -> dict[str, Any]:
-    """将 LikeTask ORM 对象转为可序列化字典。"""
-    return {
-        "id": t.id,
-        "qq": t.qq,
-        "registered_at": t.registered_at.isoformat(),
-        "registered_group_id": t.registered_group_id,
-    }
-
-
-def _history_to_dict(h: Any) -> dict[str, Any]:
-    """将 LikeHistory ORM 对象转为可序列化字典。"""
-    return {
-        "id": h.id,
-        "qq": h.qq,
-        "times": h.times,
-        "triggered_at": h.triggered_at.isoformat(),
-        "source": h.source.value,
-        "success": h.success,
-    }
 
 
 @router.get("/tasks")
@@ -54,7 +33,7 @@ async def list_tasks(
     items, total = await service.list_tasks(page=page, page_size=page_size)
     return ok(
         {
-            "items": [_task_to_dict(t) for t in items],
+            "items": [LikeTaskResponse.model_validate(t).model_dump(mode="json") for t in items],
             "total": total,
             "page": page,
             "page_size": page_size,
@@ -108,7 +87,7 @@ async def list_history(
     )
     return ok(
         {
-            "items": [_history_to_dict(h) for h in items],
+            "items": [LikeHistoryResponse.model_validate(h).model_dump(mode="json") for h in items],
             "total": total,
             "page": page,
             "page_size": page_size,

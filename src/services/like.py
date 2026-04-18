@@ -181,47 +181,45 @@ class LikeService:
         Returns:
             True 表示删除成功，False 表示任务不存在。
         """
-        from sqlalchemy import delete, select
+        from sqlalchemy import delete
 
         async with self._session_factory() as session:
-            row = await session.scalar(select(LikeTask.id).where(LikeTask.qq == qq).limit(1))
-            if row is None:
-                return False
-            await session.execute(delete(LikeTask).where(LikeTask.qq == qq))
+            result = await session.execute(delete(LikeTask).where(LikeTask.qq == qq))
+            deleted: bool = result.rowcount > 0  # type: ignore[attr-defined]
             await session.commit()
 
-        logger.info("定时点赞任务已取消", qq=qq, event_type="like.task_cancelled")
-        return True
+        if deleted:
+            logger.info("定时点赞任务已取消", qq=qq, event_type="like.task_cancelled")
+        return deleted
 
     async def get_status(self, qq: int) -> LikeStatus:
         """查询用户点赞状态与历史统计。
+
+        并发执行两个独立查询：任务检查 + 历史聚合（SUM + MAX 合并为一条 SQL）。
 
         Returns:
             LikeStatus 包含是否有任务、总点赞次数、最近触发时间。
         """
         from sqlalchemy import func, select
 
-        async with self._session_factory() as session:
-            has_task = (
-                await session.scalar(select(LikeTask.id).where(LikeTask.qq == qq).limit(1))
-            ) is not None
+        task_stmt = select(LikeTask.id).where(LikeTask.qq == qq).limit(1)
+        history_stmt = select(
+            func.sum(LikeHistory.times).filter(LikeHistory.success.is_(True)).label("total_times"),
+            func.max(LikeHistory.triggered_at).label("last_triggered_at"),
+        ).where(LikeHistory.qq == qq)
 
-            total_times: int = (
-                await session.scalar(
-                    select(func.sum(LikeHistory.times)).where(
-                        LikeHistory.qq == qq,
-                        LikeHistory.success.is_(True),
-                    )
-                )
-            ) or 0
+        async def _query_task() -> bool:
+            async with self._session_factory() as s:
+                return (await s.scalar(task_stmt)) is not None
 
-            last_triggered_at: datetime | None = await session.scalar(
-                select(LikeHistory.triggered_at)
-                .where(LikeHistory.qq == qq)
-                .order_by(LikeHistory.triggered_at.desc())
-                .limit(1)
-            )
+        async def _query_history() -> tuple[int, datetime | None]:
+            async with self._session_factory() as s:
+                row = (await s.execute(history_stmt)).one()
+                return (row.total_times or 0), row.last_triggered_at
 
+        has_task, (total_times, last_triggered_at) = await asyncio.gather(
+            _query_task(), _query_history()
+        )
         return LikeStatus(
             has_task=has_task,
             total_times=total_times,
@@ -233,7 +231,7 @@ class LikeService:
         page: int = 1,
         page_size: int = 20,
     ) -> tuple[list[LikeTask], int]:
-        """分页查询所有定时点赞任务。
+        """分页查询所有定时点赞任务（COUNT 与 SELECT 并发执行）。
 
         Returns:
             (任务列表, 总数)
@@ -241,16 +239,11 @@ class LikeService:
         from sqlalchemy import func, select
 
         offset = (page - 1) * page_size
-        async with self._session_factory() as session:
-            total: int = (await session.scalar(select(func.count()).select_from(LikeTask))) or 0
-            result = await session.execute(
-                select(LikeTask)
-                .order_by(LikeTask.registered_at.desc())
-                .offset(offset)
-                .limit(page_size)
-            )
-            items = list(result.scalars().all())
-        return items, total
+        count_stmt = select(func.count()).select_from(LikeTask)
+        items_stmt = (
+            select(LikeTask).order_by(LikeTask.registered_at.desc()).offset(offset).limit(page_size)
+        )
+        return await self._paginate(count_stmt, items_stmt)
 
     async def list_history(
         self,
@@ -295,13 +288,8 @@ class LikeService:
             count_stmt = count_stmt.where(LikeHistory.triggered_at <= end)
 
         offset = (page - 1) * page_size
-        stmt = stmt.order_by(LikeHistory.triggered_at.desc()).offset(offset).limit(page_size)
-
-        async with self._session_factory() as session:
-            total: int = (await session.scalar(count_stmt)) or 0
-            result = await session.execute(stmt)
-            items = list(result.scalars().all())
-        return items, total
+        items_stmt = stmt.order_by(LikeHistory.triggered_at.desc()).offset(offset).limit(page_size)
+        return await self._paginate(count_stmt, items_stmt)
 
     def request_scheduled_likes(self) -> asyncio.Task[None] | None:
         """请求执行一轮定时点赞（防并发重入）。
@@ -320,6 +308,21 @@ class LikeService:
         return self._current_task
 
     # ── 内部实现 ──
+
+    async def _paginate(self, count_stmt: Any, items_stmt: Any) -> tuple[list[Any], int]:
+        """并发执行 COUNT 查询和分页 SELECT，返回 (items, total)。"""
+
+        async def _count() -> int:
+            async with self._session_factory() as s:
+                return (await s.scalar(count_stmt)) or 0
+
+        async def _fetch() -> list[Any]:
+            async with self._session_factory() as s:
+                result = await s.execute(items_stmt)
+                return list(result.scalars().all())
+
+        total, items = await asyncio.gather(_count(), _fetch())
+        return items, total
 
     async def _run_scheduled_likes(self) -> None:
         """遍历所有注册任务，依次执行定时点赞，结果写日志。"""
@@ -372,8 +375,7 @@ async def _lifecycle_start(deps: dict[str, Any]) -> dict[str, Any]:
         session_factory=deps["session_factory"],
     )
 
-    async def _rpc_handler(params: dict[str, Any]) -> dict[str, Any]:
-        """将 RPC request_like 请求路由到 LikeService。request_like 不需要 params。"""
+    async def _rpc_handler(params: dict[str, Any]) -> dict[str, Any]:  # noqa: ARG001 — request_like 不需要参数
         task = like_service.request_scheduled_likes()
         return {"triggered": task is not None}
 

@@ -152,8 +152,8 @@ import {
   sourceLabel,
   typeColor,
 } from '@/utils/feedback'
-import FeedbackDetailDrawer from './FeedbackDetailDrawer.vue'
-import FeedbackExportDialog from './FeedbackExportDialog.vue'
+import FeedbackDetailDrawer from '@/components/feedback/FeedbackDetailDrawer.vue'
+import FeedbackExportDialog from '@/components/feedback/FeedbackExportDialog.vue'
 import { usePersonnelStore } from '@/stores/personnel'
 
 const personnelStore = usePersonnelStore()
