@@ -40,7 +40,7 @@ db = "src.core.db.cli:main"
 dev = [
     "ruff>=0.15.11",
     "mypy>=1.20.1",
-    "commitizen>=4.13.9",
+    "commitizen>=4.13.10",
     "pre-commit>=4.5.1",
 ]
 
