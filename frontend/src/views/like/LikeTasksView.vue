@@ -74,7 +74,10 @@
     <v-dialog v-model="cancelDialog" max-width="360">
       <v-card>
         <v-card-title>确认取消？</v-card-title>
-        <v-card-text>将取消 QQ {{ cancelTarget?.qq }} 的定时点赞任务。</v-card-text>
+        <v-card-text>
+          将取消 QQ {{ cancelTarget?.qq }} 的定时点赞任务。
+          <div v-if="cancelError" class="text-error text-caption mt-1">{{ cancelError }}</div>
+        </v-card-text>
         <v-card-actions>
           <v-spacer />
           <v-btn @click="cancelDialog = false">返回</v-btn>
@@ -157,19 +160,26 @@ async function submitCreate() {
 const cancelDialog = ref(false)
 const cancelTarget = ref<LikeTask | null>(null)
 const cancellingQq = ref<number | null>(null)
+const cancelError = ref('')
 
 function confirmCancel(item: LikeTask) {
   cancelTarget.value = item
+  cancelError.value = ''
   cancelDialog.value = true
 }
 
 async function doCancel() {
   if (!cancelTarget.value) return
   cancellingQq.value = cancelTarget.value.qq
-  cancelDialog.value = false
+  cancelError.value = ''
   try {
     await cancelTask(cancelTarget.value.qq)
+    cancelDialog.value = false
     await loadPage(page.value)
+  } catch (e: unknown) {
+    const err = e as { response?: { data?: { detail?: string; message?: string } } }
+    cancelError.value =
+      err?.response?.data?.detail ?? err?.response?.data?.message ?? '取消失败，请重试'
   } finally {
     cancellingQq.value = null
   }

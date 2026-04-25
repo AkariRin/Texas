@@ -277,37 +277,69 @@ class CheckinService:
 
             # by == "streak"：使用窗口函数计算当前连续天数
             # 跨群时先 DISTINCT 去重同一用户同一天多群签到，避免重复计数
-            group_filter = "WHERE group_id = :group_id" if group_id is not None else ""
-            streak_sql = text(f"""
-                WITH distinct_dates AS (
-                    SELECT DISTINCT user_id, checkin_date FROM checkin {group_filter}
-                ),
-                gaps AS (
-                    SELECT user_id, checkin_date,
-                           CASE WHEN LAG(checkin_date)
-                                         OVER (PARTITION BY user_id ORDER BY checkin_date)
-                                     = checkin_date - INTERVAL '1 day'
-                                THEN 0 ELSE 1 END AS new_streak
-                    FROM distinct_dates
-                ),
-                streak_groups AS (
-                    SELECT user_id, checkin_date,
-                           SUM(new_streak) OVER (PARTITION BY user_id ORDER BY checkin_date) AS grp
-                    FROM gaps
-                ),
-                streak_lengths AS (
-                    SELECT user_id, grp, COUNT(*) AS len, MAX(checkin_date) AS last_day
-                    FROM streak_groups GROUP BY user_id, grp
-                ),
-                current_streaks AS (
-                    SELECT DISTINCT ON (user_id) user_id, len AS streak
-                    FROM streak_lengths ORDER BY user_id, last_day DESC
-                )
-                SELECT user_id, streak FROM current_streaks ORDER BY streak DESC LIMIT :limit
-            """)  # nosec — group_filter 为硬编码结构，:group_id/:limit 均为参数化绑定
-            params: dict[str, Any] = {"limit": limit}
+            # 两套完整 SQL，避免 f-string 拼接，符合项目 SQL 安全规范
+            params: dict[str, Any]
             if group_id is not None:
-                params["group_id"] = group_id
+                streak_sql = text("""
+                    WITH distinct_dates AS (
+                        SELECT DISTINCT user_id, checkin_date
+                        FROM checkin WHERE group_id = :group_id
+                    ),
+                    gaps AS (
+                        SELECT user_id, checkin_date,
+                               CASE WHEN LAG(checkin_date)
+                                             OVER (PARTITION BY user_id ORDER BY checkin_date)
+                                         = checkin_date - INTERVAL '1 day'
+                                    THEN 0 ELSE 1 END AS new_streak
+                        FROM distinct_dates
+                    ),
+                    streak_groups AS (
+                        SELECT user_id, checkin_date,
+                               SUM(new_streak)
+                                   OVER (PARTITION BY user_id ORDER BY checkin_date) AS grp
+                        FROM gaps
+                    ),
+                    streak_lengths AS (
+                        SELECT user_id, grp, COUNT(*) AS len, MAX(checkin_date) AS last_day
+                        FROM streak_groups GROUP BY user_id, grp
+                    ),
+                    current_streaks AS (
+                        SELECT DISTINCT ON (user_id) user_id, len AS streak
+                        FROM streak_lengths ORDER BY user_id, last_day DESC
+                    )
+                    SELECT user_id, streak FROM current_streaks ORDER BY streak DESC LIMIT :limit
+                """)
+                params = {"limit": limit, "group_id": group_id}
+            else:
+                streak_sql = text("""
+                    WITH distinct_dates AS (
+                        SELECT DISTINCT user_id, checkin_date FROM checkin
+                    ),
+                    gaps AS (
+                        SELECT user_id, checkin_date,
+                               CASE WHEN LAG(checkin_date)
+                                             OVER (PARTITION BY user_id ORDER BY checkin_date)
+                                         = checkin_date - INTERVAL '1 day'
+                                    THEN 0 ELSE 1 END AS new_streak
+                        FROM distinct_dates
+                    ),
+                    streak_groups AS (
+                        SELECT user_id, checkin_date,
+                               SUM(new_streak)
+                                   OVER (PARTITION BY user_id ORDER BY checkin_date) AS grp
+                        FROM gaps
+                    ),
+                    streak_lengths AS (
+                        SELECT user_id, grp, COUNT(*) AS len, MAX(checkin_date) AS last_day
+                        FROM streak_groups GROUP BY user_id, grp
+                    ),
+                    current_streaks AS (
+                        SELECT DISTINCT ON (user_id) user_id, len AS streak
+                        FROM streak_lengths ORDER BY user_id, last_day DESC
+                    )
+                    SELECT user_id, streak FROM current_streaks ORDER BY streak DESC LIMIT :limit
+                """)
+                params = {"limit": limit}
             result = await session.execute(streak_sql, params)
             return [LeaderEntry(user_id=row[0], value=row[1]) for row in result.all()]
 

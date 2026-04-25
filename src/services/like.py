@@ -9,7 +9,6 @@ from typing import TYPE_CHECKING, Any, Final
 
 import structlog
 
-from src.core.framework.decorators import feature
 from src.core.lifecycle import startup
 from src.models.enums import LikeSource
 from src.models.like import LikeHistory, LikeTask
@@ -46,13 +45,6 @@ class LikeStatus:
     last_triggered_at: datetime | None
 
 
-@feature(
-    name="like_service",
-    display_name="点赞",
-    description="手动点赞与每日定时自动点赞",
-    tags=["automation"],
-    default_enabled=True,
-)
 class LikeService:
     """点赞服务 —— 提供手动点赞和每日定时点赞能力。
 
@@ -117,17 +109,28 @@ class LikeService:
                 exc_info=True,
             )
 
+        # 历史记录写入独立 try/except，确保写入失败不影响点赞结果的返回
         async with self._session_factory() as session:
-            session.add(
-                LikeHistory(
+            try:
+                session.add(
+                    LikeHistory(
+                        qq=qq,
+                        times=times,
+                        triggered_at=datetime.now(UTC),
+                        source=source,
+                        success=success,
+                    )
+                )
+                await session.commit()
+            except Exception:
+                logger.warning(
+                    "点赞历史写入失败",
                     qq=qq,
                     times=times,
-                    triggered_at=datetime.now(UTC),
                     source=source,
-                    success=success,
+                    event_type="like.history_write_error",
+                    exc_info=True,
                 )
-            )
-            await session.commit()
 
         return success
 

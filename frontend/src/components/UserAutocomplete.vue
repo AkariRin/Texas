@@ -9,6 +9,9 @@ import { fetchUsers, fetchUser } from '@/apis/personnel'
 import type { UserItem } from '@/apis/personnel'
 import type { Density } from 'vuetify/lib/composables/density.js'
 
+// Vuetify 4 推荐的 async autocomplete 模式：通过 v-model:search 双向绑定 search 状态，
+// 配合 watch 响应搜索文本变化（而非仅监听 @update:search 事件）。
+
 type FieldVariant =
   | 'outlined'
   | 'plain'
@@ -47,6 +50,8 @@ const emit = defineEmits<{
 const store = usePersonnelStore()
 const suggestions = ref<UserItem[]>([])
 const loading = ref(false)
+// v-model:search 双向绑定——Vuetify 4 async autocomplete 必需（类型为 string | undefined）
+const search = ref<string | undefined>(undefined)
 let debounceTimer: ReturnType<typeof setTimeout> | null = null
 let justSelected = false
 let requestSeq = 0
@@ -84,69 +89,80 @@ watch(
   { immediate: true },
 )
 
-function onSearch(input: string | undefined | null) {
-  // 刚选中条目时 Vuetify 会触发一次 update:search，跳过
-  if (justSelected) {
-    justSelected = false
-    return
-  }
+// Vuetify 4 async autocomplete 核心：watch v-model:search，而非监听 @update:search 事件
+// flush: 'sync' 确保 Phase 1 本地过滤同步执行，避免空闪烁
+watch(
+  search,
+  (input) => {
+    // 刚选中条目时 Vuetify 会将 search 设置为条目标题，跳过以防止多余请求
+    if (justSelected) {
+      justSelected = false
+      return
+    }
 
-  const q = (input ?? '').trim()
-  if (!q) {
-    suggestions.value = []
+    const q = (input ?? '').trim()
+    if (!q) {
+      suggestions.value = []
+      if (debounceTimer !== null) {
+        clearTimeout(debounceTimer)
+        debounceTimer = null
+      }
+      return
+    }
+
+    // Vuetify 4 文档守卫：focus 时会将 search 设为当前已选条目的 title，
+    // 若 search 与已选用户的 title 匹配则跳过，避免无意义 API 请求
+    if (props.modelValue !== null) {
+      const selectedItem = suggestions.value.find((u) => u.qq === props.modelValue)
+      if (selectedItem && q === `${selectedItem.nickname}（${selectedItem.qq}）`) return
+    }
+
+    const qLower = q.toLowerCase()
+
+    // Phase 1: 本地即时过滤
+    const localResults = store.sessionUsers.filter(
+      (u) => u.nickname.toLowerCase().includes(qLower) || String(u.qq).includes(q),
+    )
+    suggestions.value = localResults.slice(0, 10)
+
+    // Phase 2: 本地不足 5 条时走 API
     if (debounceTimer !== null) {
       clearTimeout(debounceTimer)
       debounceTimer = null
     }
-    return
-  }
-
-  const qLower = q.toLowerCase()
-
-  // Phase 1: 本地即时过滤
-  const localResults = store.sessionUsers.filter(
-    (u) => u.nickname.toLowerCase().includes(qLower) || String(u.qq).includes(q),
-  )
-  suggestions.value = localResults.slice(0, 10)
-
-  // Phase 2: 本地不足 5 条时走 API
-  if (debounceTimer !== null) {
-    clearTimeout(debounceTimer)
-    debounceTimer = null
-  }
-  if (localResults.length < 5) {
-    const seq = ++requestSeq
-    debounceTimer = setTimeout(async () => {
-      loading.value = true
-      try {
-        const isNumeric = /^\d+$/.test(q)
-        if (isNumeric) {
-          // 纯数字：QQ 精确查询
-          const result = await fetchUsers({ qq: Number(q), page_size: 10 }).catch(() => null)
-          if (requestSeq !== seq) return
-          if (result) {
+    if (localResults.length < 5) {
+      const seq = ++requestSeq
+      debounceTimer = setTimeout(async () => {
+        loading.value = true
+        try {
+          const isNumeric = /^\d+$/.test(q)
+          if (isNumeric) {
+            // 纯数字：精确查询单条用户，与 GroupAutocomplete 策略一致
+            const exactUser = await fetchUser(Number(q)).catch(() => null)
+            if (requestSeq !== seq) return
+            if (exactUser && !suggestions.value.some((u) => u.qq === exactUser.qq)) {
+              suggestions.value = [...suggestions.value, exactUser].slice(0, 10)
+            }
+          } else {
+            // 文字：按昵称模糊搜索
+            const result = await fetchUsers({ nickname: q, page_size: 10 })
+            if (requestSeq !== seq) return
             const existingQqs = new Set(suggestions.value.map((u) => u.qq))
             const newItems = result.items.filter((u) => !existingQqs.has(u.qq))
             suggestions.value = [...suggestions.value, ...newItems].slice(0, 10)
           }
-        } else {
-          // 文字：按昵称模糊搜索
-          const result = await fetchUsers({ nickname: q, page_size: 10 })
-          if (requestSeq !== seq) return
-          const existingQqs = new Set(suggestions.value.map((u) => u.qq))
-          const newItems = result.items.filter((u) => !existingQqs.has(u.qq))
-          suggestions.value = [...suggestions.value, ...newItems].slice(0, 10)
+        } catch {
+          // 静默失败，本地结果仍可用
+        } finally {
+          if (requestSeq === seq) loading.value = false
         }
-      } catch {
-        // 静默失败，本地结果仍可用
-      } finally {
-        if (requestSeq === seq) loading.value = false
-      }
-    }, 300)
-  } else {
-    loading.value = false
-  }
-}
+      }, 300)
+    } else {
+      loading.value = false
+    }
+  },
+  { flush: 'sync' },
+)
 
 function onSelect(value: unknown) {
   justSelected = true
@@ -158,6 +174,7 @@ function onSelect(value: unknown) {
 <template>
   <v-autocomplete
     :model-value="modelValue"
+    v-model:search="search"
     :items="suggestions"
     :loading="loading"
     :label="label"
@@ -171,7 +188,6 @@ function onSelect(value: unknown) {
     :item-title="(item: UserItem) => `${item.nickname}（${item.qq}）`"
     no-filter
     @update:model-value="onSelect"
-    @update:search="onSearch"
   >
     <template #item="{ props: itemProps }">
       <!-- itemProps.value 即 qq -->
