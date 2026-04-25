@@ -30,7 +30,7 @@ class CacheKeyEntry:
         params: 从模板解析的有序参数名元组，如 ("qq",)。
         ttl_hint: 建议 TTL（秒），仅文档/工具用途，None 表示无建议。
         description: 中文描述。
-        module: 定义所在模块路径，如 "src.services.personnel"。
+        module: 定义所在模块路径，如 "src.core.services.personnel"。
         glob_pattern: 自动生成的 Redis glob 模式（{param} → *）。
     """
 

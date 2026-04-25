@@ -73,7 +73,7 @@ class Settings(BaseSettings):
     LOG_FORMAT: Literal["json", "console"] = "json"
 
     # 处理器扫描
-    HANDLER_SCAN_PACKAGES: list[str] = ["src.handlers"]
+    HANDLER_SCAN_PACKAGES: list[str] = ["src.handlers", "src.core.handlers"]
 
     # 前端
     FRONTEND_DIST_DIR: str = "frontend/dist"
@@ -82,41 +82,10 @@ class Settings(BaseSettings):
     HOST: str = "0.0.0.0"
     PORT: int = Field(default=8000, ge=1, le=65535)
 
-    # ── 用户管理 (Personnel) ──
-    PERSONNEL_SYNC_INTERVAL: int = Field(default=300, ge=10)  # 定时同步间隔（秒），默认 5min
-    # 首次同步启动延迟（秒），等待 WS 稳定
-    PERSONNEL_SYNC_INITIAL_DELAY: int = Field(default=3, ge=0)
-    PERSONNEL_SYNC_BATCH_SIZE: int = Field(default=500, ge=1)  # 批量写入每批条数
-    # 逐群拉成员时的 API 间隔（秒），避免限速
-    PERSONNEL_SYNC_API_DELAY: float = Field(default=0.5, ge=0.0)
-    # 同步分布式锁 TTL（秒），默认 10min
-    PERSONNEL_SYNC_LOCK_TTL: int = Field(default=600, ge=10)
-
-    # ── 聊天记录数据库 ──
-    CHAT_DATABASE_URL: str = "postgresql+asyncpg://texas:texas@localhost:5432/chat_history"
-    # 聊天库连接池（写入频率低于主库，池大小相应缩小）
-    CHAT_DB_POOL_SIZE: int = Field(default=5, ge=1)
-    CHAT_DB_MAX_OVERFLOW: int = Field(default=10, ge=0)
-
-    # ── S3 归档 ──
-    S3_ENDPOINT_URL: str = ""
-    S3_ACCESS_KEY_ID: str = ""
-    S3_SECRET_ACCESS_KEY: SecretStr = SecretStr("")
-    S3_REGION: str = "us-east-1"
-    S3_ARCHIVE_BUCKET: str = "texas-chat-archive"
-    S3_ARCHIVE_PREFIX: str = "v1"
-
-    # ── 聊天归档策略 ──
-    # 热数据保留月数，超期分区移至 S3
-    CHAT_ARCHIVE_RETENTION_MONTHS: int = Field(default=12, ge=1)
-    # 导出 Parquet 时每批行数（行组大小）
-    CHAT_ARCHIVE_BATCH_SIZE: int = Field(default=5000, ge=100)
-    CHAT_ARCHIVE_COMPRESSION: Literal["zstd", "gzip", "none"] = "zstd"
-
     # 运行环境：development | production
     ENV: Literal["development", "production"] = "development"
 
-    @field_validator("DATABASE_URL", "CHAT_DATABASE_URL")
+    @field_validator("DATABASE_URL")
     @classmethod
     def validate_pg_url(cls, v: str) -> str:
         if not v.startswith("postgresql"):

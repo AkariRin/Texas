@@ -35,7 +35,7 @@ if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
     from src.core.cache.client import CacheClient
-    from src.core.config import Settings
+    from src.core.services.personnel_sync import PersonnelSyncSettings
 
 logger = structlog.get_logger()
 
@@ -86,7 +86,7 @@ class PersonnelService:
         session_factory: async_sessionmaker[AsyncSession],
         cache: CacheClient,
         persistent: CacheClient,
-        settings: Settings,
+        settings: PersonnelSyncSettings,
     ) -> None:
         self._session_factory = session_factory
         self._cache = cache  # 易失缓存：用户关系、管理员集合（可丢失，TTL 短）
@@ -619,7 +619,6 @@ from src.core.lifecycle import shutdown, startup  # noqa: E402
         "session_factory",
         "cache_client",
         "persistent_client",
-        "settings",
         "bot_api",
         "conn_mgr",
     ],
@@ -627,15 +626,16 @@ from src.core.lifecycle import shutdown, startup  # noqa: E402
 )
 async def _lifecycle_start(deps: dict[str, Any]) -> dict[str, Any]:
     """用户管理模块启动。"""
-    from src.services.personnel_events import PersonnelEventService
-    from src.services.personnel_query import PersonnelQueryService
-    from src.services.personnel_sync import SyncCoordinator
+    from src.core.services.personnel_events import PersonnelEventService
+    from src.core.services.personnel_query import PersonnelQueryService
+    from src.core.services.personnel_sync import PersonnelSyncSettings, SyncCoordinator
 
+    sync_settings = PersonnelSyncSettings()
     ps = PersonnelService(
         session_factory=deps["session_factory"],
         cache=deps["cache_client"],
         persistent=deps["persistent_client"],
-        settings=deps["settings"],
+        settings=sync_settings,
     )
     pe = PersonnelEventService(
         session_factory=deps["session_factory"],
@@ -649,7 +649,7 @@ async def _lifecycle_start(deps: dict[str, Any]) -> dict[str, Any]:
         bot_api=deps["bot_api"],
         conn_mgr=deps["conn_mgr"],
         personnel_service=ps,
-        settings=deps["settings"],
+        settings=sync_settings,
     )
     sc.start_scheduler()
     return {

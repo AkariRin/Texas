@@ -1,8 +1,8 @@
 """LLM 高层调用接口 —— 供 Handler 通过 Context DI 或直接传入 LLMService 使用。
 
 使用方式（Handler 中推荐）：
-    from src.services.llm import LLMService
-    from src.services.llm_completion import llm_complete, llm_stream
+    from src.core.services.llm import LLMService
+    from src.core.services.llm_completion import llm_complete, llm_stream
 
     # 通过 ctx.get_service() 获取 LLMService
     llm = ctx.get_service(LLMService)
@@ -24,7 +24,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
 
-    from src.services.llm import LLMService
+    from src.core.services.llm import LLMService
 
 
 async def llm_complete(

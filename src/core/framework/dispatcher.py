@@ -12,10 +12,9 @@ from src.core.framework.decorators import Permission
 if TYPE_CHECKING:
     from src.core.framework.interceptor import HandlerInterceptor
     from src.core.framework.mapping import CompositeHandlerMapping, HandlerMethod, ResolvedHandler
-    from src.core.framework.permission_checker import FeaturePermissionChecker
+    from src.core.framework.ports import AdminProvider, FeatureChecker
     from src.core.protocol.api import BotAPI
     from src.core.protocol.models.base import OneBotEvent
-    from src.services.personnel import PersonnelService
 
 logger = structlog.get_logger()
 
@@ -28,14 +27,14 @@ class EventDispatcher:
         mapping: CompositeHandlerMapping,
         interceptors: list[HandlerInterceptor] | None = None,
         services: dict[type, Any] | None = None,
+        admin_provider: AdminProvider | None = None,
+        feature_checker: FeatureChecker | None = None,
     ) -> None:
         self.mapping = mapping
         self.interceptors = interceptors or []
         self.services: dict[type, Any] = services or {}
-        # 功能级权限检查器（启动时注入）
-        self.feature_checker: FeaturePermissionChecker | None = None
-        # 用户服务（启动时注入，用于动态查询 admin 集合）
-        self.personnel_service: PersonnelService | None = None
+        self._admin_provider = admin_provider
+        self._feature_checker = feature_checker
 
     async def _check_role_permission(self, ctx: Context) -> bool:
         """角色级权限检查（原 PermissionInterceptor 逻辑，移至 per-handler 级别）。"""
@@ -50,8 +49,8 @@ class EventDispatcher:
         user_id = ctx.user_id
 
         # ADMIN 超级管理员绕过角色检查
-        if self.personnel_service is not None:
-            admin_set = await self.personnel_service.get_admin_qq_set()
+        if self._admin_provider is not None:
+            admin_set = await self._admin_provider.get_admin_qq_set()
             if user_id in admin_set:
                 return True
 
@@ -110,7 +109,7 @@ class EventDispatcher:
                     ctx.set_regex_match(resolved.regex_match)
 
                 # 功能级权限检查（per-handler）
-                if self.feature_checker is not None and not await self.feature_checker.check(ctx):
+                if self._feature_checker is not None and not await self._feature_checker.check(ctx):
                     continue
 
                 # 角色级权限检查（per-handler）

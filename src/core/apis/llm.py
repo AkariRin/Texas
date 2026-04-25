@@ -7,25 +7,30 @@ import uuid
 from typing import TYPE_CHECKING, Any
 
 import structlog
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from starlette.responses import StreamingResponse
 
-from src.core.dependencies import get_llm_service
-from src.core.utils.response import ok
-from src.services.llm_schemas import (  # noqa: TC001
+from src.core.services.llm import LLMService  # noqa: TC001
+from src.core.services.llm_schemas import (  # noqa: TC001
     ChatRequest,
     ModelCreate,
     ModelUpdate,
     ProviderCreate,
     ProviderUpdate,
 )
+from src.core.utils.response import ok
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
 
-    from src.services.llm import LLMService
-
 logger = structlog.get_logger()
+
+
+def get_llm_service(request: Request) -> LLMService:
+    """获取 LLM 服务。"""
+    registry = request.app.state.service_registry
+    return registry.get_typed(LLMService, "llm_service")  # type: ignore[no-any-return]
+
 
 router = APIRouter(prefix="/llm", tags=["llm"])
 

@@ -26,7 +26,8 @@ if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
     from src.core.cache.client import CacheClient
-    from src.core.framework.feature_registry import FeatureRegistry
+    from src.core.registries.feature_registry import FeatureRegistry
+    from src.core.services.personnel_events import PersonnelEventService
 
 logger = structlog.get_logger()
 
@@ -646,12 +647,19 @@ from src.core.lifecycle import startup  # noqa: E402
 
 @startup(
     name="permission",
-    provides=["permission_service"],
-    requires=["session_factory", "cache_client", "scanner", "dispatcher", "personnel_service"],
+    provides=["permission_service", "feature_checker"],
+    requires=[
+        "session_factory",
+        "cache_client",
+        "scanner",
+        "personnel_service",
+        "personnel_event_service",
+    ],
 )
 async def _lifecycle_start(deps: dict[str, Any]) -> dict[str, Any]:
-    """权限系统启动：同步全量权限记录并注入 dispatcher。"""
-    from src.core.framework.permission_checker import FeaturePermissionChecker
+    """权限系统启动：同步全量权限记录，向 PersonnelEventService 注入权限服务。"""
+    from src.core.registries.permission_registry import PermissionRegistry
+    from src.core.services.permission_checker import FeaturePermissionChecker
 
     scanner = deps["scanner"]
     permission_service = FeaturePermissionService(
@@ -660,12 +668,14 @@ async def _lifecycle_start(deps: dict[str, Any]) -> dict[str, Any]:
         registry=scanner.feature_registry,
     )
     await permission_service.sync_permissions()
+    perm_registry = PermissionRegistry.from_feature_registry(scanner.feature_registry)
     checker = FeaturePermissionChecker(
         permission_service=permission_service,
         personnel_service=deps["personnel_service"],
+        perm_registry=perm_registry,
     )
-    dispatcher = deps["dispatcher"]
-    dispatcher.feature_checker = checker
-    dispatcher.personnel_service = deps["personnel_service"]
+    # 向 PersonnelEventService 注入权限服务（两者同属核心层，注入合法）
+    personnel_event_service: PersonnelEventService = deps["personnel_event_service"]
+    personnel_event_service._permission_service = permission_service
     logger.info("权限系统已就绪", event_type="permission.ready")
-    return {"permission_service": permission_service}
+    return {"permission_service": permission_service, "feature_checker": checker}

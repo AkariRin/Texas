@@ -2,20 +2,24 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import structlog
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
 
-from src.core.dependencies import get_feedback_service
 from src.core.utils.helpers import ceil_div
 from src.core.utils.response import ok
-
-if TYPE_CHECKING:
-    from src.services.feedback import FeedbackService
+from src.services.feedback import FeedbackService  # noqa: TC001
 
 logger = structlog.get_logger()
+
+
+def get_feedback_service(request: Request) -> FeedbackService:
+    """获取反馈服务。"""
+    registry = request.app.state.service_registry
+    return registry.get_typed(FeedbackService, "feedback_service")  # type: ignore[no-any-return]
+
 
 router = APIRouter(prefix="/feedbacks", tags=["feedback"])
 

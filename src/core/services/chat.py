@@ -6,6 +6,8 @@ from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
 import structlog
+from pydantic import Field, field_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy import func, select, text
 
 from src.core.db.utils import escape_like as _escape_like
@@ -18,6 +20,27 @@ if TYPE_CHECKING:
     from src.core.protocol.models.events import (
         MessageEvent,
     )
+
+
+class ChatDatabaseSettings(BaseSettings):
+    """聊天库数据库配置（就近定义，env 变量名与全局 Settings 保持一致）。"""
+
+    model_config = SettingsConfigDict(
+        env_file=".env", env_file_encoding="utf-8", case_sensitive=True
+    )
+
+    CHAT_DATABASE_URL: str = "postgresql+asyncpg://texas:texas@localhost:5432/chat_history"
+    CHAT_DB_POOL_SIZE: int = Field(default=5, ge=1)
+    CHAT_DB_MAX_OVERFLOW: int = Field(default=10, ge=0)
+
+    @field_validator("CHAT_DATABASE_URL")
+    @classmethod
+    def validate_pg_url(cls, v: str) -> str:
+        """校验数据库 URL 必须以 postgresql 开头。"""
+        if not v.startswith("postgresql"):
+            raise ValueError(f"数据库 URL 必须以 'postgresql' 开头，当前值: {v!r}")
+        return v
+
 
 logger = structlog.get_logger()
 
@@ -277,19 +300,22 @@ from src.core.lifecycle import startup  # noqa: E402
 @startup(
     name="chat",
     provides=["chat_service", "archive_service"],
-    requires=["chat_engine", "session_factory", "settings"],
+    requires=["chat_engine", "session_factory"],
 )
 async def _lifecycle_start(deps: dict[str, Any]) -> dict[str, Any]:
     """聊天记录模块启动（聊天库 session factory 在此创建）。"""
     from src.core.db.engine import create_session_factory
-    from src.services.chat_archive import ArchiveService
+    from src.core.services.archive_exporter import ChatArchiveSettings
+    from src.core.services.archive_s3 import S3Settings
+    from src.core.services.chat_archive import ArchiveService
 
     chat_session_factory = create_session_factory(deps["chat_engine"])
     chat_service = ChatHistoryService(session_factory=chat_session_factory)
     archive_service = ArchiveService(
         chat_session_factory=chat_session_factory,
         main_session_factory=deps["session_factory"],
-        settings=deps["settings"],
+        archive_settings=ChatArchiveSettings(),
+        s3_settings=S3Settings(),
     )
     try:
         await archive_service.ensure_partitions()

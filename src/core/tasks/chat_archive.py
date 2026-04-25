@@ -17,25 +17,32 @@ logger = structlog.get_logger()
 
 def _build_services() -> tuple[Any, Any]:
     """延迟构建归档服务所需的引擎和 session factory。"""
-    from src.core.chat.archive_service import ArchiveService  # type: ignore[import-untyped]
     from src.core.config import get_settings
     from src.core.db.engine import create_engine, create_session_factory
+    from src.core.services.archive_exporter import ChatArchiveSettings
+    from src.core.services.archive_s3 import S3Settings
+    from src.core.services.chat import ChatDatabaseSettings
+    from src.core.services.chat_archive import ArchiveService
 
-    settings = get_settings()
+    chat_cfg = ChatDatabaseSettings()
+    archive_cfg = ChatArchiveSettings()
+    s3_cfg = S3Settings()
+    main_cfg = get_settings()
+
     chat_engine = create_engine(
-        settings.CHAT_DATABASE_URL,
-        pool_size=settings.CHAT_DB_POOL_SIZE,
-        max_overflow=settings.CHAT_DB_MAX_OVERFLOW,
+        chat_cfg.CHAT_DATABASE_URL,
+        pool_size=chat_cfg.CHAT_DB_POOL_SIZE,
+        max_overflow=chat_cfg.CHAT_DB_MAX_OVERFLOW,
     )
     chat_sf = create_session_factory(chat_engine)
     main_engine = create_engine(
-        settings.DATABASE_URL,
-        pool_size=settings.DB_POOL_SIZE,
-        max_overflow=settings.DB_MAX_OVERFLOW,
+        main_cfg.DATABASE_URL,
+        pool_size=main_cfg.DB_POOL_SIZE,
+        max_overflow=main_cfg.DB_MAX_OVERFLOW,
     )
     main_sf = create_session_factory(main_engine)
-    service = ArchiveService(chat_sf, main_sf, settings)
-    return service, settings
+    service = ArchiveService(chat_sf, main_sf, archive_cfg, s3_cfg)
+    return service, archive_cfg
 
 
 @celery_app.task(bind=True, max_retries=2, default_retry_delay=300)

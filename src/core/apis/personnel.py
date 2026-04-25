@@ -2,28 +2,40 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import structlog
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
 
-from src.api.schemas.personnel import (  # noqa: TC001 — FastAPI Body 参数运行时需要
+from src.apis.schemas.personnel import (  # noqa: TC001 — FastAPI Body 参数运行时需要
     ResolveRequest,
 )
-from src.core.dependencies import (
-    get_personnel_query_service,
-    get_personnel_service,
-    get_sync_coordinator,
-)
+from src.core.services.personnel import PersonnelService  # noqa: TC001
+from src.core.services.personnel_query import PersonnelQueryService  # noqa: TC001
+from src.core.services.personnel_sync import SyncCoordinator  # noqa: TC001
 from src.core.utils.response import ok
 
-if TYPE_CHECKING:
-    from src.services.personnel import PersonnelService
-    from src.services.personnel_query import PersonnelQueryService
-    from src.services.personnel_sync import SyncCoordinator
-
 logger = structlog.get_logger()
+
+
+def get_personnel_service(request: Request) -> PersonnelService:
+    """获取用户管理写操作服务。"""
+    registry = request.app.state.service_registry
+    return registry.get_typed(PersonnelService, "personnel_service")  # type: ignore[no-any-return]
+
+
+def get_personnel_query_service(request: Request) -> PersonnelQueryService:
+    """获取用户管理只读查询服务。"""
+    registry = request.app.state.service_registry
+    return registry.get_typed(PersonnelQueryService, "personnel_query_service")  # type: ignore[no-any-return]
+
+
+def get_sync_coordinator(request: Request) -> SyncCoordinator:
+    """获取用户数据同步协调器。"""
+    registry = request.app.state.service_registry
+    return registry.get_typed(SyncCoordinator, "sync_coordinator")  # type: ignore[no-any-return]
+
 
 router = APIRouter(prefix="/personnel", tags=["personnel"])
 

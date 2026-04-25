@@ -147,3 +147,19 @@ class LifecycleOrchestrator:
                 if provides_key in self._services:
                     svc = self._services[provides_key]
                     dispatcher.services[type(svc)] = svc
+
+    def build_registry(self) -> Any:
+        """构建并冻结业务服务注册表（仅包含各 @startup 模块的 provides 服务）。
+
+        由 lifespan 在 startup() 完成后调用，结果存入 app.state.service_registry。
+        基础设施服务（session_factory、cache_client 等）不在 provides 中，不会注册。
+        """
+        from src.core.registries.service_registry import ServiceRegistry
+
+        registry = ServiceRegistry()
+        for entry in self._startup_order:
+            for key in entry.provides:
+                if key in self._services:
+                    registry.register(key, self._services[key])
+        registry.freeze()
+        return registry

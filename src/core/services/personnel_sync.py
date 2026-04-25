@@ -12,14 +12,30 @@ import time
 from typing import TYPE_CHECKING, Any, Literal, cast
 
 import structlog
+from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from src.core.framework.decorators import feature
 
 if TYPE_CHECKING:
-    from src.core.config import Settings
     from src.core.protocol.api import BotAPI
+    from src.core.services.personnel import PersonnelService
     from src.core.ws.connection import ConnectionManager
-    from src.services.personnel import PersonnelService
+
+
+class PersonnelSyncSettings(BaseSettings):
+    """人员同步配置（就近定义，env 变量名与全局 Settings 保持一致）。"""
+
+    model_config = SettingsConfigDict(
+        env_file=".env", env_file_encoding="utf-8", case_sensitive=True
+    )
+
+    PERSONNEL_SYNC_INTERVAL: int = Field(default=300, ge=10)
+    PERSONNEL_SYNC_INITIAL_DELAY: int = Field(default=3, ge=0)
+    PERSONNEL_SYNC_BATCH_SIZE: int = Field(default=500, ge=1)
+    PERSONNEL_SYNC_API_DELAY: float = Field(default=0.5, ge=0.0)
+    PERSONNEL_SYNC_LOCK_TTL: int = Field(default=600, ge=10)
+
 
 logger = structlog.get_logger()
 
@@ -64,7 +80,7 @@ class SyncCoordinator:
         bot_api: BotAPI,
         conn_mgr: ConnectionManager,
         personnel_service: PersonnelService,
-        settings: Settings,
+        settings: PersonnelSyncSettings,
     ) -> None:
         self._bot_api = bot_api
         self._conn_mgr = conn_mgr

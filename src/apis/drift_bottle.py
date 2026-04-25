@@ -2,24 +2,28 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import structlog
-from fastapi import APIRouter, Depends, HTTPException, Path
+from fastapi import APIRouter, Depends, HTTPException, Path, Request
 
-from src.api.schemas.drift_bottle import (
+from src.apis.schemas.drift_bottle import (
     CreatePoolRequest,
     GroupAssignRequest,
     PoolGroupsResponse,
     PoolInfoResponse,
 )
-from src.core.dependencies import get_drift_bottle_service
 from src.core.utils.response import ok
-
-if TYPE_CHECKING:
-    from src.services.drift_bottle import DriftBottleService
+from src.services.drift_bottle import DriftBottleService  # noqa: TC001
 
 logger = structlog.get_logger()
+
+
+def get_drift_bottle_service(request: Request) -> DriftBottleService:
+    """获取漂流瓶服务。"""
+    registry = request.app.state.service_registry
+    return registry.get_typed(DriftBottleService, "drift_bottle_service")  # type: ignore[no-any-return]
+
 
 router = APIRouter(prefix="/drift-bottle-pools", tags=["drift-bottle"])
 

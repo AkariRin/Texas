@@ -13,15 +13,16 @@ import structlog
 from sqlalchemy import case, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
+from src.core.services.personnel import compute_relation, user_relation_key
 from src.core.utils import SHANGHAI_TZ
 from src.models.enums import GroupRole, UserRelation
 from src.models.personnel import Group, GroupMembership, User
-from src.services.personnel import compute_relation, user_relation_key
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
     from src.core.cache.client import CacheClient
+    from src.core.services.permission import FeaturePermissionService
 
 logger = structlog.get_logger()
 
@@ -33,9 +34,11 @@ class PersonnelEventService:
         self,
         session_factory: async_sessionmaker[AsyncSession],
         cache: CacheClient,
+        permission_service: FeaturePermissionService | None = None,
     ) -> None:
         self._session_factory = session_factory
         self._cache = cache
+        self._permission_service = permission_service
 
     async def on_friend_add(self, user_id: int) -> None:
         """好友添加：若非 admin 则升级为 friend。"""
@@ -61,7 +64,7 @@ class PersonnelEventService:
         await self._cache.delete(user_relation_key(user_id))
         logger.info("好友添加已处理", user_id=user_id, event_type="personnel.friend_add")
 
-    async def on_group_increase(self, group_id: int, user_id: int) -> None:
+    async def on_group_increase(self, group_id: int, user_id: int, self_id: int = 0) -> None:
         """群成员增加：创建成员关系记录，若为 stranger 则升级为 group_member。"""
         async with self._session_factory() as session, session.begin():
             # upsert 用户
@@ -103,6 +106,9 @@ class PersonnelEventService:
             user_id=user_id,
             event_type="personnel.group_increase",
         )
+        # Bot 自身加入新群时，初始化该群的全量权限记录
+        if self_id and user_id == self_id and self._permission_service is not None:
+            await self._permission_service.sync_group_permissions(group_id)
 
     async def on_group_decrease(self, group_id: int, user_id: int, sub_type: str) -> None:
         """群成员减少：标记成员关系为非活跃，重算 relation。"""

@@ -47,7 +47,7 @@ if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
     from src.core.config import Settings
-    from src.services.chat import ChatHistoryService
+    from src.core.services.chat import ChatHistoryService
 
 logger = structlog.get_logger()
 
@@ -81,7 +81,11 @@ def _startup_framework(
 ) -> None:
     """扫描处理器与独立功能组件。"""
     # 扫描 handler 包 + 服务层 + 任务层（收集 @feature 装饰的独立功能）
-    scan_packages = list(settings.HANDLER_SCAN_PACKAGES) + ["src.services", "src.tasks"]
+    scan_packages = list(settings.HANDLER_SCAN_PACKAGES) + [
+        "src.core.services",
+        "src.services",
+        "src.tasks",
+    ]
     scanner.scan(scan_packages)
     handlers_registered.set(composite_mapping.registered_count)
 
@@ -131,7 +135,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     setup_logging(log_level=settings.LOG_LEVEL, log_format=settings.LOG_FORMAT)
     validate_settings(settings)
 
-    from src.api.logs import install_log_broadcast
+    from src.apis.logs import install_log_broadcast
 
     install_log_broadcast()
 
@@ -170,11 +174,13 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     scanner = ComponentScanner(mapping=composite_mapping)
 
     import src.core.db.migrations.chat  # noqa: F401 — 触发聊天库迁移目标注册
+    from src.core.services.chat import ChatDatabaseSettings as _ChatDbSettings
 
+    _chat_db_cfg = _ChatDbSettings()
     chat_engine = create_engine(
-        settings.CHAT_DATABASE_URL,
-        pool_size=settings.CHAT_DB_POOL_SIZE,
-        max_overflow=settings.CHAT_DB_MAX_OVERFLOW,
+        _chat_db_cfg.CHAT_DATABASE_URL,
+        pool_size=_chat_db_cfg.CHAT_DB_POOL_SIZE,
+        max_overflow=_chat_db_cfg.CHAT_DB_MAX_OVERFLOW,
     )
 
     # 统一执行所有数据库迁移（连接检查 + schema 创建 + upgrade head）
@@ -195,7 +201,6 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     orchestrator = LifecycleOrchestrator()
     await orchestrator.startup(
         {
-            "settings": settings,
             "conn_mgr": conn_mgr,
             "bot_api": bot_api,
             "session_factory": session_factory,
@@ -211,7 +216,6 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     )
     _infra_keys: frozenset[str] = frozenset(
         {
-            "settings",
             "conn_mgr",
             "bot_api",
             "session_factory",
@@ -224,8 +228,13 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
             "rpc_consumer",
         }
     )
+    # 向 dispatcher 注入 Protocol 实现（orchestrator.startup 完成后方可获取）
+    dispatcher._admin_provider = orchestrator.services.get("personnel_service")
+    dispatcher._feature_checker = orchestrator.services.get("feature_checker")
     orchestrator.populate_app_state(app.state, exclude=_infra_keys)
     orchestrator.populate_dispatcher(dispatcher)
+    service_registry = orchestrator.build_registry()
+    app.state.service_registry = service_registry
 
     # 注册基础设施服务到 Dispatcher（业务服务已由 populate_dispatcher 处理）
     from src.core.cache.client import CacheClient as _CacheClientClass
@@ -237,9 +246,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     await rpc_consumer.start()
 
     # 构建事件分发回调（chat_service 由 orchestrator 提供）
-    event_dispatch_callback = _build_event_dispatch_callback(
-        orchestrator.services["chat_service"], dispatcher, bot_api
-    )
+    from typing import cast as _cast
+
+    _chat_svc = _cast("ChatHistoryService", orchestrator.services["chat_service"])
+    event_dispatch_callback = _build_event_dispatch_callback(_chat_svc, dispatcher, bot_api)
 
     # ── app.state（基础设施，业务服务已由 orchestrator.populate_app_state 写入）──
     app.state.conn_mgr = conn_mgr

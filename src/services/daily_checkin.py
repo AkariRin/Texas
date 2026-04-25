@@ -22,8 +22,8 @@ if TYPE_CHECKING:
 
     from src.core.cache.client import CacheClient
     from src.core.protocol.api import BotAPI
+    from src.core.services.permission import FeaturePermissionService
     from src.core.ws.connection import ConnectionManager
-    from src.services.permission import FeaturePermissionService
 
 logger = structlog.get_logger()
 

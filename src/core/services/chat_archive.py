@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import os
-import re
 import tempfile
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any
@@ -12,24 +11,23 @@ import structlog
 from sqlalchemy import func, select, text, update
 from sqlalchemy.sql import quoted_name
 
+from src.core.services.archive_exporter import (
+    _PARTITION_NAME_RE,
+    ChatArchiveSettings,
+    ParquetExporter,
+)
+from src.core.services.archive_s3 import S3Settings, S3Uploader
 from src.core.utils import SHANGHAI_TZ
 from src.core.utils.helpers import ceil_div
 from src.models.chat_archive import ChatArchiveLog
 from src.models.enums import ArchiveStatus
-from src.services.archive_exporter import ParquetExporter
-from src.services.archive_s3 import S3Uploader
 
 if TYPE_CHECKING:
     import uuid
 
     from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-    from src.core.config import Settings
-
 logger = structlog.get_logger()
-
-# 分区名白名单：只允许 chat_history_YYYY_MM 格式
-_PARTITION_NAME_RE = re.compile(r"^chat_history_\d{4}_\d{2}$")
 
 
 class ArchiveService:
@@ -39,13 +37,15 @@ class ArchiveService:
         self,
         chat_session_factory: async_sessionmaker[AsyncSession],
         main_session_factory: async_sessionmaker[AsyncSession],
-        settings: Settings,
+        archive_settings: ChatArchiveSettings,
+        s3_settings: S3Settings,
     ) -> None:
         self._chat_sf = chat_session_factory
         self._main_sf = main_session_factory
-        self._settings = settings
-        self._exporter = ParquetExporter(chat_session_factory, settings)
-        self._uploader = S3Uploader(settings)
+        self._archive_settings = archive_settings
+        self._s3_settings = s3_settings
+        self._exporter = ParquetExporter(chat_session_factory, archive_settings)
+        self._uploader = S3Uploader(s3_settings)
 
     # ════════════════════════════════════════════
     #  分区管理
@@ -98,7 +98,7 @@ class ArchiveService:
 
     async def _discover_archivable_partitions(self) -> list[str]:
         """发现可归档的分区（超过保留月数且未归档）。"""
-        retention = self._settings.CHAT_ARCHIVE_RETENTION_MONTHS
+        retention = self._archive_settings.CHAT_ARCHIVE_RETENTION_MONTHS
 
         # 计算截止年月字符串，格式与分区名后缀一致（如 2024_01）
         cutoff = datetime.now(SHANGHAI_TZ) - timedelta(days=retention * 30)
@@ -156,7 +156,7 @@ class ArchiveService:
             partition_name=partition_name,
             period_start=period_start,
             period_end=period_end,
-            s3_bucket=self._settings.S3_ARCHIVE_BUCKET,
+            s3_bucket=self._s3_settings.S3_ARCHIVE_BUCKET,
             s3_key="",
             s3_sha256="",
             status=ArchiveStatus.pending,
@@ -191,7 +191,7 @@ class ArchiveService:
                 await self._update_archive_status(archive_id, ArchiveStatus.uploading)
 
                 s3_key = (
-                    f"{self._settings.S3_ARCHIVE_PREFIX}"
+                    f"{self._s3_settings.S3_ARCHIVE_PREFIX}"
                     f"/{year:04d}/{month:02d}/{partition_name}.parquet"
                 )
                 await self._uploader.upload_file(
@@ -382,13 +382,13 @@ class ArchiveService:
 
         # 从 S3 读取 Parquet
         s3_kwargs: dict[str, Any] = {
-            "region": self._settings.S3_REGION,
+            "region": self._s3_settings.S3_REGION,
         }
-        if self._settings.S3_ACCESS_KEY_ID:
-            s3_kwargs["access_key"] = self._settings.S3_ACCESS_KEY_ID
-            s3_kwargs["secret_key"] = self._settings.S3_SECRET_ACCESS_KEY.get_secret_value()
-        if self._settings.S3_ENDPOINT_URL:
-            s3_kwargs["endpoint_override"] = self._settings.S3_ENDPOINT_URL
+        if self._s3_settings.S3_ACCESS_KEY_ID:
+            s3_kwargs["access_key"] = self._s3_settings.S3_ACCESS_KEY_ID
+            s3_kwargs["secret_key"] = self._s3_settings.S3_SECRET_ACCESS_KEY.get_secret_value()
+        if self._s3_settings.S3_ENDPOINT_URL:
+            s3_kwargs["endpoint_override"] = self._s3_settings.S3_ENDPOINT_URL
 
         s3_fs = pafs.S3FileSystem(**s3_kwargs)
         s3_path = f"{archive.s3_bucket}/{archive.s3_key}"

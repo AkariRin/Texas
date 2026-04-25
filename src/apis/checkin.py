@@ -2,33 +2,39 @@
 
 from __future__ import annotations
 
-from datetime import date  # noqa: TC003
-from typing import TYPE_CHECKING, Any, Literal
+from datetime import date, datetime  # noqa: TC003
+from typing import Any, Literal
 
 import structlog
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
+from pydantic import BaseModel, ConfigDict
 
-from src.core.dependencies import get_user_checkin_service
 from src.core.utils.helpers import ceil_div
 from src.core.utils.response import ok
-
-if TYPE_CHECKING:
-    from src.services.checkin import CheckinService
+from src.services.checkin import CheckinService  # noqa: TC001
 
 logger = structlog.get_logger()
+
+
+def get_user_checkin_service(request: Request) -> CheckinService:
+    """获取用户签到服务。"""
+    registry = request.app.state.service_registry
+    return registry.get_typed(CheckinService, "user_checkin_service")  # type: ignore[no-any-return]
+
 
 router = APIRouter(prefix="/checkin", tags=["checkin"])
 
 
-def _record_to_dict(r: Any) -> dict[str, Any]:
-    """将 CheckinRecord ORM 对象转为可序列化字典。"""
-    return {
-        "id": r.id,
-        "group_id": r.group_id,
-        "user_id": r.user_id,
-        "checkin_date": r.checkin_date.isoformat(),
-        "checkin_at": r.checkin_at.isoformat(),
-    }
+class CheckinRecordResponse(BaseModel):
+    """签到记录响应 Schema。"""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    group_id: int
+    user_id: int
+    checkin_date: date
+    checkin_at: datetime
 
 
 @router.get("/records")
@@ -49,9 +55,10 @@ async def list_records(
         page_size=page_size,
     )
     pages = ceil_div(total, page_size)
+    items = [CheckinRecordResponse.model_validate(r).model_dump(mode="json") for r in records]
     return ok(
         {
-            "items": [_record_to_dict(r) for r in records],
+            "items": items,
             "total": total,
             "page": page,
             "page_size": page_size,

@@ -2,16 +2,14 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
+from src.core.services.permission import FeaturePermissionService  # noqa: TC001
 from src.core.utils.response import ok
-
-if TYPE_CHECKING:
-    from src.services.permission import FeaturePermissionService
 
 logger = structlog.get_logger()
 
@@ -23,7 +21,8 @@ router = APIRouter(prefix="/permissions", tags=["permissions"])
 
 def get_permission_service(request: Request) -> FeaturePermissionService:
     """获取权限服务。"""
-    return request.app.state.permission_service  # type: ignore[no-any-return]
+    registry = request.app.state.service_registry
+    return registry.get_typed(FeaturePermissionService, "permission_service")  # type: ignore[no-any-return]
 
 
 # ─────────────────────── Schema ───────────────────────

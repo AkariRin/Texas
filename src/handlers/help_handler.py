@@ -13,8 +13,8 @@ from src.core.utils.md2img import MarkdownRenderError
 
 if TYPE_CHECKING:
     from src.core.framework.context import Context
+    from src.core.services.permission import FeaturePermissionService
     from src.core.utils.md2img import MarkdownRenderer
-    from src.services.permission import FeaturePermissionService
 
 logger = structlog.get_logger()
 
@@ -192,9 +192,9 @@ class HelpHandler:
     )
     async def show_help(self, ctx: Context) -> bool:
         """处理 /help 指令。"""
+        from src.core.services.permission import FeaturePermissionService
+        from src.core.services.personnel import PersonnelService
         from src.core.utils.md2img import MarkdownRenderer
-        from src.services.permission import FeaturePermissionService
-        from src.services.personnel import PersonnelService
 
         if not ctx.has_service(FeaturePermissionService):
             return False

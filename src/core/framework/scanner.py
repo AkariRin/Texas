@@ -10,9 +10,9 @@ from typing import TYPE_CHECKING, Any
 import structlog
 
 from src.core.framework.decorators import CONTROLLER_META, FEATURE_META, HANDLER_META
-from src.core.framework.feature_registry import FeatureRegistry, build_registry
 from src.core.framework.mapping import CompositeHandlerMapping, HandlerMethod
 from src.core.framework.session.decorators import SESSION_META
+from src.core.registries.feature_registry import FeatureRegistry, build_registry
 
 if TYPE_CHECKING:
     from src.core.cache.key_registry import CacheKeyEntry

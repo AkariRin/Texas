@@ -3,24 +3,28 @@
 from __future__ import annotations
 
 from datetime import date  # noqa: TC003 — FastAPI Query 参数运行时需要
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import structlog
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
-from src.api.schemas.jrlp import (  # noqa: TC001 — FastAPI Body 参数运行时需要
+from src.apis.schemas.jrlp import (  # noqa: TC001 — FastAPI Body 参数运行时需要
     DeleteRecordRequest,
     SetWifeRequest,
     UpdateRecordRequest,
 )
-from src.core.dependencies import get_jrlp_service
 from src.core.utils.helpers import ceil_div
 from src.core.utils.response import fail, ok
-
-if TYPE_CHECKING:
-    from src.services.jrlp import JrlpService
+from src.services.jrlp import JrlpService  # noqa: TC001
 
 logger = structlog.get_logger()
+
+
+def get_jrlp_service(request: Request) -> JrlpService:
+    """获取今日老婆服务。"""
+    registry = request.app.state.service_registry
+    return registry.get_typed(JrlpService, "jrlp_service")  # type: ignore[no-any-return]
+
 
 router = APIRouter(prefix="/jrlp", tags=["jrlp"])
 

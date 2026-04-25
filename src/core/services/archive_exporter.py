@@ -7,18 +7,35 @@ import hashlib
 import json
 import os
 import re
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 import pyarrow as pa
 import pyarrow.parquet as pq
 import structlog
+from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy import text
 from sqlalchemy.sql.elements import quoted_name
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-    from src.core.config import Settings
+
+class ChatArchiveSettings(BaseSettings):
+    """聊天归档策略配置。
+
+    注意：定义在此处（而非 chat_archive.py）以避免循环导入——
+    chat_archive.py 已导入本模块的 ParquetExporter。
+    """
+
+    model_config = SettingsConfigDict(
+        env_file=".env", env_file_encoding="utf-8", case_sensitive=True
+    )
+
+    CHAT_ARCHIVE_RETENTION_MONTHS: int = Field(default=12, ge=1)
+    CHAT_ARCHIVE_BATCH_SIZE: int = Field(default=5000, ge=100)
+    CHAT_ARCHIVE_COMPRESSION: Literal["zstd", "gzip", "none"] = "zstd"
+
 
 logger = structlog.get_logger()
 
@@ -52,7 +69,7 @@ class ParquetExporter:
     def __init__(
         self,
         chat_session_factory: async_sessionmaker[AsyncSession],
-        settings: Settings,
+        settings: ChatArchiveSettings,
     ) -> None:
         self._chat_sf = chat_session_factory
         self._settings = settings

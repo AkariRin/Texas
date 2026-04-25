@@ -14,7 +14,7 @@ from prometheus_client import generate_latest
 from starlette.requests import Request  # noqa: TC002
 from starlette.responses import Response
 
-from src.api.router import api_router
+from src.apis.router import api_router
 from src.core.config import get_settings
 from src.core.exception import register_exception_handlers
 from src.core.logging.setup import _bootstrap_root_logging

@@ -4,22 +4,42 @@ from __future__ import annotations
 
 import json
 from datetime import date, datetime
-from typing import TYPE_CHECKING, Any
+from typing import Any, Self
 
 import structlog
+from pydantic import SecretStr, model_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from src.core.utils import SHANGHAI_TZ
 
-if TYPE_CHECKING:
-    from src.core.config import Settings
-
 logger = structlog.get_logger()
+
+
+class S3Settings(BaseSettings):
+    """S3 归档配置（就近定义，env 变量名与全局 Settings 保持一致）。"""
+
+    model_config = SettingsConfigDict(
+        env_file=".env", env_file_encoding="utf-8", case_sensitive=True
+    )
+
+    S3_ENDPOINT_URL: str = ""
+    S3_ACCESS_KEY_ID: str = ""
+    S3_SECRET_ACCESS_KEY: SecretStr = SecretStr("")
+    S3_REGION: str = "us-east-1"
+    S3_ARCHIVE_BUCKET: str = "texas-chat-archive"
+    S3_ARCHIVE_PREFIX: str = "v1"
+
+    @model_validator(mode="after")
+    def _require_secret_when_key_id_set(self) -> Self:
+        if self.S3_ACCESS_KEY_ID and not self.S3_SECRET_ACCESS_KEY.get_secret_value():
+            raise ValueError("S3_ACCESS_KEY_ID 已设置，但 S3_SECRET_ACCESS_KEY 为空")
+        return self
 
 
 class S3Uploader:
     """负责 S3 文件上传操作，与归档编排逻辑解耦。"""
 
-    def __init__(self, settings: Settings) -> None:
+    def __init__(self, settings: S3Settings) -> None:
         self._settings = settings
 
     def _get_client(self) -> Any:  # boto3 无官方类型存根，返回 Any 为已知限制

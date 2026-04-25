@@ -3,22 +3,26 @@
 from __future__ import annotations
 
 from datetime import date  # noqa: TC003 — FastAPI Query 参数运行时需要
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Path, Query
+from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request
 
-from src.api.schemas.like import (  # noqa: TC001 — FastAPI Body 参数运行时需要
+from src.apis.schemas.like import (  # noqa: TC001 — FastAPI Body 参数运行时需要
     CreateLikeTaskRequest,
     LikeHistoryResponse,
     LikeTaskResponse,
 )
-from src.core.dependencies import get_like_service
 from src.core.utils.helpers import ceil_div
 from src.core.utils.response import ok
 from src.models.enums import LikeSource  # noqa: TC001 — FastAPI Query 枚举参数运行时需要
+from src.services.like import LikeService  # noqa: TC001
 
-if TYPE_CHECKING:
-    from src.services.like import LikeService
+
+def get_like_service(request: Request) -> LikeService:
+    """获取点赞服务。"""
+    registry = request.app.state.service_registry
+    return registry.get_typed(LikeService, "like_service")  # type: ignore[no-any-return]
+
 
 router = APIRouter(prefix="/like", tags=["like"])
 

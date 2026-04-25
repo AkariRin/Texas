@@ -3,20 +3,30 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import structlog
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from pydantic import BaseModel
 
-from src.core.dependencies import get_archive_service, get_chat_service
+from src.core.services.chat import ChatHistoryService  # noqa: TC001
+from src.core.services.chat_archive import ArchiveService  # noqa: TC001
 from src.core.utils.response import ok
 
-if TYPE_CHECKING:
-    from src.services.chat import ChatHistoryService
-    from src.services.chat_archive import ArchiveService
-
 logger = structlog.get_logger()
+
+
+def get_chat_service(request: Request) -> ChatHistoryService:
+    """获取聊天记录服务。"""
+    registry = request.app.state.service_registry
+    return registry.get_typed(ChatHistoryService, "chat_service")  # type: ignore[no-any-return]
+
+
+def get_archive_service(request: Request) -> ArchiveService:
+    """获取归档服务。"""
+    registry = request.app.state.service_registry
+    return registry.get_typed(ArchiveService, "archive_service")  # type: ignore[no-any-return]
+
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
