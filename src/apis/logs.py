@@ -5,7 +5,6 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-import re
 from typing import TYPE_CHECKING
 
 from fastapi import APIRouter, Query
@@ -14,74 +13,10 @@ if TYPE_CHECKING:
     from collections.abc import AsyncGenerator
 from starlette.responses import StreamingResponse
 
-from src.core.utils import SHANGHAI_TZ
+from src.core.logging.broadcast import subscribers as _subscribers
+from src.core.logging.broadcast import subscribers_lock as _subscribers_lock
 
 router = APIRouter()
-
-# ANSI 转义序列正则（覆盖 CSI 序列与 OSC 序列）
-_ANSI_RE = re.compile(r"\x1b\[[0-9;]*[A-Za-z]|\x1b][^\x07]*\x07|\x1b[()][AB012]")
-
-# ── 广播机制：每个 SSE 客户端对应一个 asyncio.Queue ──
-_subscribers: set[asyncio.Queue[str]] = set()
-_subscribers_lock: asyncio.Lock = asyncio.Lock()
-
-
-def _strip_ansi(text: str) -> str:
-    """移除字符串中所有 ANSI 转义序列。"""
-    return _ANSI_RE.sub("", text)
-
-
-class _BroadcastHandler(logging.Handler):
-    """将日志记录广播到所有 SSE 订阅者。"""
-
-    def emit(self, record: logging.LogRecord) -> None:
-        if not _subscribers:
-            return
-
-        # 获取干净的消息文本（去除 ANSI 转义码）
-        raw_message = _strip_ansi(record.getMessage()).strip()
-
-        entry = {
-            "timestamp": self.format_time(record),
-            "level": record.levelname,
-            "logger": record.name,
-            "message": raw_message,
-        }
-
-        # 附加 structlog 绑定字段（如 event_type）
-        if hasattr(record, "positional_fields"):
-            entry.update(record.positional_fields)
-
-        line = json.dumps(entry, ensure_ascii=False)
-        # 在同步上下文中使用快照副本，避免迭代时集合被并发修改
-        snapshot = list(_subscribers)
-        dead: list[asyncio.Queue[str]] = []
-        for q in snapshot:
-            try:
-                q.put_nowait(line)
-            except asyncio.QueueFull:
-                dead.append(q)
-        for q in dead:
-            _subscribers.discard(q)
-
-    @staticmethod
-    def format_time(record: logging.LogRecord) -> str:
-        from datetime import datetime
-
-        dt = datetime.fromtimestamp(record.created, tz=SHANGHAI_TZ)
-        return dt.strftime("%Y-%m-%dT%H:%M:%S.") + f"{int(record.msecs):03d}+08:00"
-
-
-# ── 安装 handler（模块加载时注册到根 logger） ──
-_handler = _BroadcastHandler()
-_handler.setLevel(logging.DEBUG)
-
-
-def install_log_broadcast() -> None:
-    """将广播 handler 注入根 logger，应在 setup_logging 之后调用。"""
-    root = logging.getLogger()
-    if _handler not in root.handlers:
-        root.addHandler(_handler)
 
 
 # ── SSE 端点 ──

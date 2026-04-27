@@ -96,7 +96,7 @@ docker build -t texas:latest .
 核心事件分发采用职责链模式：
 - `EventDispatcher` → `CompositeHandlerMapping` → 具体 Mapping 策略
 - 内置多种路由策略：`CommandHandlerMapping`（`/cmd`）、`RegexHandlerMapping`、`KeywordHandlerMapping`、`EventTypeHandlerMapping` 等
-- `ComponentScanner` 自动扫描 `src.handlers` 和 `src.core.handlers` 下的处理器，新 Bot 事件处理器放在 `src/handlers/` 下即可自动注册；系统级处理器（如 `personnel_handler`）放在 `src/core/handlers/`
+- `ComponentScanner` 自动扫描 `src.handlers` 和 `src.core.handlers` 下的处理器，新 Bot 事件处理器放在 `src/handlers/` 下即可自动注册；系统级处理器（如 `personnel`）放在 `src/core/handlers/`
 - 拦截器系统：`LoggingInterceptor`（Structlog 结构化日志）、`MetricsInterceptor`（Prometheus）
 
 ### Handler 开发约定
@@ -159,7 +159,7 @@ async def _stop(services: dict[str, Any]) -> None:
 src/
 ├── core/        # 框架基础设施（db、cache、framework、protocol、ws、logging、monitoring、utils、config）
 │   ├── services/    # 基础设施核心服务（chat、llm、personnel、permission、archive 等）
-│   ├── handlers/    # 系统级 Handler（如 personnel_handler）
+│   ├── handlers/    # 系统级 Handler（如 personnel）
 │   ├── apis/        # 核心层 API 路由（llm、personnel）
 │   ├── registries/  # 注册表（feature、permission、service、config）
 │   └── tasks/       # Celery 异步任务

@@ -47,7 +47,6 @@ if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
     from src.core.config import Settings
-    from src.core.services.chat import ChatHistoryService
 
 logger = structlog.get_logger()
 
@@ -81,11 +80,11 @@ def _startup_framework(
 ) -> None:
     """扫描处理器与独立功能组件。"""
     # 扫描 handler 包 + 服务层 + 任务层（收集 @feature 装饰的独立功能）
-    scan_packages = list(settings.HANDLER_SCAN_PACKAGES) + [
-        "src.core.services",
-        "src.services",
-        "src.tasks",
-    ]
+    scan_packages = (
+        settings.HANDLER_SCAN_PACKAGES
+        + settings.SERVICE_SCAN_PACKAGES
+        + settings.TASK_SCAN_PACKAGES
+    )
     scanner.scan(scan_packages)
     handlers_registered.set(composite_mapping.registered_count)
 
@@ -99,7 +98,7 @@ def _startup_framework(
 
 
 def _build_event_dispatch_callback(
-    chat_service: ChatHistoryService,
+    chat_service: Any,
     dispatcher_instance: EventDispatcher,
     bot_api_instance: BotAPI,
 ) -> Callable[[Any], Coroutine[Any, Any, None]]:
@@ -135,7 +134,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     setup_logging(log_level=settings.LOG_LEVEL, log_format=settings.LOG_FORMAT)
     validate_settings(settings)
 
-    from src.apis.logs import install_log_broadcast
+    from src.core.logging.broadcast import install_log_broadcast
 
     install_log_broadcast()
 
@@ -173,18 +172,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     )
     scanner = ComponentScanner(mapping=composite_mapping)
 
-    import src.core.db.migrations.chat  # noqa: F401 — 触发聊天库迁移目标注册
-    from src.core.services.chat import ChatDatabaseSettings as _ChatDbSettings
-
-    _chat_db_cfg = _ChatDbSettings()
-    chat_engine = create_engine(
-        _chat_db_cfg.CHAT_DATABASE_URL,
-        pool_size=_chat_db_cfg.CHAT_DB_POOL_SIZE,
-        max_overflow=_chat_db_cfg.CHAT_DB_MAX_OVERFLOW,
-    )
-
-    # 统一执行所有数据库迁移（连接检查 + schema 创建 + upgrade head）
-    await run_all_startup_migrations({"main": engine, "chat": chat_engine}, settings)
+    # 统一执行主库迁移（聊天库迁移由 chat_engine_infra @startup 负责）
+    await run_all_startup_migrations({"main": engine}, settings)
 
     # ── RPC 消费者（待 checkin 模块注册 handler 后再 start）──
     from src.core.rpc.consumer import RPCConsumer
@@ -204,7 +193,6 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
             "conn_mgr": conn_mgr,
             "bot_api": bot_api,
             "session_factory": session_factory,
-            "chat_engine": chat_engine,
             "cache_client": cache_client,
             "persistent_client": persistent_client,
             "scanner": scanner,
@@ -229,8 +217,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
         }
     )
     # 向 dispatcher 注入 Protocol 实现（orchestrator.startup 完成后方可获取）
-    dispatcher._admin_provider = orchestrator.services.get("personnel_service")
-    dispatcher._feature_checker = orchestrator.services.get("feature_checker")
+    feature_checker = orchestrator.services.get("feature_checker")
+    if feature_checker is None:
+        raise RuntimeError("feature_checker 启动失败，权限检查不可用，拒绝启动")
+    dispatcher._feature_checker = feature_checker
     orchestrator.populate_app_state(app.state, exclude=_infra_keys)
     orchestrator.populate_dispatcher(dispatcher)
     service_registry = orchestrator.build_registry()
@@ -246,9 +236,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     await rpc_consumer.start()
 
     # 构建事件分发回调（chat_service 由 orchestrator 提供）
-    from typing import cast as _cast
-
-    _chat_svc = _cast("ChatHistoryService", orchestrator.services["chat_service"])
+    _chat_svc = orchestrator.services["chat_service"]
     event_dispatch_callback = _build_event_dispatch_callback(_chat_svc, dispatcher, bot_api)
 
     # ── app.state（基础设施，业务服务已由 orchestrator.populate_app_state 写入）──
@@ -292,7 +280,6 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     await session_manager.close()
     await cache_client.close()
     await persistent_client.close()
-    await chat_engine.dispose()
     await engine.dispose()
     heartbeat.stop()
     logger.info("Texas 已停止", event_type="app.stopped")

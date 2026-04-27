@@ -40,6 +40,10 @@ class PersonnelEventService:
         self._cache = cache
         self._permission_service = permission_service
 
+    def configure_permission_service(self, svc: FeaturePermissionService) -> None:
+        """延迟注入权限服务（由 permission @startup 在就绪后调用）。"""
+        self._permission_service = svc
+
     async def on_friend_add(self, user_id: int) -> None:
         """好友添加：若非 admin 则升级为 friend。"""
         async with self._session_factory() as session, session.begin():

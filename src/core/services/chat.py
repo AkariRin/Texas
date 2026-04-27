@@ -26,7 +26,7 @@ class ChatDatabaseSettings(BaseSettings):
     """聊天库数据库配置（就近定义，env 变量名与全局 Settings 保持一致）。"""
 
     model_config = SettingsConfigDict(
-        env_file=".env", env_file_encoding="utf-8", case_sensitive=True
+        env_file=".env", env_file_encoding="utf-8", case_sensitive=True, extra="ignore"
     )
 
     CHAT_DATABASE_URL: str = "postgresql+asyncpg://texas:texas@localhost:5432/chat_history"
@@ -294,7 +294,39 @@ class ChatHistoryService:
 
 # ── 生命周期注册 ──
 
-from src.core.lifecycle import startup  # noqa: E402
+from src.core.lifecycle import shutdown, startup  # noqa: E402
+
+
+@startup(
+    name="chat_engine_infra",
+    provides=["chat_engine"],
+    requires=[],
+)
+async def _start_chat_engine(deps: dict[str, Any]) -> dict[str, Any]:  # noqa: ARG001
+    """聊天库引擎创建与迁移（在 chat 业务服务启动之前完成）。"""
+    import src.core.db.migrations.chat  # noqa: F401 — 触发聊天库迁移目标注册
+    from src.core.config import get_settings
+    from src.core.db.engine import create_engine
+    from src.core.db.migration import run_all_startup_migrations
+
+    # ChatDatabaseSettings 在本文件顶部定义，无需额外 import
+    cfg = ChatDatabaseSettings()
+    chat_engine = create_engine(
+        cfg.CHAT_DATABASE_URL,
+        pool_size=cfg.CHAT_DB_POOL_SIZE,
+        max_overflow=cfg.CHAT_DB_MAX_OVERFLOW,
+    )
+    settings = get_settings()
+    await run_all_startup_migrations({"chat": chat_engine}, settings)
+    logger.info("聊天库引擎已就绪", event_type="chat_engine.started")
+    return {"chat_engine": chat_engine}
+
+
+@shutdown(name="chat_engine_infra")
+async def _stop_chat_engine(services: dict[str, Any]) -> None:
+    """聊天库引擎关闭。"""
+    await services["chat_engine"].dispose()
+    logger.info("聊天库引擎已关闭", event_type="chat_engine.stopped")
 
 
 @startup(

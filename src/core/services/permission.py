@@ -676,6 +676,6 @@ async def _lifecycle_start(deps: dict[str, Any]) -> dict[str, Any]:
     )
     # 向 PersonnelEventService 注入权限服务（两者同属核心层，注入合法）
     personnel_event_service: PersonnelEventService = deps["personnel_event_service"]
-    personnel_event_service._permission_service = permission_service
+    personnel_event_service.configure_permission_service(permission_service)
     logger.info("权限系统已就绪", event_type="permission.ready")
     return {"permission_service": permission_service, "feature_checker": checker}

@@ -27,7 +27,7 @@ class PersonnelSyncSettings(BaseSettings):
     """人员同步配置（就近定义，env 变量名与全局 Settings 保持一致）。"""
 
     model_config = SettingsConfigDict(
-        env_file=".env", env_file_encoding="utf-8", case_sensitive=True
+        env_file=".env", env_file_encoding="utf-8", case_sensitive=True, extra="ignore"
     )
 
     PERSONNEL_SYNC_INTERVAL: int = Field(default=300, ge=10)

@@ -7,12 +7,11 @@ from typing import TYPE_CHECKING, Any
 import structlog
 
 from src.core.framework.context import Context, FinishError
-from src.core.framework.decorators import Permission
 
 if TYPE_CHECKING:
     from src.core.framework.interceptor import HandlerInterceptor
-    from src.core.framework.mapping import CompositeHandlerMapping, HandlerMethod, ResolvedHandler
-    from src.core.framework.ports import AdminProvider, FeatureChecker
+    from src.core.framework.mapping import CompositeHandlerMapping, ResolvedHandler
+    from src.core.framework.ports import FeatureChecker
     from src.core.protocol.api import BotAPI
     from src.core.protocol.models.base import OneBotEvent
 
@@ -20,57 +19,23 @@ logger = structlog.get_logger()
 
 
 class EventDispatcher:
-    """接收已解析的事件，通过映射解析处理器，并运行拦截器链。"""
+    """接收已解析的事件，通过映射解析处理器，并运行拦截器链。
+
+    权限检查（功能级 + 角色级）统一委托给 feature_checker，
+    分发器不实现任何权限规则。
+    """
 
     def __init__(
         self,
         mapping: CompositeHandlerMapping,
         interceptors: list[HandlerInterceptor] | None = None,
         services: dict[type, Any] | None = None,
-        admin_provider: AdminProvider | None = None,
         feature_checker: FeatureChecker | None = None,
     ) -> None:
         self.mapping = mapping
         self.interceptors = interceptors or []
-        self.services: dict[type, Any] = services or {}
-        self._admin_provider = admin_provider
+        self.services: dict[type, Any] = {} if services is None else services
         self._feature_checker = feature_checker
-
-    async def _check_role_permission(self, ctx: Context) -> bool:
-        """角色级权限检查（原 PermissionInterceptor 逻辑，移至 per-handler 级别）。"""
-        handler: HandlerMethod | None = ctx.handler_method
-        if handler is None:
-            return True
-
-        required: Permission = handler.permission
-        if required == Permission.ANYONE:
-            return True
-
-        user_id = ctx.user_id
-
-        # ADMIN 超级管理员绕过角色检查
-        if self._admin_provider is not None:
-            admin_set = await self._admin_provider.get_admin_qq_set()
-            if user_id in admin_set:
-                return True
-
-        if required == Permission.ADMIN:
-            logger.debug(
-                "角色权限拒绝：需要 ADMIN",
-                user_id=user_id,
-                event_type="dispatcher.role_denied",
-            )
-            return False
-
-        if ctx.is_group and required in (Permission.GROUP_ADMIN, Permission.GROUP_OWNER):
-            sender = getattr(ctx.event, "sender", None)
-            role = getattr(sender, "role", "member") if sender else "member"
-            if required == Permission.GROUP_OWNER and role != "owner":
-                return False
-            if required == Permission.GROUP_ADMIN and role not in ("admin", "owner"):
-                return False
-
-        return True
 
     async def dispatch(self, event: OneBotEvent, bot: BotAPI) -> None:
         ctx = Context(event=event, bot=bot, services=self.services)
@@ -104,22 +69,17 @@ class EventDispatcher:
                 handler = resolved.handler
                 ctx.handler_method = handler
 
-                # ResolvedHandler 在每次 resolve 时独立创建，避免并发事件互相覆盖元数据
                 if resolved.regex_match is not None:
                     ctx.set_regex_match(resolved.regex_match)
 
-                # 功能级权限检查（per-handler）
+                # 统一权限检查（功能级 + 角色级，由 feature_checker 统一处理）
                 if self._feature_checker is not None and not await self._feature_checker.check(ctx):
-                    continue
-
-                # 角色级权限检查（per-handler）
-                if not await self._check_role_permission(ctx):
                     continue
 
                 try:
                     result = await handler.method(ctx)
                     if result is True:
-                        break  # 处理器发出停止传播信号
+                        break
                 except FinishError:
                     break
 
@@ -128,7 +88,7 @@ class EventDispatcher:
                 await interceptor.post_handle(ctx, result)
 
         except FinishError:
-            pass  # 正常流程控制
+            pass
         except Exception as e:
             exc = e
             logger.error(

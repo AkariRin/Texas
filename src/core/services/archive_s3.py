@@ -19,7 +19,7 @@ class S3Settings(BaseSettings):
     """S3 归档配置（就近定义，env 变量名与全局 Settings 保持一致）。"""
 
     model_config = SettingsConfigDict(
-        env_file=".env", env_file_encoding="utf-8", case_sensitive=True
+        env_file=".env", env_file_encoding="utf-8", case_sensitive=True, extra="ignore"
     )
 
     S3_ENDPOINT_URL: str = ""

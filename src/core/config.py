@@ -29,6 +29,7 @@ class Settings(BaseSettings):
         env_file=".env",
         env_file_encoding="utf-8",
         case_sensitive=True,
+        extra="ignore",
     )
 
     # NapCat WebSocket（反向 WS：NapCat -> Texas）
@@ -73,7 +74,13 @@ class Settings(BaseSettings):
     LOG_FORMAT: Literal["json", "console"] = "json"
 
     # 处理器扫描
-    HANDLER_SCAN_PACKAGES: list[str] = ["src.handlers", "src.core.handlers"]
+    HANDLER_SCAN_PACKAGES: list[str] = []
+
+    # 服务扫描（@startup/@shutdown 装饰器模块）
+    SERVICE_SCAN_PACKAGES: list[str] = []
+
+    # 异步任务扫描
+    TASK_SCAN_PACKAGES: list[str] = []
 
     # 前端
     FRONTEND_DIST_DIR: str = "frontend/dist"

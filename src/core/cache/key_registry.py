@@ -178,36 +178,3 @@ def _make_key_func(prefix: str, params: tuple[str, ...]) -> Any:
 def _derive_glob(prefix: str) -> str:
     """将模板 {param} 替换为 * 生成 glob 模式。"""
     return _PLACEHOLDER_RE.sub("*", prefix)
-
-
-# ── 兼容层辅助（供 keys.py 使用） ──
-
-
-def _register_existing(
-    func: Any,
-    name: str,
-    prefix: str,
-    *,
-    ttl_hint: int | None = None,
-    description: str = "",
-    module: str = "src.core.cache.keys",
-) -> None:
-    """将现有手写键函数注册到全局注册表，并挂载 __cache_key_entry__ 属性。
-
-    仅供 keys.py 内部使用，用于向后兼容过渡期。
-    """
-    if any(e.name == name for e in _registry):
-        return  # 幂等：已注册则跳过
-
-    params: tuple[str, ...] = tuple(dict.fromkeys(_PLACEHOLDER_RE.findall(prefix)))
-    entry = CacheKeyEntry(
-        name=name,
-        prefix=prefix,
-        params=params,
-        ttl_hint=ttl_hint,
-        description=description,
-        module=module,
-        glob_pattern=_derive_glob(prefix),
-    )
-    _registry.append(entry)
-    func.__cache_key_entry__ = entry
