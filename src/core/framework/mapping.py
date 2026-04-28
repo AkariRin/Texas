@@ -21,12 +21,12 @@ if TYPE_CHECKING:
 class HandlerMethod:
     """封装处理器方法及其元数据。"""
 
-    controller: object
+    component: object
     method: Callable[..., Any]
     priority: int = 50
     permission: Permission = Permission.ANYONE
     metadata: dict[str, Any] = field(default_factory=dict)
-    controller_name: str = ""
+    component_name: str = ""
     method_name: str = ""
 
 

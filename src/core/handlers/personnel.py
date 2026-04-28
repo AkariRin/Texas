@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 import structlog
 
-from src.core.framework.decorators import controller, on_notice
+from src.core.framework.decorators import component, on_notice
 
 if TYPE_CHECKING:
     from src.core.framework.context import Context
@@ -16,7 +16,7 @@ from src.core.services.personnel_events import PersonnelEventService
 logger = structlog.get_logger()
 
 
-@controller(
+@component(
     name="personnel_event",
     display_name="人员事件",
     description="用户数据增量更新处理器，监听群与好友变动事件",

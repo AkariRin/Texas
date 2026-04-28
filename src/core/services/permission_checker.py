@@ -44,8 +44,8 @@ class FeaturePermissionChecker:
         if handler is None:
             return True
 
-        ctrl_feature: str = handler.controller_name
-        method_feature: str = f"{handler.controller_name}.{handler.method_name}"
+        ctrl_feature: str = handler.component_name
+        method_feature: str = f"{handler.component_name}.{handler.method_name}"
         required: Permission = handler.permission
 
         # 零 IO 快速路径：系统级功能（PermissionRegistry 内存快照）始终允许

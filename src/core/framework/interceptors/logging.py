@@ -35,7 +35,7 @@ class LoggingInterceptor(HandlerInterceptor):
 
         handler_name = ""
         if ctx.handler_method:
-            handler_name = f"{ctx.handler_method.controller_name}.{ctx.handler_method.method_name}"
+            handler_name = f"{ctx.handler_method.component_name}.{ctx.handler_method.method_name}"
 
         if exc:
             logger.error(

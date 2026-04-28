@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 import structlog
 from pydantic import BaseModel
 
-from src.core.framework.decorators import controller, on_command
+from src.core.framework.decorators import component, on_command
 from src.core.framework.session import (
     InteractiveSession,
     TimeoutConfig,
@@ -35,7 +35,7 @@ class FeedbackSessionData(BaseModel):
     group_id: int | None = None
 
 
-@controller(
+@component(
     name="feedback",
     display_name="用户反馈",
     description="用户反馈提交与查询功能",

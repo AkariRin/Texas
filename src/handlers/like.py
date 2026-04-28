@@ -9,7 +9,7 @@ import structlog
 from src.core.framework.decorators import (
     MessageScope,
     Permission,
-    controller,
+    component,
     on_command,
 )
 from src.models.enums import LikeSource
@@ -30,7 +30,7 @@ _USAGE = (
 )
 
 
-@controller(
+@component(
     name="like",
     display_name="点赞",
     description="给自己 QQ 主页点赞，支持手动和每日定时自动点赞",

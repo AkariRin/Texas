@@ -8,7 +8,7 @@ from zoneinfo import ZoneInfo
 
 import structlog
 
-from src.core.framework.decorators import MessageScope, controller, on_regex
+from src.core.framework.decorators import MessageScope, component, on_regex
 from src.core.protocol.segment import MessageBuilder
 
 if TYPE_CHECKING:
@@ -23,7 +23,7 @@ _SHANGHAI_TZ = ZoneInfo("Asia/Shanghai")
 _AVATAR_URL = "https://q1.qlogo.cn/g?b=qq&nk={qq}&s=640"
 
 
-@controller(
+@component(
     name="jrlp",
     display_name="今日老婆",
     description="每日群内随机抽取群老婆，每人每群每天一次",

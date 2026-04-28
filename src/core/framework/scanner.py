@@ -1,4 +1,4 @@
-"""ComponentScanner —— 发现 @controller 类并注册处理器方法。"""
+"""ComponentScanner —— 发现 @component 类并注册处理器方法。"""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Any
 
 import structlog
 
-from src.core.framework.decorators import CONTROLLER_META, FEATURE_META, HANDLER_META
+from src.core.framework.decorators import COMPONENT_META, FEATURE_META, HANDLER_META
 from src.core.framework.mapping import CompositeHandlerMapping, HandlerMethod
 from src.core.framework.session.decorators import SESSION_META
 from src.core.registries.feature_registry import FeatureRegistry, build_registry
@@ -59,21 +59,21 @@ def _compute_trigger(meta: dict[str, Any]) -> str:
 
 
 class ComponentScanner:
-    """扫描包中的 @controller 装饰类并注册处理器。"""
+    """扫描包中的 @component 装饰类并注册处理器。"""
 
     def __init__(self, mapping: CompositeHandlerMapping) -> None:
         self._mapping = mapping
         self._controllers: list[dict[str, Any]] = []
         self._standalone_features: list[dict[str, Any]] = []
         self._feature_registry: FeatureRegistry = FeatureRegistry({})
-        self._session_classes: list[tuple[str, type]] = []  # (controller_name, session_cls)
+        self._session_classes: list[tuple[str, type]] = []  # (component_name, session_cls)
         self._startup_entries: tuple[StartupEntry, ...] = ()
         self._shutdown_entries: tuple[ShutdownEntry, ...] = ()
         self._cache_key_entries: tuple[CacheKeyEntry, ...] = ()
 
     @property
     def controllers(self) -> list[dict[str, Any]]:
-        """返回所有已发现控制器的元数据。"""
+        """返回所有已发现功能组件的元数据。"""
         return list(self._controllers)
 
     @property
@@ -108,8 +108,8 @@ class ComponentScanner:
 
     def register_sessions(self, session_manager: SessionManager) -> None:
         """将扫描到的会话类注册到 SessionManager。"""
-        for controller_name, session_cls in self._session_classes:
-            name = f"{controller_name}.{session_cls.__name__}"
+        for component_name, session_cls in self._session_classes:
+            name = f"{component_name}.{session_cls.__name__}"
             session_manager.register_session_class(name, session_cls)
 
         if self._session_classes:
@@ -120,7 +120,7 @@ class ComponentScanner:
             )
 
     def scan(self, packages: list[str]) -> None:
-        """扫描给定的包路径以查找控制器，完成后构建内存元数据注册表并快照生命周期入口。"""
+        """扫描给定的包路径以查找功能组件，完成后构建内存元数据注册表并快照生命周期入口。"""
         from src.core.cache.key_registry import get_all_cache_keys
         from src.core.lifecycle.registry import get_all_shutdowns, get_all_startups
 
@@ -138,7 +138,7 @@ class ComponentScanner:
         self._feature_registry = build_registry(self._controllers, self._standalone_features)
 
     def _scan_package(self, package_name: str) -> None:
-        """导入包中所有模块并发现控制器。"""
+        """导入包中所有模块并发现功能组件。"""
         try:
             package = importlib.import_module(package_name)
         except ModuleNotFoundError:
@@ -179,18 +179,18 @@ class ComponentScanner:
                     self._discover_in_module(mod)
                 except Exception as exc:
                     logger.warning(
-                        "控制器发现失败",
+                        "组件发现失败",
                         module=module_name,
                         error=str(exc),
                         event_type="scanner.discover_error",
                     )
 
     def _discover_in_module(self, module: Any) -> None:
-        """查找模块中所有被 @controller 或 @feature 装饰的类。"""
+        """查找模块中所有被 @component 或 @feature 装饰的类。"""
         for _name, obj in inspect.getmembers(module, inspect.isclass):
             if obj.__module__ != module.__name__:
                 continue
-            ctrl_meta = getattr(obj, CONTROLLER_META, None)
+            ctrl_meta = getattr(obj, COMPONENT_META, None)
             if ctrl_meta is not None:
                 self._register_controller(obj, ctrl_meta)
                 continue
@@ -204,9 +204,9 @@ class ComponentScanner:
                 )
 
     def _register_controller(self, cls: type, ctrl_meta: dict[str, Any]) -> None:
-        """实例化控制器并注册其处理器方法。"""
+        """实例化功能组件并注册其处理器方法。"""
         instance = cls()
-        controller_name = ctrl_meta.get("name", cls.__name__)
+        component_name = ctrl_meta.get("name", cls.__name__)
         default_priority = ctrl_meta.get("default_priority", 50)
 
         handler_count = 0
@@ -232,12 +232,12 @@ class ComponentScanner:
                     priority = default_priority
 
                 hm = HandlerMethod(
-                    controller=instance,
+                    component=instance,
                     method=method,
                     priority=priority,
                     permission=meta.get("permission", 0),
                     metadata={**meta, "system": ctrl_meta.get("system", False)},
-                    controller_name=controller_name,
+                    component_name=component_name,
                     method_name=method_name,
                 )
                 self._mapping.register(hm)
@@ -247,7 +247,7 @@ class ComponentScanner:
                         "method": method_name,
                         "mapping_type": meta.get("mapping_type"),
                         "priority": priority,
-                        # None 表示跟随 controller 的 default_enabled
+                        # None 表示跟随 component 的 default_enabled
                         "default_enabled": meta.get("default_enabled"),
                         # 元数据注解字段
                         "display_name": meta.get("display_name") or meta.get("cmd", method_name),
@@ -273,17 +273,17 @@ class ComponentScanner:
                 continue
             session_meta = getattr(inner_cls, SESSION_META, None)
             if session_meta is not None:
-                self._session_classes.append((controller_name, inner_cls))
+                self._session_classes.append((component_name, inner_cls))
                 logger.info(
                     "交互式会话已发现",
-                    controller=controller_name,
+                    component=component_name,
                     session=inner_cls.__name__,
                     event_type="scanner.session_discovered",
                 )
 
         logger.info(
-            "控制器注册成功",
-            controller=controller_name,
+            "组件注册成功",
+            component=component_name,
             handler_count=handler_count,
-            event_type="scanner.controller_registered",
+            event_type="scanner.component_registered",
         )

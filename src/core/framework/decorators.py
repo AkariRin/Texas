@@ -28,7 +28,7 @@ class MessageScope(StrEnum):
 
 # ── 存储在被装饰对象上的元数据键 ──
 
-CONTROLLER_META = "__controller_meta__"
+COMPONENT_META = "__component_meta__"
 HANDLER_META = "__handler_meta__"
 FEATURE_META = "__feature_meta__"
 
@@ -36,7 +36,7 @@ FEATURE_META = "__feature_meta__"
 # ── 类装饰器 ──
 
 
-def controller(
+def component(
     name: str,
     description: str = "",
     display_name: str = "",
@@ -46,14 +46,14 @@ def controller(
     default_enabled: bool = False,
     system: bool = False,
 ) -> Callable[[type], type]:
-    """将类标记为控制器（类似 Spring @Controller）。
+    """将类标记为功能组件，聚合多个 handler 方法并注册功能元数据。
 
     Args:
-        name: 控制器名称，同时作为功能注册表的主键。
+        name: 组件名称，同时作为功能注册表的主键。
         description: 功能描述，显示在权限管理页面。
         display_name: 展示名称，为空则取 name。
         tags: 分类标签列表，用于前端过滤展示。
-        admin: 为 True 时该 controller 下所有方法默认为管理员指令。
+        admin: 为 True 时该组件下所有方法默认为管理员指令。
         default_priority: 处理器默认优先级。
         default_enabled: 该功能默认是否启用（可被管理员覆盖），默认 False。
         system: 为 True 时标记为系统级功能，强制启用且不暴露给前端。
@@ -62,7 +62,7 @@ def controller(
     def decorator(cls: type) -> type:
         setattr(
             cls,
-            CONTROLLER_META,
+            COMPONENT_META,
             {
                 "name": name,
                 "description": description,
@@ -97,10 +97,10 @@ def _handler_decorator(
 
     Args:
         message_scope: 消息作用域（all/group/private），限制触发的消息类型。
-        default_enabled: 该 method 默认是否启用；None 表示跟随 controller 配置。
+        default_enabled: 该 method 默认是否启用；None 表示跟随 component 配置。
         display_name: 展示名称，显示在权限管理页面。
         description: 功能描述，类似 Swagger 注解。
-        admin: 为 True 时该方法为管理员指令（等价于 permission=ADMIN）；None 跟随 controller。
+        admin: 为 True 时该方法为管理员指令（等价于 permission=ADMIN）；None 跟随 component。
     """
     # admin=True 优先级高于 permission 参数
     if admin is True:

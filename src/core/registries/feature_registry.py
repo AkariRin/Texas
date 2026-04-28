@@ -1,6 +1,6 @@
 """不可变功能注册表 —— 启动时构建，运行期间只读。
 
-将代码中通过 @controller / @feature 装饰器声明的功能元数据固化为内存单例，
+将代码中通过 @component / @feature 装饰器声明的功能元数据固化为内存单例，
 不持久化到数据库，确保运行期间永远不被修改。
 """
 
@@ -19,7 +19,7 @@ class FeatureMetadata:
     """单个功能的不可变元数据。"""
 
     name: str
-    """功能唯一标识，格式：controller 级为 'echo'，method 级为 'echo.handle_echo'。"""
+    """功能唯一标识，格式：component 级为 'echo'，method 级为 'echo.handle_echo'。"""
     display_name: str
     """人类可读名称。"""
     description: str

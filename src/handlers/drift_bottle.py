@@ -9,7 +9,7 @@ import structlog
 from src.core.framework.decorators import (
     MessageScope,
     Permission,
-    controller,
+    component,
     on_fullmatch,
     on_startswith,
 )
@@ -47,7 +47,7 @@ def _filter_content(segments: list[Any] | str, trigger: str) -> list[dict[str, A
     return result
 
 
-@controller(
+@component(
     name="drift_bottle",
     display_name="漂流瓶",
     description="扔/捞漂流瓶，同池内随机互通，每瓶一次性消耗",

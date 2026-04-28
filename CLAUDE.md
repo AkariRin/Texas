@@ -105,10 +105,10 @@ docker build -t texas:latest .
 
 ```python
 from src.core.framework.decorators import (
-    controller, on_command, Permission, MessageScope
+    component, on_command, Permission, MessageScope
 )
 
-@controller(
+@component(
     name="echo",
     display_name="回声",
     description="复读用户消息",
@@ -120,7 +120,7 @@ class EchoHandler:
         ...
 ```
 
-- `@controller` 同时在 `FeatureRegistry` 中注册功能元数据（用于权限管理页面）
+- `@component` 同时在 `FeatureRegistry` 中注册功能元数据（用于权限管理页面）
 - `default_enabled=False`（默认值）意味着管理员需在前端手动开启该功能
 - `system=True` 的功能强制启用且不暴露给前端
 - 交互式多轮会话见 `src/core/framework/session/`

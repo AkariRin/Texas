@@ -10,7 +10,7 @@ import structlog
 from src.core.framework.decorators import (
     MessageScope,
     Permission,
-    controller,
+    component,
     on_command,
     on_keyword,
 )
@@ -24,7 +24,7 @@ if TYPE_CHECKING:
 logger = structlog.get_logger()
 
 
-@controller(
+@component(
     name="user_checkin",
     display_name="群签到",
     description="用户手动签到，回复今日本群排名和连续/累计天数",

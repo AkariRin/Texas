@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any, Final
 
 import structlog
 
-from src.core.framework.decorators import MessageScope, controller, on_command
+from src.core.framework.decorators import MessageScope, component, on_command
 from src.core.utils.helpers import ceil_div
 from src.core.utils.md2img import MarkdownRenderError
 
@@ -170,7 +170,7 @@ def _build_detail_markdown(
     return "\n".join(lines)
 
 
-@controller(
+@component(
     name="help",
     display_name="帮助",
     description="查看当前可用功能列表",

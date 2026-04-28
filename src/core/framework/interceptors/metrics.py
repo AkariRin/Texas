@@ -28,7 +28,7 @@ class MetricsInterceptor(HandlerInterceptor):
         if _event_counter is not None:
             handler = ""
             if ctx.handler_method:
-                handler = f"{ctx.handler_method.controller_name}.{ctx.handler_method.method_name}"
+                handler = f"{ctx.handler_method.component_name}.{ctx.handler_method.method_name}"
             _event_counter.labels(
                 event_type=ctx.event.post_type,
                 handler=handler,
