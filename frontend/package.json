@@ -17,12 +17,12 @@
   "dependencies": {
     "@fontsource/roboto": "^5.2.10",
     "@mdi/font": "^7.4.47",
-    "axios": "^1.15.1",
+    "axios": "^1.15.2",
     "pinia": "^3.0.4",
     "pinia-plugin-persistedstate": "^4.7.1",
-    "vue": "^3.5.32",
-    "vue-router": "^5.0.4",
-    "vuetify": "^4.0.5"
+    "vue": "^3.5.33",
+    "vue-router": "^5.0.6",
+    "vuetify": "^4.0.6"
   },
   "devDependencies": {
     "@tsconfig/node24": "^24.0.4",
@@ -32,11 +32,11 @@
     "@vue/tsconfig": "^0.9.1",
     "eslint": "^10.2.1",
     "eslint-config-prettier": "^10.1.8",
-    "eslint-plugin-oxlint": "~1.61.0",
-    "eslint-plugin-vue": "~10.8.0",
+    "eslint-plugin-oxlint": "~1.62.0",
+    "eslint-plugin-vue": "~10.9.0",
     "jiti": "^2.6.1",
     "npm-run-all2": "^8.0.4",
-    "oxlint": "~1.61.0",
+    "oxlint": "~1.62.0",
     "prettier": "3.8.3",
     "typescript": "~5.9.3",
     "unplugin-fonts": "^2.0.0",
