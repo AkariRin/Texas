@@ -95,7 +95,7 @@ class ParquetExporter:
         original_bytes = 0
         batch_rows: list[dict[str, Any]] = []
 
-        writer = pq.ParquetWriter(
+        writer = pq.ParquetWriter(  # type: ignore[no-untyped-call]
             output_path,
             schema=CHAT_HISTORY_SCHEMA,
             compression=compression,
@@ -121,15 +121,15 @@ class ParquetExporter:
 
                     if len(batch_rows) >= batch_size:
                         table = pa.Table.from_pylist(batch_rows, schema=CHAT_HISTORY_SCHEMA)
-                        writer.write_table(table)
+                        writer.write_table(table)  # type: ignore[no-untyped-call]
                         batch_rows.clear()
 
                 # 写入剩余数据
                 if batch_rows:
                     table = pa.Table.from_pylist(batch_rows, schema=CHAT_HISTORY_SCHEMA)
-                    writer.write_table(table)
+                    writer.write_table(table)  # type: ignore[no-untyped-call]
         finally:
-            writer.close()
+            writer.close()  # type: ignore[no-untyped-call]
 
         # 计算压缩文件 SHA256（同步 IO 卸载到线程池，不阻塞 EventLoop）
         compressed_bytes = os.path.getsize(output_path)

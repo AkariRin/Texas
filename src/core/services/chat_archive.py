@@ -390,7 +390,7 @@ class ArchiveService:
         if self._s3_settings.S3_ENDPOINT_URL:
             s3_kwargs["endpoint_override"] = self._s3_settings.S3_ENDPOINT_URL
 
-        s3_fs = pafs.S3FileSystem(**s3_kwargs)
+        s3_fs = pafs.S3FileSystem(**s3_kwargs)  # type: ignore[attr-defined]
         s3_path = f"{archive.s3_bucket}/{archive.s3_key}"
 
         columns = [
@@ -412,7 +412,7 @@ class ArchiveService:
             filters = [("group_id", "=", group_id)]
 
         try:
-            table = pq.read_table(
+            table = pq.read_table(  # type: ignore[no-untyped-call]
                 s3_path,
                 filesystem=s3_fs,
                 columns=columns,
