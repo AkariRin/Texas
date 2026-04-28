@@ -43,6 +43,12 @@ dev = [
     "commitizen>=4.13.10",
     "pre-commit>=4.5.1",
 ]
+test = [
+    "pytest>=8.3",
+    "pytest-asyncio>=0.25",
+    "freezegun>=1.5",
+    "pytest-cov>=6.0",
+]
 
 [tool.ruff]
 target-version = "py314"
@@ -71,6 +77,101 @@ plugins = ["pydantic.mypy"]
 [[tool.mypy.overrides]]
 module = ["celery.*", "redbeat.*", "pyarrow.*", "boto3.*", "botocore.*"]
 ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+addopts = "--tb=short -q"
+
+[tool.coverage.run]
+source = ["src"]
+omit = [
+    # 数据库迁移文件
+    "src/core/db/migrations/*",
+    # 数据库基础设施（需要真实 DB 连接）
+    "src/core/db/*",
+    # Redis 缓存客户端（需要真实 Redis）
+    "src/core/cache/*",
+    # WebSocket 服务器（需要 NapCat 连接）
+    "src/core/ws/*",
+    # 应用入口 / 生命周期编排（需要全部中间件）
+    "src/core/main.py",
+    "src/core/lifespan.py",
+    "src/core/lifecycle/orchestrator.py",
+    # Celery 异步任务（需要 Celery Worker + Redis）
+    "src/core/tasks/*",
+    "src/tasks/*",
+    # RPC 跨进程通信（需要 Redis pub/sub）
+    "src/core/rpc/*",
+    # 外部协议 API（需要 NapCat 连接）
+    "src/core/protocol/api.py",
+    "src/core/protocol/api_file.py",
+    "src/core/protocol/api_gocq.py",
+    "src/core/protocol/api_napcat.py",
+    "src/core/protocol/event.py",
+    # 浏览器渲染（需要 Playwright + Chromium）
+    "src/core/browser/*",
+    "src/core/utils/md2img.py",
+    # FastAPI 路由控制器（需要完整 app 上下文 + DB）
+    "src/apis/*",
+    "src/core/apis/*",
+    # 业务服务层（需要 DB/Redis 实例注入）
+    "src/services/*",
+    "src/core/services/chat.py",
+    "src/core/services/chat_archive.py",
+    "src/core/services/archive_exporter.py",
+    "src/core/services/archive_s3.py",
+    "src/core/services/llm.py",
+    "src/core/services/llm_client.py",
+    "src/core/services/llm_completion.py",
+    "src/core/services/llm_schemas.py",
+    "src/core/services/permission.py",
+    "src/core/services/personnel.py",
+    "src/core/services/personnel_events.py",
+    "src/core/services/personnel_query.py",
+    "src/core/services/personnel_sync.py",
+    # 系统级 Handler（依赖 PersonnelService 真实实例）
+    "src/core/handlers/*",
+    # 日志 / 监控配置（需要完整运行时）
+    "src/core/logging/*",
+    "src/core/monitoring/*",
+    # 其他基础设施
+    "src/core/config.py",
+    "src/core/dependencies.py",
+    "src/core/version.py",
+    "src/core/utils/resource.py",
+    "src/core/utils/helpers.py",
+    "src/core/utils/html_utils.py",
+    "src/core/utils/response.py",
+    # 事件分发器（需要完整拦截器链 + Redis）
+    "src/core/framework/dispatcher.py",
+    # 拦截器（需要运行时日志/监控基础设施）
+    "src/core/framework/interceptors/*",
+    "src/core/framework/interceptor.py",
+    "src/core/framework/ports.py",
+    # 交互式会话管理（需要 Redis 持久化）
+    "src/core/framework/session/manager.py",
+    "src/core/framework/session/state_machine.py",
+    "src/core/framework/session/base.py",
+    "src/core/framework/session/context.py",
+    # 注册表（无业务逻辑，纯数据存储）
+    "src/core/registries/config_registry.py",
+    "src/core/registries/permission_registry.py",
+    "src/core/registries/service_registry.py",
+    # 消息段构建器（纯 API 包装，无复杂逻辑）
+    "src/core/protocol/models/segments.py",
+    "src/core/protocol/segment.py",
+    # help handler（依赖完整功能注册表动态生成）
+    "src/handlers/help.py",
+    # 业务异常类（纯数据类）
+    "src/core/exception.py",
+]
+
+[tool.coverage.report]
+show_missing = true
+skip_empty = true
+# 仅统计框架核心 + Handler 层的覆盖率，目标 ≥ 75%
+fail_under = 75
 
 [tool.commitizen]
 name = "cz_conventional_commits"
