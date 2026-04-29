@@ -187,6 +187,7 @@ src/
 | `llm.py` | `LLMService` | LLM 提供商和模型配置管理 |
 | `llm_client.py` | `LLMClient` | OpenAI 兼容客户端封装 |
 | `llm_completion.py` | `llm_complete/llm_stream` | 高层 LLM 调用接口 |
+| `llm_schemas.py` | Pydantic schemas | LLM 配置相关请求/响应模型 |
 | `permission.py` | `FeaturePermissionService` | 功能级权限管理 |
 | `permission_checker.py` | `PermissionChecker` | 功能级权限校验辅助 |
 
@@ -220,6 +221,16 @@ Celery + RedBeat（Redis 存储调度状态），当前任务：
 | `chat_archive.py` | 聊天记录按月归档 | RedBeat 定时 |
 | `daily_checkin.py` | 零点群签到 | RedBeat cron |
 | `daily_like.py` | 批量定时点赞 | RedBeat cron |
+| `scheduled.py` | 统一注册所有 RedBeat 定时任务 | 模块加载时自动执行 |
+
+定时调度一览（由 `scheduled.py` 集中管理）：
+
+| 任务 | 调度时间 |
+|------|---------|
+| 聊天归档 | 每月 1 日 03:00 |
+| 分区预创建 | 每月 25 日 01:00 |
+| 每日打卡 | 每天 00:00 |
+| 每日点赞 | 每天 00:00 |
 
 用户同步已改为 `SyncCoordinator`（`src/core/services/personnel_sync.py`）内置 asyncio 调度，不再依赖 Celery。
 
@@ -258,4 +269,27 @@ Celery + RedBeat（Redis 存储调度状态），当前任务：
 
 ## 测试
 
-- 当前项目未配置测试框架（无 pytest/vitest），验证改动依赖 `ruff check`、`mypy`、`pnpm type-check`
+### 后端 (pytest)
+
+```bash
+# 运行全部单元测试
+uv run pytest tests/unit/
+
+# 运行全部测试（含集成测试，需要数据库连接）
+uv run pytest
+
+# 带覆盖率报告
+uv run pytest --cov=src --cov-report=term-missing
+```
+
+测试分布：`tests/unit/`（单元/框架测试）、`tests/integration/`（集成测试）
+
+### 前端 (Vitest)
+
+```bash
+cd frontend
+pnpm test        # 单次运行（CI 模式）
+pnpm test:watch  # 监听模式（开发时使用）
+```
+
+前端测试位于 `frontend/src/__tests__/`（按 `composables/`、`utils/` 分类）。
