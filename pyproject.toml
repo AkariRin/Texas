@@ -115,8 +115,14 @@ omit = [
     # FastAPI 路由控制器（需要完整 app 上下文 + DB）
     "src/apis/*",
     "src/core/apis/*",
-    # 业务服务层（需要 DB/Redis 实例注入）
-    "src/services/*",
+    # 业务服务层（未测试的服务，需要真实 DB/Redis 或外部进程注入）
+    # 已有单元测试（不排除）: feedback.py, checkin.py
+    "src/services/jrlp.py",
+    "src/services/drift_bottle.py",
+    "src/services/like.py",
+    "src/services/daily_checkin.py",
+    "src/services/browser.py",
+    "src/services/md_renderer.py",
     "src/core/services/chat.py",
     "src/core/services/chat_archive.py",
     "src/core/services/archive_exporter.py",
