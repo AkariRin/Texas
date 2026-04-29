@@ -45,6 +45,7 @@ jobs:
 
   frontend-test:
     name: Frontend Tests
+    needs: frontend
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -77,6 +78,13 @@ jobs:
           file: ./frontend/coverage/lcov.info
           flags: frontend
           fail_ci_if_error: false
+
+      - name: Upload test results to Codecov
+        if: ${{ !cancelled() }}
+        uses: codecov/test-results-action@v1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          file: ./frontend/junit.xml
 
   backend:
     name: Backend Lint & Check
@@ -123,7 +131,7 @@ jobs:
         run: uv sync --frozen --group test
 
       - name: Run tests with coverage
-        run: uv run pytest tests/ -q --tb=short --cov=src --cov-report=xml
+        run: uv run pytest tests/ -q --tb=short --cov=src --cov-report=xml --junitxml=junit.xml -o junit_family=legacy
 
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v5
@@ -133,3 +141,9 @@ jobs:
           file: ./coverage.xml
           flags: backend
           fail_ci_if_error: false
+
+      - name: Upload test results to Codecov
+        if: ${{ !cancelled() }}
+        uses: codecov/test-results-action@v1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}

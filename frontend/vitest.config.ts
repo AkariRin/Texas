@@ -8,6 +8,8 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     include: ['src/**/__tests__/**/*.test.ts'],
+    reporters: ['default', 'junit'],
+    outputFile: { junit: 'junit.xml' },
     coverage: {
       provider: 'v8',
       reporter: ['text', 'lcov'],
