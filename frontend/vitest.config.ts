@@ -1,20 +1,30 @@
 import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'vitest/config'
 import vue from '@vitejs/plugin-vue'
+import vuetify from 'vite-plugin-vuetify'
 
 export default defineConfig({
-  plugins: [vue()],
+  plugins: [
+    vue(),
+    vuetify({ autoImport: true }),
+  ],
   test: {
     environment: 'jsdom',
-    globals: true,
+    setupFiles: ['./src/test-setup.ts'],
     include: ['src/**/__tests__/**/*.test.ts'],
     reporters: ['default', 'junit'],
     outputFile: { junit: 'junit.xml' },
     coverage: {
       provider: 'v8',
       reporter: ['text', 'lcov'],
-      include: ['src/utils/**', 'src/composables/**'],
+      include: ['src/**'],
       exclude: ['src/**/__tests__/**'],
+      thresholds: {
+        lines: 60,
+        functions: 60,
+        branches: 60,
+        statements: 60,
+      },
     },
   },
   resolve: {
