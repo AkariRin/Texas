@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import enum
 import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING
@@ -12,7 +13,30 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
 from src.core.db.base import Base
-from src.models.enums import FeedbackSource, FeedbackStatus, FeedbackType
+
+
+class FeedbackType(enum.StrEnum):
+    """反馈类型枚举。"""
+
+    bug = "bug"
+    suggestion = "suggestion"
+    complaint = "complaint"
+    other = "other"
+
+
+class FeedbackStatus(enum.StrEnum):
+    """反馈状态枚举。"""
+
+    pending = "pending"
+    done = "done"
+
+
+class FeedbackSource(enum.StrEnum):
+    """反馈来源枚举。"""
+
+    group = "group"
+    private = "private"
+
 
 if TYPE_CHECKING:
     from src.models.personnel import User

@@ -12,9 +12,8 @@ from sqlalchemy.orm import selectinload
 
 from src.core.db.utils import escape_like as _escape_like
 from src.core.utils import SHANGHAI_TZ
-from src.models.enums import FeedbackSource, FeedbackStatus, FeedbackType, UserRelation
-from src.models.feedback import Feedback
-from src.models.personnel import User
+from src.models.feedback import Feedback, FeedbackSource, FeedbackStatus, FeedbackType
+from src.models.personnel import User, UserRelation
 
 if TYPE_CHECKING:
     from uuid import UUID

@@ -12,7 +12,7 @@ from sqlalchemy import func, select, text
 
 from src.core.db.utils import escape_like as _escape_like
 from src.core.utils import SHANGHAI_TZ
-from src.models.chat import ChatMessage, MessageType
+from src.models.chat import ChatMessage, ChatMessageType
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -64,11 +64,11 @@ class ChatHistoryService:
 
         # 确定消息类型
         if isinstance(event, MessageSentEvent):
-            msg_type = MessageType.SELF_SENT
+            msg_type = ChatMessageType.SELF_SENT
         elif isinstance(event, GroupMessageEvent):
-            msg_type = MessageType.GROUP
+            msg_type = ChatMessageType.GROUP
         else:
-            msg_type = MessageType.PRIVATE
+            msg_type = ChatMessageType.PRIVATE
 
         # 序列化 segments
         segments: list[dict[str, Any]]
@@ -155,7 +155,7 @@ class ChatHistoryService:
             select(ChatMessage)
             .where(
                 ChatMessage.user_id == user_id,
-                ChatMessage.message_type == MessageType.PRIVATE,
+                ChatMessage.message_type == ChatMessageType.PRIVATE,
             )
             .order_by(ChatMessage.created_at.desc())
             .limit(limit)
@@ -195,7 +195,7 @@ class ChatHistoryService:
                 session_filter = ChatMessage.group_id == target.group_id
             else:
                 session_filter = (ChatMessage.user_id == target.user_id) & (
-                    ChatMessage.message_type == MessageType.PRIVATE
+                    ChatMessage.message_type == ChatMessageType.PRIVATE
                 )
 
             # 获取之前的消息

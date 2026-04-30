@@ -19,8 +19,7 @@ from src.core.chat.exporter import (
 from src.core.chat.s3 import S3Settings, S3Uploader
 from src.core.utils import SHANGHAI_TZ
 from src.core.utils.helpers import ceil_div
-from src.models.chat_archive import ChatArchiveLog
-from src.models.enums import ArchiveStatus
+from src.models.chat_archive import ArchiveStatus, ChatArchiveLog
 
 if TYPE_CHECKING:
     import uuid
@@ -440,7 +439,8 @@ class ArchiveService:
 
 # ── Celery 归档任务 ──
 
-from src.core.tasks.celery_app import celery_app  # noqa: E402
+from celery import shared_task  # noqa: E402
+
 from src.core.tasks.utils import run_async  # noqa: E402
 
 
@@ -473,7 +473,7 @@ def _build_services() -> tuple[Any, Any]:
     return service, archive_cfg
 
 
-@celery_app.task(bind=True, max_retries=2, default_retry_delay=300)
+@shared_task(bind=True, max_retries=2, default_retry_delay=300)
 def archive_chat_history(
     self: Any,
     partition_name: str | None = None,
@@ -501,7 +501,7 @@ def archive_chat_history(
         raise self.retry(exc=exc) from exc
 
 
-@celery_app.task
+@shared_task
 def ensure_chat_partitions() -> dict[str, str]:
     """确保当月和下月的分区存在。由定时任务每月 25 号调用。"""
     try:

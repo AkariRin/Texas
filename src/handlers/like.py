@@ -12,7 +12,7 @@ from src.core.framework.decorators import (
     component,
     on_command,
 )
-from src.models.enums import LikeSource
+from src.models.like import LikeSource
 from src.services.like import DEFAULT_LIKE_TIMES
 
 if TYPE_CHECKING:

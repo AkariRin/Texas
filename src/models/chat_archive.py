@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import enum
 import uuid
 from datetime import date, datetime
 
@@ -10,7 +11,22 @@ from sqlalchemy.dialects.postgresql import TIMESTAMP, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.core.db.base import Base
-from src.models.enums import ArchiveStatus
+
+
+class ArchiveStatus(enum.StrEnum):
+    """聊天记录归档任务状态枚举。
+
+    状态机：pending → exporting → uploading → uploaded → partition_dropped → completed
+    任意阶段 → failed
+    """
+
+    pending = "pending"
+    exporting = "exporting"
+    uploading = "uploading"
+    uploaded = "uploaded"
+    partition_dropped = "partition_dropped"
+    completed = "completed"
+    failed = "failed"
 
 
 class ChatArchiveLog(Base):

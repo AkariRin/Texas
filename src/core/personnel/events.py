@@ -15,8 +15,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from src.core.personnel.main import compute_relation, user_relation_key
 from src.core.utils import SHANGHAI_TZ
-from src.models.enums import GroupRole, UserRelation
-from src.models.personnel import Group, GroupMembership, User
+from src.models.personnel import Group, GroupMembership, GroupRole, User, UserRelation
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker

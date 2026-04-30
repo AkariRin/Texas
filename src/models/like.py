@@ -2,13 +2,20 @@
 
 from __future__ import annotations
 
+import enum
 from datetime import datetime
 
 from sqlalchemy import BigInteger, Boolean, DateTime, Enum, Index, Integer, SmallInteger, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.core.db.base import Base
-from src.models.enums import LikeSource
+
+
+class LikeSource(enum.StrEnum):
+    """点赞触发来源枚举。"""
+
+    manual = "manual"
+    scheduled = "scheduled"
 
 
 class LikeTask(Base):

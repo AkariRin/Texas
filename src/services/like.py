@@ -10,8 +10,7 @@ from typing import TYPE_CHECKING, Any, Final
 import structlog
 
 from src.core.lifecycle import startup
-from src.models.enums import LikeSource
-from src.models.like import LikeHistory, LikeTask
+from src.models.like import LikeHistory, LikeSource, LikeTask
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker

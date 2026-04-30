@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import enum
 import uuid
 from datetime import datetime
 
@@ -20,7 +21,23 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
 from src.core.db.base import Base
-from src.models.enums import GroupRole, UserRelation
+
+
+class UserRelation(enum.StrEnum):
+    """用户与机器人的关系等级枚举。"""
+
+    stranger = "stranger"
+    group_member = "group_member"
+    friend = "friend"
+    admin = "admin"
+
+
+class GroupRole(enum.StrEnum):
+    """群成员角色枚举（owner/admin/member）。"""
+
+    owner = "owner"
+    admin = "admin"
+    member = "member"
 
 
 class User(Base):

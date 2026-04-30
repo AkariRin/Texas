@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 
     from celery.app.control import Inspect
 
-from src.core.tasks.celery_app import celery_app
+from src.core.tasks.main import app as celery_app
 from src.core.utils.response import fail, ok
 
 logger = structlog.get_logger()
@@ -41,7 +41,7 @@ def _display_name(task_path: str) -> str:
 
 def _build_scheduled_tasks() -> list[dict[str, Any]]:
     """收集已注册的 Celery Beat 定时任务。"""
-    from src.core.tasks.scheduled import celery_app as scheduled_app
+    from src.core.tasks.main import app as scheduled_app
 
     beat_schedule: dict[str, Any] = getattr(scheduled_app.conf, "beat_schedule", {}) or {}
     tasks: list[dict[str, Any]] = []

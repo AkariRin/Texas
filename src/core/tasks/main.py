@@ -8,13 +8,13 @@ from src.core.config import get_settings
 
 settings = get_settings()
 
-celery_app = Celery(
+app = Celery(
     "texas",
     broker=settings.CELERY_BROKER_URL,
     include=["src.core.tasks.chat_archive", "src.core.tasks.daily_checkin"],
 )
 
-celery_app.conf.update(
+app.conf.update(
     task_serializer="json",
     accept_content=["json"],
     result_serializer="json",

@@ -9,10 +9,10 @@ case "$cmd" in
     exec uvicorn src.core.main:app --host 0.0.0.0 --port 8000 "$@"
     ;;
   worker)
-    exec celery -A src.core.tasks.celery_app worker --loglevel=info "$@"
+    exec celery -A src.core.tasks.main worker --loglevel=info "$@"
     ;;
   beat)
-    exec celery -A src.core.tasks.celery_app beat -S redbeat.RedBeatScheduler --loglevel=info "$@"
+    exec celery -A src.core.tasks.main beat -S redbeat.RedBeatScheduler --loglevel=info "$@"
     ;;
   *)
     echo "Error: unknown command '$cmd' (valid: bot, worker, beat)" >&2

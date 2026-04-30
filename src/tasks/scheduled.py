@@ -5,7 +5,7 @@ from __future__ import annotations
 from celery.schedules import crontab
 from redbeat import RedBeatSchedulerEntry
 
-from src.core.tasks.celery_app import celery_app as celery_app
+from src.core.tasks.main import app as celery_app
 
 
 def setup_periodic_tasks() -> None:

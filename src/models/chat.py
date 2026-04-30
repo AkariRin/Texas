@@ -19,7 +19,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from src.core.db.base import ChatBase
 
 
-class MessageType(IntEnum):
+class ChatMessageType(IntEnum):
     """消息类型枚举。"""
 
     PRIVATE = 1
@@ -90,7 +90,7 @@ class ChatMessage(ChatBase):
     )
 
     # ── 消息上下文 ──
-    message_type: Mapped[MessageType] = mapped_column(
+    message_type: Mapped[ChatMessageType] = mapped_column(
         SmallInteger,
         nullable=False,
         comment="1=private, 2=group, 3=self_sent",

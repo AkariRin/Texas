@@ -27,8 +27,7 @@ from src.core.monitoring.metrics import (
     personnel_users_total,
 )
 from src.core.utils import SHANGHAI_TZ
-from src.models.enums import GroupRole, UserRelation
-from src.models.personnel import Group, GroupMembership, User
+from src.models.personnel import Group, GroupMembership, GroupRole, User, UserRelation
 
 if TYPE_CHECKING:
     from sqlalchemy.engine import CursorResult

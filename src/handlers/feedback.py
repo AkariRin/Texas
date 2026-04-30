@@ -16,7 +16,7 @@ from src.core.framework.session import (
     on_input,
     state,
 )
-from src.models.enums import FeedbackSource, FeedbackStatus, FeedbackType
+from src.models.feedback import FeedbackSource, FeedbackStatus, FeedbackType
 from src.services.feedback import FeedbackService
 
 if TYPE_CHECKING:

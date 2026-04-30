@@ -18,10 +18,9 @@ from src.models.drift_bottle import (
     DriftBottleItem,
     DriftBottlePool,
 )
-from src.models.enums import FeedbackSource, FeedbackStatus, FeedbackType, LikeSource
-from src.models.feedback import Feedback
+from src.models.feedback import Feedback, FeedbackSource, FeedbackStatus, FeedbackType
 from src.models.jrlp import WifeRecord
-from src.models.like import LikeHistory, LikeTask
+from src.models.like import LikeHistory, LikeSource, LikeTask
 from src.models.llm import LLM, LLMProvider
 from src.models.permission import GroupFeaturePermission, PrivateFeaturePermission
 from src.models.personnel import Group, GroupMembership, User

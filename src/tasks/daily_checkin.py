@@ -3,14 +3,14 @@
 from __future__ import annotations
 
 import structlog
+from celery import shared_task
 
 from src.core.rpc.bridge import get_rpc_bridge
-from src.core.tasks.celery_app import celery_app
 
 logger = structlog.get_logger()
 
 
-@celery_app.task(name="src.tasks.daily_checkin.trigger_daily_checkin")
+@shared_task(name="src.tasks.daily_checkin.trigger_daily_checkin")
 def trigger_daily_checkin() -> dict[str, object]:
     """每日打卡触发任务。
 

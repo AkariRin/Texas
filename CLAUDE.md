@@ -40,8 +40,8 @@ python -m src.core.db.cli migrate --target main   # 仅升级主库
 python -m src.core.db.cli migrate --target chat   # 仅升级聊天库
 
 # Celery (聊天归档异步任务)
-celery -A src.core.tasks.celery_app worker --loglevel=info
-celery -A src.core.tasks.celery_app beat -S redbeat.RedBeatScheduler --loglevel=info
+celery -A src.core.tasks.main worker --loglevel=info
+celery -A src.core.tasks.main beat -S redbeat.RedBeatScheduler --loglevel=info
 ```
 
 ### 前端 (Vue 3 / pnpm)
@@ -162,7 +162,7 @@ src/
 │   ├── permission/  # 权限领域包（checker、main）
 │   ├── handlers/    # 系统级 Handler（如 personnel）
 │   ├── registries/  # 注册表（feature、permission、service、config）
-│   └── tasks/       # Celery 基础设施（celery_app、chat 归档调度）
+│   └── tasks/       # Celery 基础设施（tasks、chat 归档调度）
 ├── apis/        # HTTP API 控制器层（FastAPI 路由，对应前端 apis/）
 ├── services/    # 功能业务服务（checkin、drift_bottle、jrlp、like 等）
 ├── models/      # ORM 模型层（SQLAlchemy 实体定义，Alembic 注册入口）
@@ -237,7 +237,7 @@ Celery + RedBeat（Redis 存储调度状态），任务分两层：
 
 | 文件 | 职责 |
 |------|------|
-| `celery_app.py` | Celery 应用实例定义 |
+| `main.py` | Celery 应用实例定义 |
 | `scheduled.py` | 注册 chat 归档周期任务到 RedBeat |
 | `utils.py` | 任务工具函数 |
 

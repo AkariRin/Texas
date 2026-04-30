@@ -6,7 +6,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from src.models.enums import LikeSource  # noqa: TC001 — Pydantic 字段类型运行时需要
+from src.models.like import LikeSource  # noqa: TC001 — Pydantic 字段类型运行时需要
 
 
 class OrmBaseModel(BaseModel):

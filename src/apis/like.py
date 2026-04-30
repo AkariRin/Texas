@@ -14,7 +14,7 @@ from src.apis.schemas.like import (  # noqa: TC001 — FastAPI Body 参数运行
 )
 from src.core.utils.helpers import ceil_div
 from src.core.utils.response import ok
-from src.models.enums import LikeSource  # noqa: TC001 — FastAPI Query 枚举参数运行时需要
+from src.models.like import LikeSource  # noqa: TC001 — FastAPI Query 枚举参数运行时需要
 from src.services.like import LikeService  # noqa: TC001
 
 
