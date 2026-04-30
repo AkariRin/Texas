@@ -121,6 +121,8 @@ name = "cz_conventional_commits"
 version_provider = "pep621"
 tag_format = "v$version"
 bump_message = "chore(release): v$new_version"
+update_changelog_on_bump = true
+changelog_incremental = true
 version_files = [
     "frontend/package.json:version",
     "helm/texas/Chart.yaml:version",

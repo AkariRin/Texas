@@ -110,3 +110,57 @@ jobs:
 
       - name: Push Helm chart to GHCR (OCI)
         run: helm push .helm-out/*.tgz oci://ghcr.io/akaririn
+
+  github-release:
+    name: Create GitHub Release
+    needs: [docker, helm]
+    runs-on: ubuntu-latest
+    if: >
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.repository.full_name == github.repository &&
+      startsWith(github.event.workflow_run.head_branch, 'v') &&
+      contains(github.event.workflow_run.head_branch, '.')
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 0
+
+      - name: Extract changelog for this release
+        id: changelog
+        env:
+          HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+        run: |
+          VERSION="${HEAD_BRANCH#v}"
+          NOTES=$(python3 - <<'PYEOF'
+          import re, os, sys
+
+          version = os.environ["HEAD_BRANCH"].lstrip("v")
+          try:
+              with open("CHANGELOG.md") as f:
+                  content = f.read()
+              pattern = r"## " + re.escape(version) + r"[^\n]*\n(.*?)(?=\n## |\Z)"
+              match = re.search(pattern, content, re.DOTALL)
+              if match:
+                  notes = match.group(1).strip()
+                  print(notes if notes else "暂无可用信息")
+              else:
+                  print("查看CHANGELOG.md获取更多信息")
+          except FileNotFoundError:
+              print("未找到CHANGELOG.md")
+          PYEOF
+          )
+          printf '%s' "$NOTES" > /tmp/release_notes.txt
+          echo "notes_file=/tmp/release_notes.txt" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.workflow_run.head_branch }}
+          name: ${{ github.event.workflow_run.head_branch }}
+          body_path: ${{ steps.changelog.outputs.notes_file }}
+          draft: false
+          prerelease: false
