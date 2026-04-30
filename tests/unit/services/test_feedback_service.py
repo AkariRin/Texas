@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from src.models.enums import FeedbackSource, FeedbackStatus, FeedbackType
+from src.models.feedback import FeedbackSource, FeedbackStatus, FeedbackType
 from src.services.feedback import FeedbackService
 from tests.unit.services.conftest import (
     make_bot_api,

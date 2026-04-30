@@ -8,8 +8,7 @@ from typing import TYPE_CHECKING
 import pytest
 
 from src.models.checkin import CheckinRecord
-from src.models.enums import UserRelation
-from src.models.personnel import User
+from src.models.personnel import User, UserRelation
 from src.services.checkin import CheckinService
 
 if TYPE_CHECKING:

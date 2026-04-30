@@ -10,7 +10,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from src.handlers.feedback import FeedbackHandler
-from src.models.enums import FeedbackSource, FeedbackStatus, FeedbackType
+from src.models.feedback import FeedbackSource, FeedbackStatus, FeedbackType
 from tests.conftest import make_context, make_group_message_event, make_private_message_event
 
 # ── 辅助函数 ──────────────────────────────────────────────────────────────────
