@@ -10,7 +10,7 @@ from src.core.tasks.celery_app import celery_app
 logger = structlog.get_logger()
 
 
-@celery_app.task(name="src.core.tasks.daily_checkin.trigger_daily_checkin")
+@celery_app.task(name="src.tasks.daily_checkin.trigger_daily_checkin")
 def trigger_daily_checkin() -> dict[str, object]:
     """每日打卡触发任务。
 

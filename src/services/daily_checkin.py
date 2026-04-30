@@ -21,8 +21,8 @@ if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
     from src.core.cache.client import CacheClient
+    from src.core.permission.main import FeaturePermissionService
     from src.core.protocol.api import BotAPI
-    from src.core.services.permission import FeaturePermissionService
     from src.core.ws.connection import ConnectionManager
 
 logger = structlog.get_logger()

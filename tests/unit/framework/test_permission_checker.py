@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 from src.core.framework.decorators import Permission
 from src.core.framework.mapping import HandlerMethod
-from src.core.services.permission_checker import FeaturePermissionChecker
+from src.core.permission.checker import FeaturePermissionChecker
 from tests.conftest import make_group_message_event, make_private_message_event
 
 # ── 辅助工厂 ─────────────────────────────────────────────────────────────────

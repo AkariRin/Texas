@@ -120,6 +120,7 @@ config:
   METRICS_ENABLED: "true"
   FRONTEND_DIST_DIR: frontend/dist
   HANDLER_SCAN_PACKAGES: "src.handlers"
+  TASK_SCAN_PACKAGES: "src.tasks"
 
   # NapCat
   NAPCAT_MESSAGE_POST_FORMAT: array

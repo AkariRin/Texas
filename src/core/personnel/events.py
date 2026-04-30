@@ -13,7 +13,7 @@ import structlog
 from sqlalchemy import case, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
-from src.core.services.personnel import compute_relation, user_relation_key
+from src.core.personnel.main import compute_relation, user_relation_key
 from src.core.utils import SHANGHAI_TZ
 from src.models.enums import GroupRole, UserRelation
 from src.models.personnel import Group, GroupMembership, User
@@ -22,7 +22,8 @@ if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
     from src.core.cache.client import CacheClient
-    from src.core.services.permission import FeaturePermissionService
+    from src.core.framework.context import Context
+    from src.core.permission.main import FeaturePermissionService
 
 logger = structlog.get_logger()
 
@@ -196,4 +197,134 @@ class PersonnelEventService:
             user_id=user_id,
             card_new=card_new,
             event_type="personnel.group_card_change",
+        )
+
+
+# ── 直接注册事件处理器（替代 @component / ComponentScanner 动态注册）──
+
+import structlog as _structlog  # noqa: E402
+
+from src.core.framework.mapping import CompositeHandlerMapping, HandlerMethod  # noqa: E402
+
+_reg_logger = _structlog.get_logger()
+
+
+def register_event_handlers(
+    mapping: CompositeHandlerMapping,
+    svc: PersonnelEventService,
+) -> None:
+    """向 EventTypeHandlerMapping 直接注册人员事件处理器。
+
+    mapping_type="event_type" 是 CompositeHandlerMapping.register() 路由到
+    EventTypeHandlerMapping 的必须字段，缺少会导致 handler 被静默丢弃。
+
+    每个 method 必须是接受 Context 的可调用对象（dispatcher 以 method(ctx) 调用），
+    因此使用闭包包装器从 ctx.event 提取字段后再调用服务方法。
+    """
+
+    async def _on_friend_add(ctx: Context) -> bool:
+        user_id: int = getattr(ctx.event, "user_id", 0)
+        if not user_id:
+            return False
+        try:
+            await svc.on_friend_add(user_id)
+        except Exception as exc:
+            _reg_logger.error(
+                "处理好友添加事件失败",
+                user_id=user_id,
+                error=str(exc),
+                event_type="personnel.handler_error",
+            )
+        return False
+
+    async def _on_group_increase(ctx: Context) -> bool:
+        group_id: int = getattr(ctx.event, "group_id", 0)
+        user_id: int = getattr(ctx.event, "user_id", 0)
+        if not group_id or not user_id:
+            return False
+        try:
+            bot_qq: int = getattr(ctx.event, "self_id", 0)
+            await svc.on_group_increase(group_id, user_id, self_id=bot_qq)
+        except Exception as exc:
+            _reg_logger.error(
+                "处理群成员增加事件失败",
+                group_id=group_id,
+                user_id=user_id,
+                error=str(exc),
+                event_type="personnel.handler_error",
+            )
+        return False
+
+    async def _on_group_decrease(ctx: Context) -> bool:
+        group_id: int = getattr(ctx.event, "group_id", 0)
+        user_id: int = getattr(ctx.event, "user_id", 0)
+        sub_type: str = getattr(ctx.event, "sub_type", "")
+        if not group_id or not user_id:
+            return False
+        try:
+            await svc.on_group_decrease(group_id, user_id, sub_type)
+        except Exception as exc:
+            _reg_logger.error(
+                "处理群成员减少事件失败",
+                group_id=group_id,
+                user_id=user_id,
+                error=str(exc),
+                event_type="personnel.handler_error",
+            )
+        return False
+
+    async def _on_group_admin(ctx: Context) -> bool:
+        group_id: int = getattr(ctx.event, "group_id", 0)
+        user_id: int = getattr(ctx.event, "user_id", 0)
+        sub_type: str = getattr(ctx.event, "sub_type", "")
+        if not group_id or not user_id:
+            return False
+        try:
+            await svc.on_group_admin_change(group_id, user_id, sub_type)
+        except Exception as exc:
+            _reg_logger.error(
+                "处理群管理员变动事件失败",
+                group_id=group_id,
+                user_id=user_id,
+                error=str(exc),
+                event_type="personnel.handler_error",
+            )
+        return False
+
+    async def _on_group_card(ctx: Context) -> bool:
+        group_id: int = getattr(ctx.event, "group_id", 0)
+        user_id: int = getattr(ctx.event, "user_id", 0)
+        card_new: str = getattr(ctx.event, "card_new", "")
+        if not group_id or not user_id:
+            return False
+        try:
+            await svc.on_group_card_change(group_id, user_id, card_new)
+        except Exception as exc:
+            _reg_logger.error(
+                "处理群名片变更事件失败",
+                group_id=group_id,
+                user_id=user_id,
+                error=str(exc),
+                event_type="personnel.handler_error",
+            )
+        return False
+
+    for notice_type, handler_fn in (
+        ("friend_add", _on_friend_add),
+        ("group_increase", _on_group_increase),
+        ("group_decrease", _on_group_decrease),
+        ("group_admin", _on_group_admin),
+        ("group_card", _on_group_card),
+    ):
+        mapping.register(
+            HandlerMethod(
+                component=svc,
+                method=handler_fn,
+                metadata={
+                    "mapping_type": "event_type",
+                    "event_type": "notice",
+                    "notice_type": notice_type,
+                },
+                component_name="personnel_event",
+            )
         )

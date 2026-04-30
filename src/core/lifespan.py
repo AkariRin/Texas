@@ -172,7 +172,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     )
     scanner = ComponentScanner(mapping=composite_mapping)
 
-    # 统一执行主库迁移（聊天库迁移由 chat_engine_infra @startup 负责）
+    # 统一执行主库迁移（聊天库迁移由平台组件初始化块负责）
     await run_all_startup_migrations({"main": engine}, settings)
 
     # ── RPC 消费者（待 checkin 模块注册 handler 后再 start）──
@@ -183,6 +183,93 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     # 框架扫描（含 src.services，触发 @startup / @shutdown 装饰器注册）
     _startup_framework(settings, scanner=scanner, composite_mapping=composite_mapping)
     scanner.register_sessions(session_manager)
+
+    # ── 平台组件直接初始化（替代 @startup 动态注册）──
+
+    # 1. LLM（仅依赖 session_factory 和 cache_client）
+    from src.core.llm.main import LLMService as _LLMService
+
+    llm_svc = _LLMService(session_factory=session_factory, cache=cache_client)
+
+    # 2. 人员管理
+    from src.core.personnel.events import PersonnelEventService as _PersonnelEventService
+    from src.core.personnel.events import register_event_handlers as _register_event_handlers
+    from src.core.personnel.main import PersonnelService as _PersonnelService
+    from src.core.personnel.query import PersonnelQueryService as _PersonnelQueryService
+    from src.core.personnel.sync import PersonnelSyncSettings as _PersonnelSyncSettings
+    from src.core.personnel.sync import SyncCoordinator as _SyncCoordinator
+
+    _sync_settings = _PersonnelSyncSettings()
+    personnel_svc = _PersonnelService(
+        session_factory=session_factory,
+        cache=cache_client,
+        persistent=persistent_client,
+        settings=_sync_settings,
+    )
+    personnel_event_svc = _PersonnelEventService(
+        session_factory=session_factory,
+        cache=cache_client,
+    )
+    personnel_query_svc = _PersonnelQueryService(
+        session_factory=session_factory,
+        cache=cache_client,
+    )
+    sync_coordinator = _SyncCoordinator(
+        bot_api=bot_api,
+        conn_mgr=conn_mgr,
+        personnel_service=personnel_svc,
+        settings=_sync_settings,
+    )
+    sync_coordinator.start_scheduler()
+    _register_event_handlers(composite_mapping, personnel_event_svc)
+
+    # 3. 权限（依赖 scanner.feature_registry 和 personnel_service，须在扫描后初始化）
+    from src.core.permission.checker import FeaturePermissionChecker as _FeaturePermissionChecker
+    from src.core.permission.main import FeaturePermissionService as _FeaturePermissionService
+    from src.core.registries.permission_registry import PermissionRegistry as _PermissionRegistry
+
+    permission_svc = _FeaturePermissionService(
+        session_factory=session_factory,
+        cache=cache_client,
+        registry=scanner.feature_registry,
+    )
+    await permission_svc.sync_permissions()
+    _perm_registry = _PermissionRegistry.from_feature_registry(scanner.feature_registry)
+    feature_checker = _FeaturePermissionChecker(
+        permission_service=permission_svc,
+        personnel_service=personnel_svc,
+        perm_registry=_perm_registry,
+    )
+    personnel_event_svc.configure_permission_service(permission_svc)
+    dispatcher._feature_checker = feature_checker
+
+    # 4. 聊天记录（独立 chat DB engine）
+    from src.core.chat.archive import ArchiveService as _ArchiveService
+    from src.core.chat.exporter import ChatArchiveSettings as _ChatArchiveSettings
+    from src.core.chat.main import ChatDatabaseSettings as _ChatDatabaseSettings
+    from src.core.chat.main import ChatHistoryService as _ChatHistoryService
+    from src.core.chat.s3 import S3Settings as _S3Settings
+
+    _chat_cfg = _ChatDatabaseSettings()
+    chat_engine = create_engine(
+        _chat_cfg.CHAT_DATABASE_URL,
+        pool_size=_chat_cfg.CHAT_DB_POOL_SIZE,
+        max_overflow=_chat_cfg.CHAT_DB_MAX_OVERFLOW,
+    )
+    await run_all_startup_migrations({"chat": chat_engine}, settings)
+    chat_session_factory = create_session_factory(chat_engine)
+    chat_svc = _ChatHistoryService(session_factory=chat_session_factory)
+    archive_svc = _ArchiveService(
+        chat_session_factory=chat_session_factory,
+        main_session_factory=session_factory,
+        archive_settings=_ChatArchiveSettings(),
+        s3_settings=_S3Settings(),
+    )
+    try:
+        await archive_svc.ensure_partitions()
+        logger.info("聊天分区已就绪", event_type="chat.partitions_ensured")
+    except Exception:
+        logger.exception("启动时分区预创建失败", event_type="chat.partition_ensure_error")
 
     # ── 生命周期编排器（统一管理所有业务模块）──
     from src.core.lifecycle.orchestrator import LifecycleOrchestrator
@@ -199,6 +286,16 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
             "dispatcher": dispatcher,
             "session_manager": session_manager,
             "rpc_consumer": rpc_consumer,
+            # 平台组件（供业务 @startup requires 引用）
+            "permission_service": permission_svc,
+            "feature_checker": feature_checker,
+            "personnel_service": personnel_svc,
+            "personnel_event_service": personnel_event_svc,
+            "personnel_query_service": personnel_query_svc,
+            "chat_service": chat_svc,
+            "archive_service": archive_svc,
+            "llm_service": llm_svc,
+            "sync_coordinator": sync_coordinator,
         },
         startup_entries=scanner.startup_entries,
     )
@@ -214,13 +311,18 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
             "dispatcher",
             "session_manager",
             "rpc_consumer",
+            # 平台组件（由 lifespan 直接写入 app.state，不经由 orchestrator.populate_app_state）
+            "permission_service",
+            "feature_checker",
+            "personnel_service",
+            "personnel_event_service",
+            "personnel_query_service",
+            "chat_service",
+            "archive_service",
+            "llm_service",
+            "sync_coordinator",
         }
     )
-    # 向 dispatcher 注入 Protocol 实现（orchestrator.startup 完成后方可获取）
-    feature_checker = orchestrator.services.get("feature_checker")
-    if feature_checker is None:
-        raise RuntimeError("feature_checker 启动失败，权限检查不可用，拒绝启动")
-    dispatcher._feature_checker = feature_checker
     orchestrator.populate_app_state(app.state, exclude=_infra_keys)
     orchestrator.populate_dispatcher(dispatcher)
     service_registry = orchestrator.build_registry()
@@ -235,8 +337,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     # 启动 RPC 消费者（checkin 模块已注册 handler）
     await rpc_consumer.start()
 
-    # 构建事件分发回调（chat_service 由 orchestrator 提供）
-    _chat_svc = orchestrator.services["chat_service"]
+    # 构建事件分发回调
+    _chat_svc = chat_svc
     event_dispatch_callback = _build_event_dispatch_callback(_chat_svc, dispatcher, bot_api)
 
     # ── app.state（基础设施，业务服务已由 orchestrator.populate_app_state 写入）──
@@ -250,6 +352,17 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     app.state.session_manager = session_manager
     app.state.rpc_consumer = rpc_consumer
     app.state.event_dispatch_callback = event_dispatch_callback
+    # 平台组件服务
+    app.state.permission_service = permission_svc
+    app.state.feature_checker = feature_checker
+    app.state.personnel_service = personnel_svc
+    app.state.personnel_event_service = personnel_event_svc
+    app.state.personnel_query_service = personnel_query_svc
+    app.state.chat_service = chat_svc
+    app.state.archive_service = archive_svc
+    app.state.llm_service = llm_svc
+    app.state.sync_coordinator = sync_coordinator
+    app.state.chat_engine = chat_engine
 
     logger.debug("已加载后端路由", count=len(app.routes), event_type="app.routes_loaded")
     if settings.LOG_LEVEL.upper() == "DEBUG":
@@ -275,6 +388,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     yield
 
     # ── 关闭 ──
+    # 平台组件关闭（按初始化逆序）
+    sync_coordinator.stop_scheduler()
+    await llm_svc.close()
+    await chat_engine.dispose()
     await orchestrator.shutdown(shutdown_entries=scanner.shutdown_entries)
     await rpc_consumer.stop()
     await session_manager.close()

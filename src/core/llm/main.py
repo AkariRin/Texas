@@ -10,8 +10,8 @@ import structlog
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
-from src.core.services.llm_client import LLMClient
-from src.core.services.llm_schemas import (  # noqa: TC001
+from src.core.llm.client import LLMClient
+from src.core.llm.schemas import (  # noqa: TC001
     ModelCreate,
     ModelUpdate,
     ProviderCreate,
@@ -376,7 +376,7 @@ class LLMService:
     @staticmethod
     def _provider_to_dict(provider: LLMProvider) -> dict[str, Any]:
         """将 LLMProvider ORM 对象转换为响应字典。"""
-        from src.core.services.llm_schemas import ProviderResponse
+        from src.core.llm.schemas import ProviderResponse
 
         return {
             "id": str(provider.id),
@@ -405,30 +405,3 @@ class LLMService:
             "force_stream": model.force_stream,
             "extra_params": model.extra_params or {},
         }
-
-
-# ── 生命周期注册 ──
-
-from src.core.lifecycle import shutdown, startup  # noqa: E402
-
-
-@startup(
-    name="llm",
-    provides=["llm_service"],
-    requires=["session_factory", "cache_client"],
-    dispatcher_services=["llm_service"],
-)
-async def _lifecycle_start(deps: dict[str, Any]) -> dict[str, Any]:
-    """LLM 模块启动。"""
-    return {
-        "llm_service": LLMService(
-            session_factory=deps["session_factory"],
-            cache=deps["cache_client"],
-        )
-    }
-
-
-@shutdown(name="llm")
-async def _lifecycle_stop(services: dict[str, Any]) -> None:
-    """LLM 模块关闭（释放 HTTP 客户端连接）。"""
-    await services["llm_service"].close()

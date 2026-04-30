@@ -1,7 +1,7 @@
 """用户管理写操作服务 —— relation 计算、批量 upsert、全量同步持久化、管理员管理。
 
-只读查询（列表、详情）已迁移至 PersonnelQueryService（personnel_query.py）。
-增量事件处理（好友/群成员变更）已迁移至 PersonnelEventService（personnel_events.py）。
+只读查询（列表、详情）已迁移至 PersonnelQueryService（query.py）。
+增量事件处理（好友/群成员变更）已迁移至 PersonnelEventService（events.py）。
 本类专注于批量写入操作，遵循单一职责原则。
 """
 
@@ -35,7 +35,7 @@ if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
     from src.core.cache.client import CacheClient
-    from src.core.services.personnel_sync import PersonnelSyncSettings
+    from src.core.personnel.sync import PersonnelSyncSettings
 
 logger = structlog.get_logger()
 
@@ -600,67 +600,3 @@ class PersonnelService:
             logger.warning(
                 "清除关系缓存失败", error=str(exc), event_type="personnel.cache_invalidate_error"
             )
-
-
-# ── 生命周期注册 ──
-
-from src.core.lifecycle import shutdown, startup  # noqa: E402
-
-
-@startup(
-    name="personnel",
-    provides=[
-        "personnel_service",
-        "personnel_event_service",
-        "personnel_query_service",
-        "sync_coordinator",
-    ],
-    requires=[
-        "session_factory",
-        "cache_client",
-        "persistent_client",
-        "bot_api",
-        "conn_mgr",
-    ],
-    dispatcher_services=["personnel_service", "personnel_event_service"],
-)
-async def _lifecycle_start(deps: dict[str, Any]) -> dict[str, Any]:
-    """用户管理模块启动。"""
-    from src.core.services.personnel_events import PersonnelEventService
-    from src.core.services.personnel_query import PersonnelQueryService
-    from src.core.services.personnel_sync import PersonnelSyncSettings, SyncCoordinator
-
-    sync_settings = PersonnelSyncSettings()
-    ps = PersonnelService(
-        session_factory=deps["session_factory"],
-        cache=deps["cache_client"],
-        persistent=deps["persistent_client"],
-        settings=sync_settings,
-    )
-    pe = PersonnelEventService(
-        session_factory=deps["session_factory"],
-        cache=deps["cache_client"],
-    )
-    pq = PersonnelQueryService(
-        session_factory=deps["session_factory"],
-        cache=deps["cache_client"],
-    )
-    sc = SyncCoordinator(
-        bot_api=deps["bot_api"],
-        conn_mgr=deps["conn_mgr"],
-        personnel_service=ps,
-        settings=sync_settings,
-    )
-    sc.start_scheduler()
-    return {
-        "personnel_service": ps,
-        "personnel_event_service": pe,
-        "personnel_query_service": pq,
-        "sync_coordinator": sc,
-    }
-
-
-@shutdown(name="personnel")
-async def _lifecycle_stop(services: dict[str, Any]) -> None:
-    """用户管理模块关闭（停止同步调度器）。"""
-    services["sync_coordinator"].stop_scheduler()

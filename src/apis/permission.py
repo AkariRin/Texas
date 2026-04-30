@@ -8,7 +8,7 @@ import structlog
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
-from src.core.services.permission import FeaturePermissionService  # noqa: TC001
+from src.core.permission.main import FeaturePermissionService  # noqa: TC001
 from src.core.utils.response import ok
 
 logger = structlog.get_logger()

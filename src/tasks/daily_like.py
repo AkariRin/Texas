@@ -10,7 +10,7 @@ from src.core.tasks.celery_app import celery_app
 logger = structlog.get_logger()
 
 
-@celery_app.task(name="src.core.tasks.daily_like.trigger_daily_like")
+@celery_app.task(name="src.tasks.daily_like.trigger_daily_like")
 def trigger_daily_like() -> dict[str, object]:
     """每日点赞触发任务。
 

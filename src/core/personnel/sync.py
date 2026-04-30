@@ -18,8 +18,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from src.core.framework.decorators import feature
 
 if TYPE_CHECKING:
+    from src.core.personnel.main import PersonnelService
     from src.core.protocol.api import BotAPI
-    from src.core.services.personnel import PersonnelService
     from src.core.ws.connection import ConnectionManager
 
 

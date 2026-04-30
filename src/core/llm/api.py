@@ -10,8 +10,8 @@ import structlog
 from fastapi import APIRouter, Depends, HTTPException, Request
 from starlette.responses import StreamingResponse
 
-from src.core.services.llm import LLMService  # noqa: TC001
-from src.core.services.llm_schemas import (  # noqa: TC001
+from src.core.llm.main import LLMService  # noqa: TC001
+from src.core.llm.schemas import (  # noqa: TC001
     ChatRequest,
     ModelCreate,
     ModelUpdate,

@@ -10,9 +10,9 @@ from src.core.framework.decorators import Permission
 
 if TYPE_CHECKING:
     from src.core.framework.context import Context
+    from src.core.permission.main import FeaturePermissionService
+    from src.core.personnel.main import PersonnelService
     from src.core.registries.permission_registry import PermissionRegistry
-    from src.core.services.permission import FeaturePermissionService
-    from src.core.services.personnel import PersonnelService
 
 logger = structlog.get_logger()
 

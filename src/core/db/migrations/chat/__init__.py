@@ -8,7 +8,7 @@ from src.core.db.migration_registry import MigrationTarget, register_migration_t
 
 def _get_chat_db_url(_settings: object) -> str:
     """从 ChatDatabaseSettings 获取聊天库 URL（独立配置类，不依赖主 Settings）。"""
-    from src.core.services.chat import ChatDatabaseSettings
+    from src.core.chat.main import ChatDatabaseSettings
 
     return ChatDatabaseSettings().CHAT_DATABASE_URL
 

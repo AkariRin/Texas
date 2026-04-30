@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Any
 
 from fastapi import Request, WebSocket  # noqa: TC002
 
-from src.core.services.personnel_sync import SyncCoordinator  # noqa: TC001
+from src.core.personnel.sync import SyncCoordinator  # noqa: TC001
 from src.services.daily_checkin import DailyCheckinService  # noqa: TC001
 
 if TYPE_CHECKING:

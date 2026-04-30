@@ -9,8 +9,8 @@ import structlog
 from fastapi import APIRouter, Depends, Query, Request
 from pydantic import BaseModel
 
-from src.core.services.chat import ChatHistoryService  # noqa: TC001
-from src.core.services.chat_archive import ArchiveService  # noqa: TC001
+from src.core.chat.archive import ArchiveService  # noqa: TC001
+from src.core.chat.main import ChatHistoryService  # noqa: TC001
 from src.core.utils.response import ok
 
 logger = structlog.get_logger()
@@ -125,7 +125,7 @@ async def trigger_archive(
     body: TriggerArchiveRequest | None = None,
 ) -> dict[str, Any]:
     """手动触发归档任务。"""
-    from src.core.tasks.chat_archive import archive_chat_history
+    from src.core.chat.archive import archive_chat_history
 
     partition_name = body.partition_name if body else None
     task = archive_chat_history.delay(partition_name)

@@ -23,7 +23,7 @@ class LLMClient:
 
     def __init__(self) -> None:
         self._clients: dict[str, AsyncOpenAI] = {}
-        # provider_id -> (max_retries, retry_interval)
+        # provider_id → (最大重试次数, 重试间隔秒数)
         self._retry_configs: dict[str, tuple[int, int]] = {}
 
     def _get_or_create(

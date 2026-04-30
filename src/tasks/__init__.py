@@ -1,1 +1,3 @@
 """Celery 业务任务 —— 聊天归档等异步任务。"""
+
+from __future__ import annotations

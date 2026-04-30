@@ -11,9 +11,9 @@ from pydantic import BaseModel
 from src.apis.schemas.personnel import (  # noqa: TC001 — FastAPI Body 参数运行时需要
     ResolveRequest,
 )
-from src.core.services.personnel import PersonnelService  # noqa: TC001
-from src.core.services.personnel_query import PersonnelQueryService  # noqa: TC001
-from src.core.services.personnel_sync import SyncCoordinator  # noqa: TC001
+from src.core.personnel.main import PersonnelService  # noqa: TC001
+from src.core.personnel.query import PersonnelQueryService  # noqa: TC001
+from src.core.personnel.sync import SyncCoordinator  # noqa: TC001
 from src.core.utils.response import ok
 
 logger = structlog.get_logger()
