@@ -129,7 +129,7 @@ jobs:
           ref: ${{ github.event.workflow_run.head_sha }}
           fetch-depth: 0
 
-      - name: Extract changelog for this release
+      - name: Extract changelog
         id: changelog
         env:
           HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
@@ -137,18 +137,18 @@ jobs:
           VERSION="${HEAD_BRANCH#v}"
           NOTES=$(python3 - <<'PYEOF'
           import re, os, sys
-
-          version = os.environ["HEAD_BRANCH"].lstrip("v")
+          head_branch = os.environ["HEAD_BRANCH"]
+          version_tag = head_branch if head_branch.startswith("v") else f"v{head_branch}"
           try:
               with open("CHANGELOG.md") as f:
                   content = f.read()
-              pattern = r"## " + re.escape(version) + r"[^\n]*\n(.*?)(?=\n## |\Z)"
+              pattern = r"## " + re.escape(version_tag) + r"[^\n]*\n(.*?)(?=\n## |\Z)"
               match = re.search(pattern, content, re.DOTALL)
               if match:
                   notes = match.group(1).strip()
-                  print(notes if notes else "暂无可用信息")
+                  print(notes if notes else "暂无变更记录")
               else:
-                  print("查看CHANGELOG.md获取更多信息")
+                  print(f"未在 CHANGELOG.md 中找到 {version_tag} 的条目")
           except FileNotFoundError:
               print("未找到CHANGELOG.md")
           PYEOF
@@ -157,7 +157,7 @@ jobs:
           echo "notes_file=/tmp/release_notes.txt" >> "$GITHUB_OUTPUT"
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ github.event.workflow_run.head_branch }}
           name: ${{ github.event.workflow_run.head_branch }}
