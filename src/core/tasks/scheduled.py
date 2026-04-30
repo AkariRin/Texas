@@ -1,7 +1,4 @@
-"""Celery Beat 定时任务调度配置（基于 RedBeat 持久化到 Redis）。
-
-仅包含 chat 归档相关调度；checkin/like 调度已迁移至 src/tasks/scheduled.py。
-"""
+"""Celery Beat 定时任务调度配置（基于 RedBeat 持久化到 Redis）。"""
 
 from __future__ import annotations
 
@@ -31,8 +28,6 @@ def setup_periodic_tasks() -> None:
         app=celery_app,
         options={"expires": 86400},
     ).save()
-
-    # checkin/like 调度已迁移至 src/tasks/scheduled.py
 
 
 # 模块加载时自动注册

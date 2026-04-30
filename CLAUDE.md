@@ -74,12 +74,10 @@ docker build -t texas:latest .
 
 | 命令 | 说明 |
 |------|------|
-| `/project:lint` | 后端 ruff + 前端 pnpm lint，一键全栈 lint |
-| `/project:typecheck` | mypy + vue-tsc 全栈类型检查 |
-| `/project:dev` | 检查中间件 → 启动后端 + 前端 |
-| `/project:new-handler` | 创建 Bot 事件处理器（带模板和约定提示）|
-| `/project:new-api` | 创建 API 端点（后端路由 + 前端 API 层 8 步检查清单）|
-| `/project:db-migrate` | 数据库迁移工作流（autogenerate → 检查 → 执行 → 验证）|
+| `/texas:audit` | 全量代码审计（bug、性能、规则违反检查）|
+| `/texas:bump` | 版本号更新与打 Tag（解析参数 → 检查 → 执行）|
+| `/texas:commit` | 生成 Conventional Commit 提交信息（支持拆分建议）|
+| `/texas:db-migrate` | 数据库迁移工作流（autogenerate → 检查 → 执行 → 验证）|
 
 ## 架构概览
 
@@ -158,38 +156,59 @@ async def _stop(services: dict[str, Any]) -> None:
 ```
 src/
 ├── core/        # 框架基础设施（db、cache、framework、protocol、ws、logging、monitoring、utils、config）
-│   ├── services/    # 基础设施核心服务（chat、llm、personnel、permission、archive 等）
+│   ├── chat/        # 聊天领域包（archive、exporter、s3、main）
+│   ├── llm/         # LLM 领域包（api、client、completion、schemas、main）
+│   ├── personnel/   # 人员领域包（api、events、query、sync、main）
+│   ├── permission/  # 权限领域包（checker、main）
 │   ├── handlers/    # 系统级 Handler（如 personnel）
-│   ├── apis/        # 核心层 API 路由（llm、personnel）
 │   ├── registries/  # 注册表（feature、permission、service、config）
-│   └── tasks/       # Celery 异步任务
+│   └── tasks/       # Celery 基础设施（celery_app、chat 归档调度）
 ├── apis/        # HTTP API 控制器层（FastAPI 路由，对应前端 apis/）
 ├── services/    # 功能业务服务（checkin、drift_bottle、jrlp、like 等）
 ├── models/      # ORM 模型层（SQLAlchemy 实体定义，Alembic 注册入口）
 ├── handlers/    # Bot 事件处理器（ComponentScanner 自动扫描）
-└── tasks/       # 空占位层（实际任务在 src/core/tasks/）
+└── tasks/       # 业务 Celery 任务（daily_checkin、daily_like、scheduled）
 ```
 
-### 核心服务层 (`src/core/services/`)
+### 核心领域包 (`src/core/<domain>/`)
 
-重构后的基础设施层服务，被 `src/services/` 和 `src/handlers/` 复用：
+infra 重构后，基础设施服务按领域拆分为独立子包，被 `src/services/` 和 `src/handlers/` 复用：
 
-| 文件 | 服务 | 职责 |
-|------|------|------|
-| `chat.py` | `ChatHistoryService` | 聊天记录存储、查询 |
-| `chat_archive.py` | `ArchiveService` | 按月分区、S3 归档 |
-| `archive_exporter.py` | `ArchiveExporter` | Parquet 流式导出 |
-| `archive_s3.py` | `ArchiveS3` | S3 归档上传 |
-| `personnel.py` | `PersonnelService` | 用户/群聊写操作（upsert、管理员管理）|
-| `personnel_query.py` | `PersonnelQueryService` | 用户/群聊只读查询（SRP 拆分）|
-| `personnel_events.py` | `PersonnelEventsService` | 好友/群成员增量事件处理 |
-| `personnel_sync.py` | `SyncCoordinator` | 定时从 NapCat 同步用户数据 |
-| `llm.py` | `LLMService` | LLM 提供商和模型配置管理 |
-| `llm_client.py` | `LLMClient` | OpenAI 兼容客户端封装 |
-| `llm_completion.py` | `llm_complete/llm_stream` | 高层 LLM 调用接口 |
-| `llm_schemas.py` | Pydantic schemas | LLM 配置相关请求/响应模型 |
-| `permission.py` | `FeaturePermissionService` | 功能级权限管理 |
-| `permission_checker.py` | `PermissionChecker` | 功能级权限校验辅助 |
+**`src/core/chat/`** — 聊天领域
+
+| 文件 | 服务/职责 |
+|------|-----------|
+| `main.py` | `ChatHistoryService`：聊天记录存储、查询 |
+| `archive.py` | `ArchiveService`：按月分区、S3 归档（含 Celery 任务）|
+| `exporter.py` | `ArchiveExporter`：Parquet 流式导出 |
+| `s3.py` | `ArchiveS3`：S3 归档上传 |
+
+**`src/core/llm/`** — LLM 领域
+
+| 文件 | 服务/职责 |
+|------|-----------|
+| `main.py` | `LLMService`：LLM 提供商和模型配置管理 |
+| `client.py` | `LLMClient`：OpenAI 兼容客户端封装 |
+| `completion.py` | `llm_complete/llm_stream`：高层 LLM 调用接口 |
+| `schemas.py` | Pydantic schemas：LLM 配置相关请求/响应模型 |
+| `api.py` | FastAPI 路由：LLM 提供商/模型 CRUD |
+
+**`src/core/personnel/`** — 人员领域
+
+| 文件 | 服务/职责 |
+|------|-----------|
+| `main.py` | `PersonnelService`：用户/群聊写操作（upsert、管理员管理）|
+| `query.py` | `PersonnelQueryService`：用户/群聊只读查询（SRP 拆分）|
+| `events.py` | `PersonnelEventsService`：好友/群成员增量事件处理 |
+| `sync.py` | `SyncCoordinator`：定时从 NapCat 同步用户数据 |
+| `api.py` | FastAPI 路由：人员查询 API |
+
+**`src/core/permission/`** — 权限领域
+
+| 文件 | 服务/职责 |
+|------|-----------|
+| `main.py` | `FeaturePermissionService`：功能级权限管理 |
+| `checker.py` | `PermissionChecker`：功能级权限校验辅助 |
 
 ### 功能业务服务层 (`src/services/`)
 
@@ -210,29 +229,38 @@ src/
 
 NapCat 主动反向连接 Texas，`ConnectionManager` 管理连接池，`HeartbeatMonitor` 负责心跳检测和自动重连。
 
-### 异步任务 (`src/core/tasks/`)
+### 异步任务
 
-> ⚠️ 注意：Celery 任务实际位于 `src/core/tasks/`（celery_app.py、chat_archive.py、daily_checkin.py）。`src/tasks/` 目前仅有空 `__init__.py`，是历史遗留路径。
+Celery + RedBeat（Redis 存储调度状态），任务分两层：
 
-Celery + RedBeat（Redis 存储调度状态），当前任务：
+**基础设施层 `src/core/tasks/`**
+
+| 文件 | 职责 |
+|------|------|
+| `celery_app.py` | Celery 应用实例定义 |
+| `scheduled.py` | 注册 chat 归档周期任务到 RedBeat |
+| `utils.py` | 任务工具函数 |
+
+**业务任务层 `src/tasks/`**
 
 | 文件 | 任务 | 触发方式 |
 |------|------|---------|
-| `chat_archive.py` | 聊天记录按月归档 | RedBeat 定时 |
-| `daily_checkin.py` | 零点群签到 | RedBeat cron |
-| `daily_like.py` | 批量定时点赞 | RedBeat cron |
-| `scheduled.py` | 统一注册所有 RedBeat 定时任务 | 模块加载时自动执行 |
+| `daily_checkin.py` | 零点群签到（RPC 桥接主进程）| RedBeat cron |
+| `daily_like.py` | 批量定时点赞（RPC 桥接主进程）| RedBeat cron |
+| `scheduled.py` | 注册 checkin/like 周期任务到 RedBeat | 模块加载时自动执行 |
 
-定时调度一览（由 `scheduled.py` 集中管理）：
+Chat 归档任务定义于 `src/core/chat/archive.py`（Celery 任务 ID：`src.core.chat.archive.*`），由 `src/core/tasks/scheduled.py` 调度。
 
-| 任务 | 调度时间 |
-|------|---------|
-| 聊天归档 | 每月 1 日 03:00 |
-| 分区预创建 | 每月 25 日 01:00 |
-| 每日打卡 | 每天 00:00 |
-| 每日点赞 | 每天 00:00 |
+定时调度一览：
 
-用户同步已改为 `SyncCoordinator`（`src/core/services/personnel_sync.py`）内置 asyncio 调度，不再依赖 Celery。
+| 任务 | 调度时间 | 调度文件 |
+|------|---------|---------|
+| 聊天归档 | 每月 1 日 03:00 | `src/core/tasks/scheduled.py` |
+| 分区预创建 | 每月 25 日 01:00 | `src/core/tasks/scheduled.py` |
+| 每日打卡 | 每天 00:00 | `src/tasks/scheduled.py` |
+| 每日点赞 | 每天 00:00 | `src/tasks/scheduled.py` |
+
+用户同步已改为 `SyncCoordinator`（`src/core/personnel/sync.py`）内置 asyncio 调度，不再依赖 Celery。
 
 **跨进程 RPC（`src/core/rpc/`）：** Celery Worker 运行在同步上下文，通过 `RPCBridge` 经 Redis pub/sub 调用主进程功能（如每日打卡）。新增需要调用主进程能力的 Celery 任务，应通过 `RPCBridge` 而非直接实例化 Service。
 
@@ -259,7 +287,7 @@ Celery + RedBeat（Redis 存储调度状态），当前任务：
 
 - 统一响应格式 `{code: 0, data, message}` / `{code: -1, data, message}`，使用 `src/core/utils/response.py` 的 `ok()` / `fail()`
 - 后端 API 路由 `src/apis/<module>.py` 与前端 `frontend/src/apis/<module>.ts` 一一对应（注意目录名为 `apis` 而非 `api`）
-- 核心层独立 API 路由位于 `src/core/apis/`（如 `llm.py`、`personnel.py`）
+- 核心层 API 路由随领域包内聚：`src/core/llm/api.py`、`src/core/personnel/api.py`
 - 前端 API 层统一通过 `frontend/src/apis/client.ts` 的 Axios 实例发请求
 
 ## 详细文档

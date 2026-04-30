@@ -135,3 +135,26 @@ def group_event_factory():
 def private_event_factory():
     """返回 make_private_message_event 工厂函数。"""
     return make_private_message_event
+
+
+# ── --no-integration 跳过参数 ────────────────────────────────────────────────
+
+
+def pytest_addoption(parser: pytest.Parser) -> None:
+    """注册 --no-integration 命令行参数。"""
+    parser.addoption(
+        "--no-integration",
+        action="store_true",
+        default=False,
+        help="跳过所有带 integration marker 的集成测试（Testcontainers）",
+    )
+
+
+def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
+    """若传入 --no-integration，为所有 integration 测试添加 skip marker。"""
+    if not config.getoption("--no-integration"):
+        return
+    skip = pytest.mark.skip(reason="通过 --no-integration 参数跳过")
+    for item in items:
+        if "integration" in item.keywords:
+            item.add_marker(skip)

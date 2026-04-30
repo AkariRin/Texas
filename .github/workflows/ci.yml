@@ -132,6 +132,9 @@ jobs:
         run: uv sync --frozen --group test
 
       - name: Run tests with coverage
+        env:
+          # 禁用 Ryuk 清理容器，避免在 CI 沙箱中因 socket 权限问题导致 Testcontainers 失败
+          TESTCONTAINERS_RYUK_DISABLED: "true"
         run: uv run pytest tests/ -q --tb=short --cov=src --cov-report=xml --junitxml=junit.xml -o junit_family=legacy
 
       - name: Upload coverage reports to Codecov
