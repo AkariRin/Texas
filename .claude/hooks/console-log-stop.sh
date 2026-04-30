@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Stop — block session end if any modified JS/TS/Vue file contains console.log
+# Stop — 若任何已修改的 JS/TS/Vue 文件包含 console.log 则阻止会话结束
 set -euo pipefail
 
 INPUT=$(cat)
 
-# avoid infinite loop when the hook itself triggers a stop
+# 防止 hook 自身触发 stop 时产生无限循环
 STOP_HOOK_ACTIVE=$(python -c "import json,sys; print(json.loads(sys.argv[1]).get('stop_hook_active', False))" "$INPUT")
 if [[ "$STOP_HOOK_ACTIVE" == "True" ]]; then
     exit 0
@@ -12,7 +12,7 @@ fi
 
 PROJECT_ROOT="${CLAUDE_PROJECT_DIR:-.}"
 
-# collect modified JS/TS/Vue files
+# 收集已修改的 JS/TS/Vue 文件
 DIRTY_FILES=$(git -C "$PROJECT_ROOT" diff --name-only HEAD 2>/dev/null \
     | grep -E '\.(ts|tsx|js|jsx|vue)$' || true)
 

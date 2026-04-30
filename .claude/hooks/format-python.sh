@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# PostToolUse Edit|Write — auto-format Python files with ruff
+# PostToolUse Edit|Write — 用 ruff 自动格式化 Python 文件
 set -euo pipefail
 
 INPUT=$(cat)
 FILE_PATH=$(python -c "import json,sys; print(json.loads(sys.argv[1]).get('tool_input',{}).get('file_path',''))" "$INPUT")
 
-# only process .py files
+# 仅处理 .py 文件
 if [[ ! "$FILE_PATH" =~ \.py$ ]]; then
     exit 0
 fi

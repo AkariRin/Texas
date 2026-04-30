@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# PostToolUse Edit|Write — run pnpm install when frontend/package.json changes
+# PostToolUse Edit|Write — frontend/package.json 变更时自动执行 pnpm install
 set -euo pipefail
 
 INPUT=$(cat)
 
 FILE_PATH=$(python -c "import json,sys; print(json.loads(sys.argv[1]).get('tool_input',{}).get('file_path',''))" "$INPUT")
 
-# normalize path separators and strip project root prefix
+# 规范化路径分隔符并去除项目根路径前缀
 NORMALIZED=$(python -c "
 import sys, os
 fp   = sys.argv[1].replace('\\\\', '/')
