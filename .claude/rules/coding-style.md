@@ -16,7 +16,7 @@
 | 层 | 目录 | 放什么 |
 |----|------|--------|
 | 基础设施 | `src/core/` | 框架、协议、DB 引擎、缓存、工具函数 |
-| API 控制器 | `src/api/` | FastAPI 路由，只做请求解析和响应组装 |
+| API 控制器 | `src/apis/` | FastAPI 路由，只做请求解析和响应组装 |
 | 业务逻辑 | `src/services/` | 所有业务规则，可被 API 和 Handler 复用 |
 | ORM 模型 | `src/models/` | SQLAlchemy 实体，不含业务逻辑 |
 | Bot 处理器 | `src/handlers/` | 事件处理，调用 Service，不直接操作 DB |
@@ -36,7 +36,7 @@
 
 - FastAPI 路由的请求体必须有对应的 **Pydantic schema**（不接受裸 `dict` 或 `Any`）
 - 路径参数和查询参数使用 FastAPI 类型注解（`id: int`、`q: str = Query(..., min_length=1)`）
-- Schema 定义放在 `src/api/schemas/` 或与路由文件同目录的 `schemas.py`
+- Schema 定义放在 `src/apis/schemas/` 或与路由文件同目录的 `schemas.py`
 
 ## 命名规范
 

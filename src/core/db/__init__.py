@@ -1,5 +1,7 @@
 """数据库核心模块 —— 引擎、基类、迁移注册。"""
 
+from __future__ import annotations
+
 from src.core.db.base import Base
 from src.core.db.migration_registry import MigrationTarget, register_migration_target
 

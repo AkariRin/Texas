@@ -47,11 +47,21 @@ export const usePersonnelStore = defineStore('personnel', () => {
   const currentUserGroups = ref<GroupItem[]>([])
 
   async function loadUser(qq: number) {
-    currentUser.value = await api.fetchUser(qq)
+    try {
+      currentUser.value = await api.fetchUser(qq)
+    } catch {
+      currentUser.value = null
+      throw new Error('加载用户详情失败')
+    }
   }
 
   async function loadUserGroups(qq: number) {
-    currentUserGroups.value = await api.fetchUserGroups(qq)
+    try {
+      currentUserGroups.value = await api.fetchUserGroups(qq)
+    } catch {
+      currentUserGroups.value = []
+      throw new Error('加载用户群组失败')
+    }
   }
 
   // ── 群列表 ──

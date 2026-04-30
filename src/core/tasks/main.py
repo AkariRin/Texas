@@ -11,7 +11,7 @@ settings = get_settings()
 app = Celery(
     "texas",
     broker=settings.CELERY_BROKER_URL,
-    include=["src.core.tasks.chat_archive", "src.core.tasks.daily_checkin"],
+    include=["src.core.chat.archive", "src.tasks.daily_checkin", "src.tasks.daily_like"],
 )
 
 app.conf.update(

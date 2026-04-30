@@ -1,1 +1,3 @@
 """Alembic 共享基础设施 —— 统一 env 逻辑和迁移模板。"""
+
+from __future__ import annotations

@@ -1,5 +1,7 @@
 """Protocol models package."""
 
+from __future__ import annotations
+
 from .api import APIRequest, APIResponse
 from .base import (
     Anonymous,

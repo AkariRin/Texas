@@ -244,6 +244,7 @@ class FeedbackService:
                         admin_qq=admin.qq,
                         feedback_id=str(feedback.id),
                         event_type="feedback.notify_admin_failed",
+                        exc_info=True,
                     )
 
         await asyncio.gather(*[_send_one(admin) for admin in admins])
@@ -268,6 +269,7 @@ class FeedbackService:
                 user_id=feedback.user_id,
                 feedback_id=str(feedback.id),
                 event_type="feedback.notify_user_failed",
+                exc_info=True,
             )
 
 

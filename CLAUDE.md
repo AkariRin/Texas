@@ -94,7 +94,7 @@ docker build -t texas:latest .
 核心事件分发采用职责链模式：
 - `EventDispatcher` → `CompositeHandlerMapping` → 具体 Mapping 策略
 - 内置多种路由策略：`CommandHandlerMapping`（`/cmd`）、`RegexHandlerMapping`、`KeywordHandlerMapping`、`EventTypeHandlerMapping` 等
-- `ComponentScanner` 自动扫描 `src.handlers` 和 `src.core.handlers` 下的处理器，新 Bot 事件处理器放在 `src/handlers/` 下即可自动注册；系统级处理器（如 `personnel`）放在 `src/core/handlers/`
+- `ComponentScanner` 自动扫描 `src.handlers` 下的处理器，新 Bot 事件处理器放在 `src/handlers/` 下即可自动注册；系统级功能（如 `personnel`）内聚于对应的领域包（如 `src/core/personnel/`）
 - 拦截器系统：`LoggingInterceptor`（Structlog 结构化日志）、`MetricsInterceptor`（Prometheus）
 
 ### Handler 开发约定
@@ -160,7 +160,6 @@ src/
 │   ├── llm/         # LLM 领域包（api、client、completion、schemas、main）
 │   ├── personnel/   # 人员领域包（api、events、query、sync、main）
 │   ├── permission/  # 权限领域包（checker、main）
-│   ├── handlers/    # 系统级 Handler（如 personnel）
 │   ├── registries/  # 注册表（feature、permission、service、config）
 │   └── tasks/       # Celery 基础设施（tasks、chat 归档调度）
 ├── apis/        # HTTP API 控制器层（FastAPI 路由，对应前端 apis/）
@@ -289,6 +288,8 @@ Chat 归档任务定义于 `src/core/chat/archive.py`（Celery 任务 ID：`src.
 - 后端 API 路由 `src/apis/<module>.py` 与前端 `frontend/src/apis/<module>.ts` 一一对应（注意目录名为 `apis` 而非 `api`）
 - 核心层 API 路由随领域包内聚：`src/core/llm/api.py`、`src/core/personnel/api.py`
 - 前端 API 层统一通过 `frontend/src/apis/client.ts` 的 Axios 实例发请求
+- `src/apis/logs.py`：SSE 实时日志推送（`GET /logs/stream`，订阅应用运行日志）
+- `src/apis/queue.py`：Celery 队列监控（`GET /queue/*`，含 Worker 信息、定时任务、SSE 实时推送）
 
 ## 详细文档
 
@@ -310,7 +311,7 @@ uv run pytest
 uv run pytest --cov=src --cov-report=term-missing
 ```
 
-测试分布：`tests/unit/`（单元/框架测试）、`tests/integration/`（集成测试）
+测试分布：`tests/unit/`（单元/框架测试）、`tests/integration/`（集成测试）、`tests/integration/db/`（DB 层集成测试，使用 PostgreSQL + Redis Testcontainers）
 
 ### 前端 (Vitest)
 

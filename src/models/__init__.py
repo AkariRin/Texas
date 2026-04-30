@@ -6,6 +6,8 @@
 新增模型后在此导出即可。
 """
 
+from __future__ import annotations
+
 # 导入顺序由 ruff 自动排序（字母顺序）
 # 主库模型: checkin, feedback, jrlp, like, llm, permission, personnel
 # 聊天库模型: chat, chat_archive
