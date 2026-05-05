@@ -48,7 +48,7 @@ test = [
     "pytest-asyncio>=0.25",
     "freezegun>=1.5",
     "pytest-cov>=6.0",
-    "pytest-mock>=3.14",
+    "pytest-mock>=3.15.1",
     "testcontainers[postgres,redis]>=4.14.2",
 ]
 
