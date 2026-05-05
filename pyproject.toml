@@ -49,7 +49,7 @@ test = [
     "freezegun>=1.5",
     "pytest-cov>=6.0",
     "pytest-mock>=3.14",
-    "testcontainers[postgres,redis]>=4.9",
+    "testcontainers[postgres,redis]>=4.14.2",
 ]
 
 [tool.ruff]
