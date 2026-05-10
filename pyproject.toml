@@ -119,7 +119,7 @@ omit = [
 [tool.coverage.report]
 show_missing = true
 skip_empty = true
-fail_under = 30
+fail_under = 45
 
 [tool.commitizen]
 name = "cz_conventional_commits"

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class APIRequest(BaseModel):
@@ -27,5 +27,4 @@ class APIResponse(BaseModel):
     def ok(self) -> bool:
         return self.status == "ok" and self.retcode == 0
 
-    class Config:
-        extra = "allow"
+    model_config = ConfigDict(extra="allow")

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from enum import StrEnum
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class EventType(StrEnum):
@@ -59,8 +59,7 @@ class OneBotEvent(BaseModel):
     self_id: int
     post_type: str
 
-    class Config:
-        extra = "allow"
+    model_config = ConfigDict(extra="allow")
 
 
 class Sender(BaseModel):
@@ -77,8 +76,7 @@ class Sender(BaseModel):
     area: str | None = None
     group_id: int | None = None
 
-    class Config:
-        extra = "allow"
+    model_config = ConfigDict(extra="allow")
 
 
 class Anonymous(BaseModel):
@@ -88,8 +86,7 @@ class Anonymous(BaseModel):
     name: str
     flag: str
 
-    class Config:
-        extra = "allow"
+    model_config = ConfigDict(extra="allow")
 
 
 class HeartbeatStatus(BaseModel):
@@ -98,8 +95,7 @@ class HeartbeatStatus(BaseModel):
     online: bool | None = None
     good: bool = True
 
-    class Config:
-        extra = "allow"
+    model_config = ConfigDict(extra="allow")
 
 
 class MessageSegment(BaseModel):
@@ -108,5 +104,4 @@ class MessageSegment(BaseModel):
     type: str
     data: dict[str, object] = Field(default_factory=dict)
 
-    class Config:
-        extra = "allow"
+    model_config = ConfigDict(extra="allow")
